@@ -1,0 +1,95 @@
+:root {
+  font-family: system-ui, "Microsoft YaHei", sans-serif;
+  color-scheme: dark;
+  color: #e5eee9;
+  background: #0b151a;
+  font-synthesis: none;
+  --border: #2a3b42;
+  --muted: #9fadb0;
+  --paper: #111e24;
+  --mono: ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box }
+body { margin: 0; min-width: 280px }
+button, select { font: inherit; color: inherit; cursor: pointer }
+button:focus-visible, select:focus-visible { outline: 2px solid #f4c780; outline-offset: 3px }
+.shell { max-width: 1320px; margin: auto; padding: 0 clamp(15px, 5vw, 72px) 40px }
+.masthead, .panel-bar, .map-caption, .layer-panel, .layer-picker, .brand, .station, .legend, .scale, .picker, .metric > div:first-child { display: flex; align-items: center }
+.masthead, .panel-bar, .map-caption, .layer-panel, .metric > div:first-child { justify-content: space-between }
+.masthead { height: 65px; border-bottom: 1px solid var(--border) }
+.brand { gap: 7px; font: 700 15px/1 var(--mono); letter-spacing: .035em }
+.brand b, .eyebrow span { color: #8ed9c2 }
+.brand i { width: 18px; height: 18px; background: #8ed9c2; clip-path: polygon(50% 0, 95% 100%, 55% 82%, 47% 51%, 31% 88%, 5% 100%) }
+.station { gap: 8px; color: var(--muted); font-size: 12px }
+.station > span, .status-dot { color: #87d9bd }
+.heading { padding: clamp(22px, 3vw, 42px) 0 21px }
+.eyebrow, .mono, .stage-code, .coords, .scale { font-family: var(--mono) }
+.eyebrow { color: #8bb6ac; font-size: 10px; font-weight: 700; letter-spacing: .14em; margin: 0 }
+.heading h1 { font-size: clamp(32px, 4vw, 50px); line-height: 1.18; letter-spacing: -.04em; margin: 7px 0 9px }
+.heading > p:last-child { margin: 0; color: var(--muted); font-size: 14px }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(235px, 27%); grid-template-areas: "world dossier" "layers layers"; gap: 12px }
+.world-panel { grid-area: world }
+.dossier { grid-area: dossier }
+.world-panel, .dossier, .layer-panel { background: var(--paper); border: 1px solid var(--border); border-radius: 6px; min-width: 0; overflow: hidden }
+.panel-bar { height: 41px; border-bottom: 1px solid var(--border); padding: 0 17px; font-size: 13px }
+.panel-bar > span, .map-caption { color: var(--muted); font-size: 11px }
+.status-dot { display: inline-block; width: 6px; height: 6px; margin-right: 2px; border-radius: 50%; background: currentColor }
+.stage { height: clamp(320px, min(40vw, 51dvh), 500px); position: relative; isolation: isolate; background: radial-gradient(ellipse at 49% 47%, #213641 0, #12232c 50%, #0e1b23 83%) }
+.stage::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .35; background-image: radial-gradient(#46616a .7px, transparent .8px); background-size: 22px 22px }
+.scene, .scene-message { position: absolute; inset: 0 }
+.scene canvas { display: block; touch-action: none; cursor: grab }
+.scene canvas:active { cursor: grabbing }
+.scene-message { display: grid; place-content: center; padding: 35px; text-align: center; font-size: 13px; color: var(--muted); pointer-events: none }
+.stage-code, .map-key { position: absolute; left: 15px; pointer-events: none; color: #a9bdbe; font-size: 10px }
+.stage-code { top: 14px; letter-spacing: .08em }
+.stage-code i { color: #5c7c82; font-style: normal }
+.map-key { bottom: 15px; display: flex; align-items: center; gap: 6px }
+.map-key i { display: block; width: 16px; height: 1px; background: #f6bc6e }
+.zoom { position: absolute; right: 13px; bottom: 13px; display: grid; gap: 2px }
+.zoom button, .picker button { border: 1px solid #3b5159; background: #16272e; border-radius: 3px; font-size: 18px; line-height: 1 }
+.zoom button { width: 34px; height: 32px }
+.zoom button:hover, .picker button:hover, .layer-buttons button:hover { background: #263c41 }
+.map-caption { padding: 10px 15px; gap: 12px; border-top: 1px solid var(--border) }
+.dossier-body { padding: clamp(16px, 2vw, 27px) }
+.dossier h2 { margin: 10px 0 4px; font-size: clamp(26px, 2.7vw, 35px); line-height: 1.2 }
+.coords { margin: 0 0 24px; font-size: 12px; color: #a9b9b8 }
+.dossier label { display: block; margin: 0 0 7px; font-size: 12px; color: var(--muted) }
+.picker { gap: 6px }
+.picker select, .picker button { height: 37px }
+.picker select { flex: 1; min-width: 0; background: #14252b; border: 1px solid #3b5159; padding: 0 8px; border-radius: 3px; font-size: 13px }
+.picker button { flex: 0 0 37px }
+.metric-list { margin-top: 23px; border-top: 1px solid var(--border) }
+.metric { padding-top: 18px }
+.metric span { color: #cad5d3; font-size: 13px }
+.metric strong { font: 500 23px/1 var(--mono) }
+.metric small { font-size: 11px; margin-left: 2px; color: var(--muted) }
+.track { margin-top: 8px; height: 3px; background: #2a3b42 }
+.track i { display: block; height: 100% }
+.layer-panel { grid-area: layers; padding: 14px 17px; gap: 14px; flex-wrap: wrap }
+.layer-picker { gap: 16px; flex-wrap: wrap }
+.layer-picker b { font-size: 13px }
+.layer-buttons { display: flex; gap: 5px }
+.layer-buttons button { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; background: transparent; border: 1px solid transparent; border-radius: 3px; color: var(--muted); font-size: 12px }
+.layer-buttons button[aria-pressed=true] { border-color: #526b6e; color: #f0f5ee; background: #203438 }
+.layer-buttons i { height: 7px; width: 7px; border-radius: 50% }
+.legend { gap: 12px; color: var(--muted); font-size: 11px; flex-wrap: wrap }
+.scale { gap: 6px; font-size: 10px }
+.scale i { width: 54px; height: 4px; background: linear-gradient(90deg, #23454c, var(--layer)) }
+@media (max-width: 740px) {
+  .workspace { grid-template-columns: 1fr; grid-template-areas: "world" "layers" "dossier" }
+  .stage { height: clamp(280px, 83vw, 450px) }
+  .masthead { height: 52px }
+  .dossier-body { padding: 15px }
+  .coords { margin-bottom: 13px }
+  .metric-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px }
+  .metric > div:first-child { align-items: flex-start; flex-direction: column; gap: 6px }
+  .layer-panel { padding: 12px }
+  .layer-picker { gap: 8px }
+  .legend { gap: 8px }
+}
+@media (max-width: 390px) {
+  .shell { padding-inline: 10px }
+  .map-caption { font-size: 10px; padding-inline: 10px }
+  .layer-buttons { gap: 0 }
+  .layer-buttons button { padding-inline: 6px }
+}

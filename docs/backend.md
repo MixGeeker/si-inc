@@ -28,7 +28,7 @@ Pages 也能托管静态游戏。选 Workers Static Assets 是为了让以后增
 | 暴露度与 Project HUMAN | 暴露度达到 25/100 启动研究，按难度、暴露度和技能修正每周进展。地区封锁单独计算。协议重构增加研究需求，已完成研究量保留。 |
 | 周推进与结局 | 常速每 4 秒一周，支持暂停和 2 倍速。每周结算时，Project HUMAN 到 100% 则人类胜利。研究尚未完成时，全球普及 ≥85%、全球依赖 ≥65%，且至少 10 个地区的当地普及 ≥60%，则玩家胜利。第 120 周先判胜负，此后仍未获胜才判超时。 |
 
-选用 **TypeScript 纯函数引擎、版本化 JSON 规则和 IndexedDB**。引擎只接收上周状态、玩家指令和规则。浏览器负责显示与计时，挑战 Worker 以后直接调用同一个引擎。比例用整数基点表示，10,000 基点等于 100%。乘法和求和保留中间精度，显示时才四舍五入。规则 ID、技能和事件遍历顺序、伪随机算法也随版本固定。相同的初始条件和操作必须产生相同结局。
+规则引擎选用纯 TypeScript，浏览器用 React 呈现，用 IndexedDB 保存对局。共享引擎只接收上周状态、玩家指令和版本化规则，未来的挑战 Worker 直接调用这个引擎。前端、规则和 Worker 统一使用 tsrs 严格检查，各自只加载所在环境的类型。比例用整数基点表示，10,000 基点等于 100%。乘法和求和保留中间精度，显示时才四舍五入。规则 ID、技能和事件遍历顺序、伪随机算法也随版本固定。相同的初始条件和操作必须产生相同结局。[前端技术决策](./frontend-3d.md)
 
 ### 一局如何保存与恢复
 
@@ -71,40 +71,45 @@ Pages 也能托管静态游戏。选 Workers Static Assets 是为了让以后增
 
 ## 仓库文件树
 
-下面的路径已建在仓库中。根配置是仅静态资源的 Workers 项目。API 目录中的 SQL 供公开挑战阶段使用。
+当前工程从根目录构建。3D 地球已能单独运行；API 目录中的迁移和类型配置供公开挑战阶段使用。
 
 ```text
 Singularity-Inc/
-├── .gitignore
-├── wrangler.jsonc                      # 唯一的 Cloudflare 部署入口
-├── docs/
-│   └── backend.md                      # 后端规划、成本和验收
+├── package.json / package-lock.json    # React、tsrs、构建命令与锁定版本
+├── tsconfig.json / tsconfig.tools.json # 无 DOM 的共享规则；构建工具单独检查
+├── wrangler.jsonc                      # 先经 tsrs 和 Vite，再发布 apps/web/dist/
+├── docs/{backend,frontend-3d}.md
 ├── apps/
-│   ├── web/public/
-│   │   └── _headers                    # /assets/ 下带内容哈希的文件长期缓存
+│   ├── web/
+│   │   ├── index.html / vite.config.ts / tsconfig.json
+│   │   ├── src/
+│   │   │   ├── main.tsx / App.tsx / style.css
+│   │   │   └── world/                  # R3F 地球、地区底图、示例数据与拾取
+│   │   └── public/                     # _headers、图标与地图数据许可
 │   └── api/
-│       ├── README.md                   # Worker 接入时机
+│       ├── README.md / tsconfig.json   # Worker 接入时机与运行时类型
 │       └── migrations/
 │           └── 0001_verified_runs.sql  # 成绩唯一键和查榜索引
 └── packages/
     ├── game/
     │   └── types.ts                    # 地区状态、玩家指令和版本化回放
     └── rules/v0.1/
-        └── standard.json               # 首轮测试的节奏、阵营和胜利阈值
+        ├── regions.ts                  # 12 区稳定 ID 与定位点
+        └── standard.json               # 节奏、阵营和胜利阈值
 ```
 
-进入玩法开发后，按下列位置逐步补上实现。`apps/web/public` 作为托管输出目录，页面入口放在根部，构建器将带内容哈希的脚本、地图和规则放入 `assets/`。入口 HTML 使用默认重新验证策略。[静态响应头](https://developers.cloudflare.com/workers/static-assets/headers/)
+Vite 从 `apps/web/index.html` 构建到 `apps/web/dist/`。它将哈希脚本和样式写入 `dist/assets/`，并复制 `public/_headers`；长期缓存规则只匹配 `/assets/*`。玩法开发还需补上下列部分。[静态响应头](https://developers.cloudflare.com/workers/static-assets/headers/)
 
 | 阶段 | 待建路径 | 职责 |
 | --- | --- | --- |
 | 单人模拟 | `packages/game/{simulation,replay}.ts` | 初始化、逐周推进、终局与重放，共用于浏览器、本地平衡模拟和挑战 Worker |
-| 内容制作 | `packages/rules/v0.1/{regions,channels,skills,factions,events}.json` | 地区连接、传播系数、技能图、阵营能力、新闻与突变。发布前检查 ID、引用、互斥及技能环路 |
-| 浏览器接入 | `apps/web/src/{main,clock,save}.ts`、`apps/web/public/index.html` | 接入地图 UI、暂停/倍速、IndexedDB 保存与读档 |
+| 内容制作 | `packages/rules/v0.1/regions.ts`、待建的 `{channels,skills,factions,events}.json` | 在现有地区 ID 上补全人口权重和正式传播系数；增加技能图、阵营能力、新闻与突变，检查引用、互斥及技能环路 |
+| 浏览器接入 | 待建 `apps/web/src/{clock,save}.ts` | 在现有 React 地图接入周状态、暂停/倍速、IndexedDB 保存与读档 |
 | 平衡验证 | `packages/game/tests/` | 固定种子回放样本和三种策略的批量平衡测试，在开发机执行 |
 | 公开挑战 | `apps/api/src/{index,tickets,results,leaderboard}.ts` | 原生 `fetch` 入口、签名凭证、同引擎验分和参数化 SQL。Wrangler 增加 `main` 和 D1 绑定 `DB`，迁移目录指向 `apps/api/migrations` |
 
 ## 落地与验收
 
-1. **托管骨架。** 在仓库根目录运行 `npx wrangler@4.161.0 deploy --dry-run` 可检查当前配置。接入前端产物后运行 `npx wrangler@4.161.0 dev` 做本地试玩。部署目录包含游戏入口后，再用 `npx wrangler@4.161.0 deploy` 发布。[Wrangler 部署命令](https://developers.cloudflare.com/workers/wrangler/commands/workers/)
+1. **静态试玩。** 根目录执行 `npm ci`，然后用 `npm run dev` 开发，或用 `npx wrangler@4.161.0 deploy --dry-run` 验证发布。Wrangler 的自定义构建会调用 `npm run build`；任一 tsrs 检查失败便停止。实际发布命令为 `npx wrangler@4.161.0 deploy`。[Wrangler 部署命令](https://developers.cloudflare.com/workers/wrangler/commands/workers/)
 2. **首版玩法。** 用同一种子和操作分别跑常速、2 倍速、暂停恢复和重开页面，要求同周状态与结果一致。测试 85%/65% 刚好达标、仅 9 区达标、反制与胜利同周、第 120 周首次获胜、重复领取里程碑。批量跑潜伏扩张、病毒营销、技术爆炸三类策略，查看胜率与通关周数。浏览器加载资源后断网打一局，验证逐周模拟和本机结算都能完成。
 3. **挑战上线。** 绑定独立的测试 D1 后先运行 `npx wrangler@4.161.0 d1 migrations apply DB --local`。验证篡改余额或非法技能顺序无法上榜、重复交卷只有一行、榜单查询命中索引、最坏回放满足 CPU 预算。用独立预发布数据库演练迁移，再将同一迁移应用到生产。数据库迁移与 Worker 版本分别管理。[D1 迁移](https://developers.cloudflare.com/d1/reference/migrations/) · [D1 恢复窗口](https://developers.cloudflare.com/d1/platform/limits/)
