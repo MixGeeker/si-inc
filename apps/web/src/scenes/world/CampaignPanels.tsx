@@ -1,0 +1,84 @@
+import { Fragment } from "react"
+import { btoken } from "../../../../../packages/rules/v0.1/economy/btoken"
+import { competition } from "../../../../../packages/rules/v0.1/events/competition"
+import { decisions, type DecisionId } from "../../../../../packages/rules/v0.1/events/decisions"
+import { news } from "../../../../../packages/rules/v0.1/events/news"
+import { actions } from "../../../../../packages/rules/v0.1/evolution/actions"
+import { trees } from "../../../../../packages/rules/v0.1/evolution/trees"
+import { projectHuman } from "../../../../../packages/rules/v0.1/opposition/project-human"
+import { phases } from "../../../../../packages/rules/v0.1/progression/phases"
+import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
+import { channels } from "../../../../../packages/rules/v0.1/world/channels"
+import { SceneDialog } from "../Dialog"
+import type { RunSetup, Scene } from "../machine"
+
+export function EvolutionPanel({ setup }: { setup: RunSetup }) {
+  const { factions, rules } = standardScenario
+  const faction = factions[setup.factionId]
+  return <>
+    <h3>{faction.name} · {faction.ability.name}</h3><p>{faction.ability.description}</p>
+    <p className="source-note">开局 {rules.initialBtoken} Btoken · 下列为剧本技能价格</p>
+    {trees.map(tree => <details key={tree.name}><summary>{tree.name}</summary>
+      <dl className="readings">{tree.skills.map(skill => <Fragment key={skill.id}>
+        <div><dt>{skill.name}</dt><dd>{skill.cost} Btoken</dd></div>
+        {skill.alternative && <div><dt>{skill.alternative.name}（与{skill.name}互斥）</dt><dd>{skill.alternative.cost} Btoken</dd></div>}
+      </Fragment>)}</dl>
+    </details>)}
+    <details><summary>主动能力</summary>
+      <dl className="readings">{actions.map(action => <div key={action.id}>
+        <dt>{action.name}<br/><small>{action.description}</small></dt><dd>{action.cost} Btoken</dd>
+      </div>)}</dl>
+    </details>
+    <details><summary>Btoken 收益</summary>
+      <p>首次进入市场 +{btoken.newMarketReward}。{btoken.adoptionMilestones.map(m => `当地普及率达到 ${m.adoptionBps / 100}% 时 +${m.reward}`).join("，")}。</p>
+      <p>每 {btoken.income.everyWeeks} 周基础收益为 {btoken.income.base}，全球普及率每提高 {btoken.income.adoptionStepBps / 100}% 再加 1，上限 {btoken.income.maximum}。</p>
+    </details>
+  </>
+}
+
+export function MarketPanel({ setup }: { setup: RunSetup }) {
+  return <>
+    <p>起始市场 · {standardScenario.regions[setup.startRegionId].name}</p>
+    <details><summary>剧本进程</summary>
+      <ul>{phases.map(p => <li key={p.name}><strong>{p.name} · {p.minAdoptionBps / 100}% 起</strong>　{p.focus}</li>)}</ul>
+    </details>
+    <details><summary>市场传播渠道</summary>
+      <ul>{Object.values(channels).map(c => <li key={c.name}><strong>{c.name}</strong>　{c.description}</li>)}</ul>
+    </details>
+    <details><summary>{projectHuman.name} · {projectHuman.subtitle}</summary>
+      <dl className="readings">{projectHuman.alertLevels.map(level => <div key={level.title}>
+        <dt>{level.title}</dt><dd>暴露度 ≥ {level.minExposureBps / 100}</dd>
+      </div>)}</dl>
+    </details>
+  </>
+}
+
+type Campaign = Extract<Scene, { kind: "campaign" }>
+
+export function CampaignNews({ scene, openDecision }: { scene: Campaign; openDecision: (id: DecisionId) => void }) {
+  const { lastDecision, setup } = scene
+  const previous = lastDecision && decisions[lastDecision.id].choices.find(c => c.id === lastDecision.choiceId)
+  return <>
+    <h3>{standardScenario.factions[setup.factionId].name} 已进入{standardScenario.regions[setup.startRegionId].name}市场</h3>
+    <details><summary>剧本新闻</summary>
+      {news.map(item => <section key={item.id}><h4>{item.title}</h4><p>{item.body}</p></section>)}
+    </details>
+    <details><summary>竞争事件</summary>
+      {competition.map(item => <section key={item.id}><h4>{item.title}</h4><p>{item.body}</p></section>)}
+    </details>
+    <div className="window-actions">{(Object.keys(decisions) as DecisionId[]).map(id =>
+      <button key={id} onClick={() => openDecision(id)}>预览突变 · {decisions[id].title}</button>)}</div>
+    {previous && <p role="status">上次选择 · {previous.label}</p>}
+  </>
+}
+
+export function DecisionDialog({ id, back, choose }: { id: DecisionId; back: () => void; choose: (choiceId: string) => void }) {
+  const decision = decisions[id]
+  return <SceneDialog title={decision.title} onBack={back}>
+    <p>{decision.prompt}</p>
+    <p className="source-note">剧本选择预览</p>
+    <div className="window-actions">{decision.choices.map(c => <button key={c.id} onClick={() => choose(c.id)}>
+      {c.label}{c.cost > 0 && ` · ${c.cost} Btoken`}
+    </button>)}</div>
+  </SceneDialog>
+}

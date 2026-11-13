@@ -36,7 +36,7 @@ npm run build
 - `atlas.ts` 解析 SVG、米制高程和环境场。高程从北向南排列，含经纬度两端点。风及流速四分量从南向北排列，起始格点为 179.875°W、89.875°S；风为厘米每秒，洋流为毫米每秒。缺测哨兵为 −32768。
 - `camera.ts` 管理透视矩阵、地理定位、滚轮和触控导航。`MapViewport.tsx` 将交通标志投影到屏幕，并提供 WebGL 不可用时的二维 SVG 地图。
 - `TerrainScene.tsx` 装配地形、云层和洋流。`materials.ts` 定义地表、随流移动的水面细纹和云的着色器。`currents.ts` 积分浮标流场并维护短迹线。
-- `Hud.tsx` 和 `Symbols.tsx` 绘制交互控件。基辅小窗使用单独授权的真实街景，其他选区显示当地卫星影像。[完整数据署名](../apps/web/public/map-credits.html)
+- 全屏 SVG 控件位于 `scenes/world/Hud.tsx` 和 `Symbols.tsx`。参考地图的固定数值位于同目录的 `preview.ts`。基辅小窗使用单独授权的真实街景，其他选区显示当地卫星影像。[地图场景](../apps/web/src/scenes/world/WorldScene.tsx) · [完整数据署名](../apps/web/public/map-credits.html)
 
 ## 验证记录
 

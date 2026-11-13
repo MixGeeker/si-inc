@@ -6,7 +6,7 @@ import { hudScale, Y_SCALE } from "./layout"
 import TerrainScene, { type LayerState } from "./TerrainScene"
 import { journeys, sites } from "./traffic"
 
-type Props = {atlas:Atlas; rig:MapCamera; selected?:Country|null; layers:LayerState; pick:(pos:Location)=>void; showNews:()=>void}
+type Props = {atlas:Atlas; rig:MapCamera; selected?:Country|null; layers:LayerState; pick:(pos:Location)=>void; marker?:{lon:number;lat:number;label:string}; showNews:()=>void}
 class GraphicsBoundary extends Component<{children:ReactNode; fail:()=>void},{failed:boolean}> {
   state={failed:false}
   static getDerivedStateFromError() { return {failed:true} }
@@ -48,7 +48,7 @@ function FlatMap({atlas,selected,rig,project,reduced}:{atlas:Atlas;selected?:Cou
   </svg>
 }
 
-export default function MapViewport({atlas,rig,selected,layers,pick,showNews}:Props) {
+export default function MapViewport({atlas,rig,selected,layers,pick,marker,showNews}:Props) {
   const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null)
   const marks=useRef<(SVGGElement|null)[]>([]), vehicles=useRef<(SVGGElement|null)[]>([])
   const islands=useMemo(()=>atlas.countries.flatMap(country=>country.islandGroup ? [{country,...country.islandGroup}] : []),[atlas])
@@ -76,8 +76,8 @@ export default function MapViewport({atlas,rig,selected,layers,pick,showNews}:Pr
     }
     sites.forEach((p,i)=>place(marks.current[i],p.lon,p.lat,altitudes[i]))
     islands.forEach((island,i)=>place(islandMarks.current[i],island.lon,island.lat,.06))
-    if(eventPin.current) {
-      if (rig.current.zoom<.17) place(eventPin.current,-6.4,9.6,.30)
+    if(eventPin.current && marker) {
+      if (rig.current.zoom<.17) place(eventPin.current,marker.lon,marker.lat,.30)
       else eventPin.current.style.display="none"
     }
     journeys.forEach((route,i)=>{
@@ -88,7 +88,7 @@ export default function MapViewport({atlas,rig,selected,layers,pick,showNews}:Pr
       const angle=Math.atan2(end.y-start.y,end.x-start.x)*180/Math.PI+(route.kind==="plane" ? 90 : 0)
       place(vehicles.current[i],lon,lat,route.kind==="plane" ? 2.7 : .08,angle,size*(.25+rig.current.zoom*1.48))
     })
-  },[altitudes,islands,rig])
+  },[altitudes,islands,marker,rig])
   useEffect(()=>{
     const el=host.current!
     const detach=attachNavigation(el,rig,atlas,(location,point)=>{
@@ -141,14 +141,14 @@ export default function MapViewport({atlas,rig,selected,layers,pick,showNews}:Pr
         {r.kind==="plane" && <use href="#plane" x="-29" y="-23" width="56" height="53" color="#21323b" opacity=".52" transform="translate(4 4)"/>}
         <use href={`#${r.kind}`} x={r.kind==="ship" ? -23 : -28} y={r.kind==="ship" ? -8 : -26} width={r.kind==="ship" ? 46 : 56} height={r.kind==="ship" ? 16 : 53}/>
       </g>)}
-      <g ref={eventPin} style={{display:"none",pointerEvents:"auto",cursor:"pointer"}} role="button" aria-label="西非事件" tabIndex={0}
+      {marker && <g ref={eventPin} style={{display:"none",pointerEvents:"auto",cursor:"pointer"}} role="button" aria-label={marker.label} tabIndex={0}
         onPointerDown={e=>e.stopPropagation()} onPointerUp={e=>e.stopPropagation()}
         onClick={showNews} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();showNews()}}}>
-        <title>西非事件</title>
+        <title>{marker.label}</title>
         <path d="M-12-22 0 0l12-22" fill="#d6dad7" stroke="#263133" strokeWidth="2"/>
         <circle cy="-62" r="48" stroke="#d5d7c7" strokeWidth="4" fill="url(#event-red)"/>
         <use href="#bio" x="-37" y="-99" width="74" height="74" color="#fff3e4"/>
-      </g>
+      </g>}
     </svg>
   </div>
 }

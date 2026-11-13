@@ -1,7 +1,7 @@
 import type { RegionState } from "../../../../packages/game/types"
-import type { RegionId } from "../../../../packages/rules/v0.1/regions"
+import type { RegionId } from "../../../../packages/rules/v0.1/world/regions"
 
-export { regions, regionIds, type RegionId } from "../../../../packages/rules/v0.1/regions"
+export { regions, regionIds, type RegionId } from "../../../../packages/rules/v0.1/world/regions"
 
 type Metric = keyof Pick<RegionState, "adoptionBps" | "dependencyBps" | "lockdownBps">
 export const layers = {

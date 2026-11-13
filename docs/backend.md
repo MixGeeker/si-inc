@@ -71,20 +71,21 @@ Pages 也能托管静态游戏。选 Workers Static Assets 是为了让以后增
 
 ## 仓库文件树
 
-当前工程从根目录构建。首页的全屏 3D 地形、SVG 国界、风湿场和洋流采样文件随静态资源发布。环境动画在浏览器运行，API 目录中的迁移和类型配置供公开挑战阶段使用。[地图数据与渲染](map-rendering.md)
+当前工程从根目录构建。首页的全屏 3D 地形、SVG 国界、风湿场和洋流采样文件随静态资源发布。环境动画与场景切换在浏览器运行，API 目录中的迁移和类型配置供公开挑战阶段使用。[地图数据与渲染](map-rendering.md) · [剧本目录与场景状态机](game-architecture.md)
 
 ```text
 Singularity-Inc/
 ├── package.json / package-lock.json    # React、tsrs、构建命令与锁定版本
 ├── tsconfig.json / tsconfig.tools.json # 无 DOM 的共享规则；构建工具单独检查
 ├── wrangler.jsonc                      # 先经 tsrs 和 Vite，再发布 apps/web/dist/
-├── docs/{backend,frontend-3d}.md
+├── docs/                               # 托管、前端、地图、剧本与场景
 ├── apps/
 │   ├── web/
 │   │   ├── index.html / vite.config.ts / tsconfig.json
 │   │   ├── src/
 │   │   │   ├── main.tsx / App.tsx / style.css
-│   │   │   ├── cartography/            # 当前地图、图标和 HUD
+│   │   │   ├── scenes/                 # 状态机、开局、地图 HUD 与结算
+│   │   │   ├── cartography/            # 地形、海气场、镜头与地图数据
 │   │   │   └── world/                  # 旧版 R3F 地球组件
 │   │   └── public/                     # _headers、图标与地图数据许可
 │   └── api/
@@ -94,18 +95,18 @@ Singularity-Inc/
 └── packages/
     ├── game/
     │   └── types.ts                    # 地区状态、玩家指令和版本化回放
-    └── rules/v0.1/
-        ├── regions.ts                  # 12 区稳定 ID 与定位点
-        └── standard.json               # 节奏、阵营和胜利阈值
+    └── rules/
+        ├── v0.1/                       # standard.json、开局目录与分模块剧本
+        └── tests/                      # 内容一致性
 ```
 
 Vite 从 `apps/web/index.html` 构建到 `apps/web/dist/`。它将哈希脚本和样式写入 `dist/assets/`，并复制 `public/_headers`；长期缓存规则只匹配 `/assets/*`。玩法开发还需补上下列部分。[静态响应头](https://developers.cloudflare.com/workers/static-assets/headers/)
 
-| 阶段 | 待建路径 | 职责 |
+| 阶段 | 代码位置 | 职责 |
 | --- | --- | --- |
 | 单人模拟 | `packages/game/{simulation,replay}.ts` | 初始化、逐周推进、终局与重放，共用于浏览器、本地平衡模拟和挑战 Worker |
-| 内容制作 | `packages/rules/v0.1/regions.ts`、待建的 `{channels,skills,factions,events}.json` | 在现有地区 ID 上补全人口权重和正式传播系数；增加技能图、阵营能力、新闻与突变，检查引用、互斥及技能环路 |
-| 浏览器接入 | 待建 `apps/web/src/{clock,save}.ts` | 在现有 React 地图接入周状态、暂停/倍速、IndexedDB 保存与读档 |
+| 内容制作 | `packages/rules/v0.1/` 的 world、evolution、factions、events 等目录 | 已有市场、渠道、三棵技能树、阵营能力和示例事件。后续补全权重、系数、技能前置和正式新闻池。 |
+| 浏览器接入 | `apps/web/src/scenes/`，待建本地时钟与存档适配器 | 让周模拟消费场景计算的速度，用 IndexedDB 保存和恢复对局。 |
 | 平衡验证 | `packages/game/tests/` | 固定种子回放样本和三种策略的批量平衡测试，在开发机执行 |
 | 公开挑战 | `apps/api/src/{index,tickets,results,leaderboard}.ts` | 原生 `fetch` 入口、签名凭证、同引擎验分和参数化 SQL。Wrangler 增加 `main` 和 D1 绑定 `DB`，迁移目录指向 `apps/api/migrations` |
 

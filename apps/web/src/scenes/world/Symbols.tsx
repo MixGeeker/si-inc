@@ -10,6 +10,9 @@ export function Symbols() {
     <symbol id="dna" viewBox="0 0 32 32"><g stroke="currentColor" fill="none" strokeWidth="1.9" strokeLinecap="round"><path d="M6 1c0 13 20 15 20 30M26 1C26 14 6 17 6 31M7 3h18M9 7h14m-11 4h8M9 25h14M7 29h18m-13-8h8"/></g></symbol>
     <symbol id="flask" viewBox="0 0 32 32"><path fill="none" stroke="currentColor" strokeWidth="1.8" d="M11 2h10m-8 0v10L4 27q-1 2 2 2h20q2 0 1-2l-9-15V2M9 21h14"/></symbol>
     <symbol id="hexes" viewBox="0 0 54 32"><g fill="none" stroke="currentColor" strokeWidth="1.7"><path d="m4 12 4-7h9l4 7-4 7H8zm18 6 3-6h8l4 6-4 6h-8zm15 5 3-5h6l4 5-4 5h-6z"/></g></symbol>
+    <symbol id="token" viewBox="0 0 32 32"><path fill="none" stroke="currentColor" strokeWidth="2" d="m16 2 12 7v14l-12 7-12-7V9z M12 9v14h5a4 4 0 0 0 0-8h-5 5a3 3 0 0 0 0-6z"/></symbol>
+    <symbol id="users" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" strokeWidth="2"><circle cx="13" cy="9" r="5"/><path d="M3 28v-4a10 10 0 0 1 20 0v4z M22 5a5 5 0 0 1 0 9m3 4a8 8 0 0 1 4 8"/></g></symbol>
+    <symbol id="link" viewBox="0 0 32 32"><path fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" d="m13 12 6-6a5 5 0 0 1 7 7l-6 6m-1 1-6 6a5 5 0 0 1-7-7l6-6m0 7 8-8"/></symbol>
     <symbol id="ship" viewBox="0 0 52 18"><path d="m0 11 9-6h31l11 5-6 5H8z" fill="#213c46"/><path d="m3 9 8-6h28l9 5-5 4H10z" fill="#cbd8d8"/><path d="M12 4h11v5H12zm13 0h11v5H25z" fill="#ab553b"/><path d="M36 3h5v7h-5z" fill="#f9faf1"/></symbol>
     <linearGradient id="hud-glass" x2=".9" y2="1" gradientUnits="objectBoundingBox"><stop stopColor="#071a22" stopOpacity=".96"/><stop offset=".52" stopColor="#07161b" stopOpacity=".83"/><stop offset="1" stopColor="#040c11" stopOpacity=".92"/></linearGradient>
     <linearGradient id="hud-edge" x2="1" y2=".2"><stop stopColor="#b4f2ff"/><stop offset=".36" stopColor="#4094ae"/><stop offset=".72" stopColor="#267b91"/><stop offset="1" stopColor="#b5eff4"/></linearGradient>

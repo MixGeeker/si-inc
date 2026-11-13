@@ -16,14 +16,14 @@
 
 选择 React 的关键在于地球：地图元素能直接写成 R3F 的 `<mesh>`，tsrs 在同一个 TSX 模块里同时检查 Three.js 属性、地区 ID 和事件回调。Vue 的单文件模板也可接入这一代检查器，但要额外维护模板映射器；本项目用标准 TSX 即可。tsrs 改变的是开发和发布的检查流程；地球帧率取决于绘制工作量和设备。[React 的 TSX 支持](https://react.dev/learn/typescript) · [Vue 官方模板映射器](https://github.com/vuejs/language-tools/blob/v4.0.0-alpha.3/packages/content-mapper/README.md)
 
-## 已实现的地图
+## 早期球形地图原型
 
-- [地区字典](../packages/rules/v0.1/regions.ts)提供 12 个市场的稳定 ID、名称和镜头定位点。[演示快照](../apps/web/src/world/snapshot.ts)单独保存各区的三项基点值和 12 条示例线路。10,000 基点等于 100%；东亚的普及率 80%、用户依赖度 50%，意味着当地总人口的 40% 同时使用并依赖 AI。正式全局统计还需按人口权重求和。
+- 市场字典提供 12 个市场的稳定 ID、名称和镜头定位点。球形原型的演示快照单独保存各区的三项基点值和 12 条示例线路。10,000 基点等于 100%。东亚的普及率 80%、用户依赖度 50%，意味着当地总人口的 40% 同时使用并依赖 AI。正式全局统计还需按人口权重求和。[市场字典](../packages/rules/v0.1/world/regions.ts) · [演示快照](../apps/web/src/world/snapshot.ts)
 - [地球组件](../apps/web/src/world/Globe.tsx)使用透视相机和球面大圆弧。拖动旋转、滚轮或双指缩放，点陆地切换档案；菜单可定位背面的地区。镜头和图层按需重绘，停在同一视图时无需持续绘制。
 - [地区底图](../apps/web/src/world/atlas.ts)使用同一组边界路径分别画显示纹理和编号图。点击球面取得 UV，以编号确认地区，不受光照、图层颜色或选中描边影响。边界衍生自 Natural Earth，经 `@d3-maps/atlas@1.0.0` 的国家轮廓合并为游戏市场，等距圆柱投影 1024 × 512；路径随 3D 模块同源交付。[底图许可](https://www.naturalearthdata.com/about/terms-of-use/) · [数据包来源](https://github.com/souljorje/d3-maps/tree/main/packages/atlas) · [随附许可](../apps/web/public/atlas-LICENSE.txt)
-- [React 界面](../apps/web/src/App.tsx)显示普及率、当地用户依赖度和地区封锁度，三者可切换着色。WebGL 恢复期间地区列表和数值面板仍可操作；如果完全不支持 WebGL 2，显示说明并保留列表操作。
+- 球形原型使用普及率、当地用户依赖度和地区封锁度三种着色。当前首页的 React 场景与 SVG 控制台位于独立目录。[现行地图场景](../apps/web/src/scenes/world/WorldScene.tsx)
 
-页面当前显示**演示快照**。下一步是让 `packages/game` 的每周快照替换示例值，用传播事件驱动高亮线路；之后接入地区技能目标、新闻选择、暂停/倍速、IndexedDB 读档和结局。游戏周与相机和帧率独立。公开挑战才需要 Worker + D1，具体接口与胜负阈值见[后端方案](./backend.md)。
+标准剧本目前可以开局、操作地图面板、预览决策和进入结算。每周快照和 IndexedDB 读档等待规则引擎接入。游戏周与相机和帧率独立，公开挑战才需要 Worker + D1。[剧本目录与场景状态机](game-architecture.md) · [后端方案](backend.md)
 
 ## 画质参数与验收
 
