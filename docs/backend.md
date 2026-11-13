@@ -71,7 +71,7 @@ Pages 也能托管静态游戏。选 Workers Static Assets 是为了让以后增
 
 ## 仓库文件树
 
-当前工程从根目录构建。3D 地球已能单独运行；API 目录中的迁移和类型配置供公开挑战阶段使用。
+当前工程从根目录构建。首页的全屏 3D 地形、SVG 国界、风湿场和洋流采样文件随静态资源发布。环境动画在浏览器运行，API 目录中的迁移和类型配置供公开挑战阶段使用。[地图数据与渲染](map-rendering.md)
 
 ```text
 Singularity-Inc/
@@ -84,7 +84,8 @@ Singularity-Inc/
 │   │   ├── index.html / vite.config.ts / tsconfig.json
 │   │   ├── src/
 │   │   │   ├── main.tsx / App.tsx / style.css
-│   │   │   └── world/                  # R3F 地球、地区底图、示例数据与拾取
+│   │   │   ├── cartography/            # 当前地图、图标和 HUD
+│   │   │   └── world/                  # 旧版 R3F 地球组件
 │   │   └── public/                     # _headers、图标与地图数据许可
 │   └── api/
 │       ├── README.md / tsconfig.json   # Worker 接入时机与运行时类型

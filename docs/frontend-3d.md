@@ -1,5 +1,7 @@
 # Singularity Inc. 的 3D 前端技术决策
 
+当前首页使用真实高程驱动的透视世界地图、SVG 控制台和海气场，实现位于 `apps/web/src/cartography/`。下文保留早期球形地球原型的技术路线比较，其组件位于 `apps/web/src/world/`。[现行地图的参数、输入与数据来源](map-rendering.md) · [运行说明](../README.md)
+
 **确定采用 tsrs + React。** 3D 地球是主画面：React Three Fiber（R3F）将场景写成 TSX，Three.js 通过 WebGL 2 绘制；React DOM 呈现地区、新闻和技能面板。全仓的 TypeScript 与 TSX 使用同一锁定版本的 tsrs。本决策记录于 2026-11-13；[运行方法](../README.md)和[Cloudflare 成本规划](./backend.md)另见项目文档。
 
 ## 工具与边界
