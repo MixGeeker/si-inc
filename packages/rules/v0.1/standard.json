@@ -1,0 +1,19 @@
+{
+  "rulesVersion": "v0.1",
+  "regionCount": 12,
+  "factionIds": ["gpt", "claude", "grok"],
+  "weekSecondsAt1x": 4,
+  "speedMultipliers": [0, 1, 2],
+  "maxWeeks": 120,
+  "initialBtoken": 18,
+  "projectHuman": {
+    "activationExposureBps": 2500,
+    "completionBps": 10000
+  },
+  "standardVictory": {
+    "minAdoptionBps": 8500,
+    "minDependencyBps": 6500,
+    "minCoveredRegions": 10,
+    "minRegionalAdoptionBps": 6000
+  }
+}
