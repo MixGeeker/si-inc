@@ -1,329 +1,38 @@
 {
-  "rule": "未知不显示。美国、中国、加拿大、澳大利亚、印度按州或省各一个点，其余国家每个一个点。坐标是组内站点的平均位置。",
+  "rule": "只显示已有当前功率的站点。美国、中国、加拿大、澳大利亚、印度按州或省各一个点，其余国家每个一个点。坐标是组内站点的平均位置。",
   "places": [
-    {
-      "id": "ae",
-      "name": "阿联酋",
-      "country": "AE",
-      "countryName": "阿联酋",
-      "lat": 24.93,
-      "lon": 54.95,
-      "kind": "planned",
-      "sites": 2,
-      "realMw": 0,
-      "envMw": 1100
-    },
-    {
-      "id": "au-western-australia",
-      "name": "西澳大利亚",
-      "country": "AU",
-      "countryName": "澳大利亚",
-      "lat": -32.05,
-      "lon": 115.98,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 150
-    },
-    {
-      "id": "ca-alberta",
-      "name": "艾伯塔",
-      "country": "CA",
-      "countryName": "加拿大",
-      "lat": 53.01,
-      "lon": -116.4,
-      "kind": "planned",
-      "sites": 2,
-      "realMw": 0,
-      "envMw": 190
-    },
-    {
-      "id": "ca-quebec",
-      "name": "魁北克",
-      "country": "CA",
-      "countryName": "加拿大",
-      "lat": 45.43,
-      "lon": -73.63,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 3
-    },
-    {
-      "id": "cn-hebei",
-      "name": "河北省",
-      "country": "CN",
-      "countryName": "中国",
-      "lat": 40.4,
-      "lon": 115.87,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 500
-    },
-    {
-      "id": "in-andhra-pradesh",
-      "name": "安得拉邦",
-      "country": "IN",
-      "countryName": "印度",
-      "lat": 17.69,
-      "lon": 83.22,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 400
-    },
-    {
-      "id": "in-gujarat",
-      "name": "古吉拉特",
-      "country": "IN",
-      "countryName": "印度",
-      "lat": 22.47,
-      "lon": 70.06,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 3000
-    },
-    {
-      "id": "in-telangana",
-      "name": "特伦甘纳",
-      "country": "IN",
-      "countryName": "印度",
-      "lat": 17.23,
-      "lon": 78.17,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 600
-    },
-    {
-      "id": "se",
-      "name": "瑞典",
-      "country": "SE",
-      "countryName": "瑞典",
-      "lat": 60.52,
-      "lon": 15.42,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 360
-    },
-    {
-      "id": "sg",
-      "name": "新加坡",
-      "country": "SG",
-      "countryName": "新加坡",
-      "lat": 1.37,
-      "lon": 103.97,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 70
-    },
-    {
-      "id": "us-arizona",
-      "name": "亚利桑那",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 33.44,
-      "lon": -112.36,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 280
-    },
-    {
-      "id": "us-arkansas",
-      "name": "阿肯色",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 35.15,
-      "lon": -90.18,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 1000
-    },
-    {
-      "id": "us-indiana",
-      "name": "印第安纳",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 41.7,
-      "lon": -86.51,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 2200
-    },
-    {
-      "id": "us-iowa",
-      "name": "艾奥瓦",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 41.89,
-      "lon": -91.75,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 1050
-    },
-    {
-      "id": "us-louisiana",
-      "name": "路易斯安那",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 32.48,
-      "lon": -91.63,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 5000
-    },
-    {
-      "id": "us-michigan",
-      "name": "密歇根",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 42.5,
-      "lon": -84.68,
-      "kind": "planned",
-      "sites": 2,
-      "realMw": 0,
-      "envMw": 1320
-    },
-    {
-      "id": "us-minnesota",
-      "name": "明尼苏达",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 44.74,
-      "lon": -93.06,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 75
-    },
-    {
-      "id": "us-missouri",
-      "name": "密苏里",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 39.3,
-      "lon": -94.67,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 24
-    },
-    {
-      "id": "us-new-jersey",
-      "name": "新泽西",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 40.06,
-      "lon": -74.65,
-      "kind": "planned",
-      "sites": 2,
-      "realMw": 0,
-      "envMw": 600
-    },
-    {
-      "id": "us-oklahoma",
-      "name": "俄克拉荷马",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 35.7,
-      "lon": -95.39,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 70
-    },
-    {
-      "id": "us-oregon",
-      "name": "俄勒冈",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 45.55,
-      "lon": -122.91,
-      "kind": "planned",
-      "sites": 1,
-      "realMw": 0,
-      "envMw": 180
-    },
-    {
-      "id": "us-pennsylvania",
-      "name": "宾夕法尼亚",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 40.56,
-      "lon": -76.26,
-      "kind": "planned",
-      "sites": 2,
-      "realMw": 0,
-      "envMw": 1060
-    },
-    {
-      "id": "us-wisconsin",
-      "name": "威斯康星",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 43.04,
-      "lon": -87.88,
-      "kind": "planned",
-      "sites": 2,
-      "realMw": 0,
-      "envMw": 2902
-    },
-    {
-      "id": "us-wyoming",
-      "name": "怀俄明",
-      "country": "US",
-      "countryName": "美国",
-      "lat": 41.09,
-      "lon": -104.81,
-      "kind": "planned",
-      "sites": 2,
-      "realMw": 0,
-      "envMw": 2102
-    },
     {
       "id": "cn-neimenggu",
       "name": "内蒙古自治区",
       "country": "CN",
       "countryName": "中国",
-      "lat": 40.96,
-      "lon": 112.78,
+      "lat": 40.99,
+      "lon": 113.13,
       "kind": "current",
-      "sites": 4,
-      "realMw": 1300,
-      "envMw": 3780
+      "sites": 1,
+      "realMw": 1300
     },
     {
       "id": "us-texas",
       "name": "得克萨斯",
       "country": "US",
       "countryName": "美国",
-      "lat": 32.77,
-      "lon": -99.72,
+      "lat": 33.25,
+      "lon": -99.21,
       "kind": "current",
-      "sites": 16,
-      "realMw": 1008,
-      "envMw": 11029
+      "sites": 7,
+      "realMw": 1008
     },
     {
       "id": "us-georgia",
       "name": "佐治亚",
       "country": "US",
       "countryName": "美国",
-      "lat": 34.14,
-      "lon": -84.73,
+      "lat": 33.6,
+      "lon": -84.51,
       "kind": "current",
-      "sites": 4,
-      "realMw": 931,
-      "envMw": 1312
+      "sites": 2,
+      "realMw": 931
     },
     {
       "id": "cn-shanxi",
@@ -334,68 +43,62 @@
       "lon": 113.99,
       "kind": "current",
       "sites": 2,
-      "realMw": 750,
-      "envMw": 900
+      "realMw": 750
     },
     {
       "id": "us-tennessee",
       "name": "田纳西",
       "country": "US",
       "countryName": "美国",
-      "lat": 35.48,
-      "lon": -88.88,
+      "lat": 35.72,
+      "lon": -88.3,
       "kind": "current",
-      "sites": 3,
-      "realMw": 430,
-      "envMw": 600
+      "sites": 2,
+      "realMw": 430
     },
     {
       "id": "us-ohio",
       "name": "俄亥俄",
       "country": "US",
       "countryName": "美国",
-      "lat": 40.08,
-      "lon": -82.81,
+      "lat": 40.07,
+      "lon": -82.82,
       "kind": "current",
-      "sites": 2,
-      "realMw": 407,
-      "envMw": 1407
+      "sites": 1,
+      "realMw": 407
     },
     {
       "id": "us-nevada",
       "name": "内华达",
       "country": "US",
       "countryName": "美国",
-      "lat": 38.63,
-      "lon": -118.35,
+      "lat": 36.06,
+      "lon": -115.19,
       "kind": "current",
-      "sites": 4,
-      "realMw": 311,
-      "envMw": 2945
+      "sites": 1,
+      "realMw": 311
     },
     {
       "id": "my",
       "name": "马来西亚",
       "country": "MY",
       "countryName": "马来西亚",
-      "lat": 1.56,
-      "lon": 103.56,
+      "lat": 1.55,
+      "lon": 103.55,
       "kind": "current",
-      "sites": 6,
-      "realMw": 191.9,
-      "envMw": 747.9
+      "sites": 4,
+      "realMw": 191.9
     },
     {
       "id": "au-new-south-wales",
       "name": "新南威尔士",
       "country": "AU",
       "countryName": "澳大利亚",
-      "lat": -33.81,
-      "lon": 151.02,
+      "lat": -33.8,
+      "lon": 151.01,
       "kind": "current",
-      "sites": 4,
-      "realMw": 160,
-      "envMw": 670
+      "sites": 2,
+      "realMw": 160
     },
     {
       "id": "us-kentucky",
@@ -406,32 +109,29 @@
       "lon": -88.39,
       "kind": "current",
       "sites": 1,
-      "realMw": 150,
-      "envMw": 150
+      "realMw": 150
     },
     {
       "id": "us-virginia",
       "name": "弗吉尼亚",
       "country": "US",
       "countryName": "美国",
-      "lat": 37.9,
-      "lon": -77.35,
+      "lat": 37.42,
+      "lon": -77.29,
       "kind": "current",
-      "sites": 6,
-      "realMw": 138,
-      "envMw": 1300.7
+      "sites": 2,
+      "realMw": 138
     },
     {
       "id": "ca-british-columbia",
       "name": "不列颠哥伦比亚",
       "country": "CA",
       "countryName": "加拿大",
-      "lat": 53.31,
-      "lon": -122.06,
+      "lat": 54.63,
+      "lon": -122.92,
       "kind": "current",
-      "sites": 3,
-      "realMw": 130,
-      "envMw": 137
+      "sites": 2,
+      "realMw": 130
     },
     {
       "id": "us-new-mexico",
@@ -442,32 +142,29 @@
       "lon": -106.73,
       "kind": "current",
       "sites": 1,
-      "realMw": 120,
-      "envMw": 120
+      "realMw": 120
     },
     {
       "id": "us-north-dakota",
       "name": "北达科他",
       "country": "US",
       "countryName": "美国",
-      "lat": 46.49,
-      "lon": -97.7,
+      "lat": 46.0,
+      "lon": -98.52,
       "kind": "current",
-      "sites": 2,
-      "realMw": 100,
-      "envMw": 700
+      "sites": 1,
+      "realMw": 100
     },
     {
       "id": "no",
       "name": "挪威",
       "country": "NO",
       "countryName": "挪威",
-      "lat": 62.53,
-      "lon": 12.24,
+      "lat": 60.84,
+      "lon": 11.27,
       "kind": "current",
-      "sites": 3,
-      "realMw": 90,
-      "envMw": 422
+      "sites": 1,
+      "realMw": 90
     },
     {
       "id": "in-tamil-nadu",
@@ -478,8 +175,7 @@
       "lon": 80.19,
       "kind": "current",
       "sites": 2,
-      "realMw": 84.3,
-      "envMw": 117
+      "realMw": 84.3
     },
     {
       "id": "fr",
@@ -487,23 +183,21 @@
       "country": "FR",
       "countryName": "法国",
       "lat": 48.59,
-      "lon": 2.39,
+      "lon": 2.19,
       "kind": "current",
-      "sites": 3,
-      "realMw": 60,
-      "envMw": 1475
+      "sites": 1,
+      "realMw": 60
     },
     {
       "id": "in-maharashtra",
       "name": "马哈拉施特拉",
       "country": "IN",
       "countryName": "印度",
-      "lat": 19.1,
-      "lon": 73.06,
+      "lat": 19.03,
+      "lon": 73.02,
       "kind": "current",
-      "sites": 2,
-      "realMw": 52,
-      "envMw": 452
+      "sites": 1,
+      "realMw": 52
     },
     {
       "id": "fi",
@@ -514,20 +208,18 @@
       "lon": 26.52,
       "kind": "current",
       "sites": 2,
-      "realMw": 47.1,
-      "envMw": 83.5
+      "realMw": 47.1
     },
     {
       "id": "au-victoria",
       "name": "维多利亚",
       "country": "AU",
       "countryName": "澳大利亚",
-      "lat": -37.8,
-      "lon": 144.83,
+      "lat": -37.81,
+      "lon": 144.88,
       "kind": "current",
-      "sites": 2,
-      "realMw": 42,
-      "envMw": 325
+      "sites": 1,
+      "realMw": 42
     },
     {
       "id": "us-north-carolina",
@@ -538,20 +230,18 @@
       "lon": -83.92,
       "kind": "current",
       "sites": 1,
-      "realMw": 37,
-      "envMw": 65
+      "realMw": 37
     },
     {
       "id": "pt",
       "name": "葡萄牙",
       "country": "PT",
       "countryName": "葡萄牙",
-      "lat": 39.69,
-      "lon": -8.55,
+      "lat": 37.94,
+      "lon": -8.8,
       "kind": "current",
-      "sites": 2,
-      "realMw": 33,
-      "envMw": 1201.7
+      "sites": 1,
+      "realMw": 33
     },
     {
       "id": "in-uttar-pradesh",
@@ -562,20 +252,18 @@
       "lon": 77.5,
       "kind": "current",
       "sites": 1,
-      "realMw": 30,
-      "envMw": 30
+      "realMw": 30
     },
     {
       "id": "id",
       "name": "印尼",
       "country": "ID",
       "countryName": "印尼",
-      "lat": -2.58,
-      "lon": 105.7,
+      "lat": -6.36,
+      "lon": 107.31,
       "kind": "current",
-      "sites": 2,
-      "realMw": 27,
-      "envMw": 672
+      "sites": 1,
+      "realMw": 27
     },
     {
       "id": "is",
@@ -586,8 +274,7 @@
       "lon": -22.6,
       "kind": "current",
       "sites": 1,
-      "realMw": 24,
-      "envMw": 57
+      "realMw": 24
     },
     {
       "id": "us-new-york",
@@ -598,8 +285,7 @@
       "lon": -78.61,
       "kind": "current",
       "sites": 1,
-      "realMw": 22.5,
-      "envMw": 360
+      "realMw": 22.5
     },
     {
       "id": "au-australian-capital-territory",
@@ -610,8 +296,7 @@
       "lon": 149.14,
       "kind": "current",
       "sites": 1,
-      "realMw": 21,
-      "envMw": 39
+      "realMw": 21
     },
     {
       "id": "es",
@@ -622,20 +307,18 @@
       "lon": 2.12,
       "kind": "current",
       "sites": 1,
-      "realMw": 20,
-      "envMw": 20
+      "realMw": 20
     },
     {
       "id": "kr",
       "name": "韩国",
       "country": "KR",
       "countryName": "韩国",
-      "lat": 36.18,
-      "lon": 127.62,
+      "lat": 37.52,
+      "lon": 126.9,
       "kind": "current",
-      "sites": 6,
-      "realMw": 13,
-      "envMw": 1564.2
+      "sites": 1,
+      "realMw": 13
     },
     {
       "id": "de",
@@ -646,32 +329,29 @@
       "lon": 6.36,
       "kind": "current",
       "sites": 1,
-      "realMw": 12,
-      "envMw": 12
+      "realMw": 12
     },
     {
       "id": "sa",
       "name": "沙特",
       "country": "SA",
       "countryName": "沙特",
-      "lat": 25.76,
-      "lon": 44.27,
+      "lat": 24.0,
+      "lon": 45.0,
       "kind": "current",
-      "sites": 4,
-      "realMw": 9.6,
-      "envMw": 1709.6
+      "sites": 1,
+      "realMw": 9.6
     },
     {
       "id": "il",
       "name": "以色列",
       "country": "IL",
       "countryName": "以色列",
-      "lat": 31.82,
-      "lon": 35.0,
+      "lat": 31.89,
+      "lon": 35.01,
       "kind": "current",
-      "sites": 2,
-      "realMw": 8,
-      "envMw": 230
+      "sites": 1,
+      "realMw": 8
     },
     {
       "id": "ch",
@@ -682,20 +362,18 @@
       "lon": 8.96,
       "kind": "current",
       "sites": 1,
-      "realMw": 7,
-      "envMw": 7
+      "realMw": 7
     },
     {
       "id": "gb",
       "name": "英国",
       "country": "GB",
       "countryName": "英国",
-      "lat": 52.19,
-      "lon": -1.18,
+      "lat": 51.86,
+      "lon": -1.19,
       "kind": "current",
-      "sites": 7,
-      "realMw": 6,
-      "envMw": 1468
+      "sites": 2,
+      "realMw": 6
     },
     {
       "id": "it",
@@ -706,20 +384,18 @@
       "lon": 11.34,
       "kind": "current",
       "sites": 1,
-      "realMw": 6,
-      "envMw": 6
+      "realMw": 6
     },
     {
       "id": "jp",
       "name": "日本",
       "country": "JP",
       "countryName": "日本",
-      "lat": 37.71,
-      "lon": 138.99,
+      "lat": 35.9,
+      "lon": 139.94,
       "kind": "current",
-      "sites": 3,
-      "realMw": 6,
-      "envMw": 206
+      "sites": 1,
+      "realMw": 6
     },
     {
       "id": "cz",
@@ -730,8 +406,7 @@
       "lon": 18.24,
       "kind": "current",
       "sites": 1,
-      "realMw": 0.8,
-      "envMw": 0.8
+      "realMw": 0.8
     },
     {
       "id": "bg",
@@ -742,8 +417,7 @@
       "lon": 23.37,
       "kind": "current",
       "sites": 1,
-      "realMw": 0.01,
-      "envMw": 0.01
+      "realMw": 0.01
     }
   ]
 }

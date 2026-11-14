@@ -8,7 +8,7 @@ import { WORLD_WIDTH, WORLD_HEIGHT, Y_SCALE } from "./layout"
 import { CurrentTraces } from "./currents"
 import { borders, materials, reliefGeometry, selectionTexture, velocityTexture } from "./materials"
 
-export type LayerState = { cloud:boolean; current:boolean; speed:number; reduced:boolean }
+export type LayerState = { cloud:boolean; current:boolean; speed:number; reduced:boolean; night:boolean }
 type Props = {atlas:Atlas; rig:MapCamera; selected?:Country | null; layers:LayerState;
   project:(time:number)=>void; onReady:()=>void}
 export default function TerrainScene({atlas,rig,selected,layers,project,onReady}:Props) {
@@ -34,7 +34,6 @@ export default function TerrainScene({atlas,rig,selected,layers,project,onReady}
   useLayoutEffect(()=>{
     set({camera:rig.camera})
     rig.setFlat(false)
-    gl.setClearColor(0x04060f,1)
     const node = gl.domElement
     node.setAttribute("aria-label","三维世界地形")
     node.dataset.renderer = "terrain"
@@ -48,6 +47,8 @@ export default function TerrainScene({atlas,rig,selected,layers,project,onReady}
     mat.uniforms.selectionRect.value = mark.rect
     mat.uniforms.cloudsOn.value = layers.cloud ? 1 : 0
     mat.uniforms.currentsOn.value = layers.current ? 1 : 0
+    mat.uniforms.night.value = layers.night ? 1 : 0
+    gl.setClearColor(layers.night ? 0x04060f : 0x164458, 1)
     invalidate()
   },[mat,mark,layers,invalidate])
   useEffect(()=>()=>{if(mark!==blank) mark.texture.dispose()},[mark,blank])

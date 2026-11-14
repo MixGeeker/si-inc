@@ -19,15 +19,11 @@ function megawatts(value: number) {
   return String(Math.round(value * 100) / 100)
 }
 
-export const computeLegendKinds = ["current", "planned"] as const
+export const computeLegendKinds = ["current"] as const
 
 export const computePlaces = placesFile.places
 
 export function computePlaceLabel(place: (typeof computePlaces)[number]) {
   const where = place.name === place.countryName ? place.name : `${place.countryName} · ${place.name}`
-  const kind = place.kind === "current" ? "current" : "planned"
-  const power = kind === "current"
-    ? `${megawatts(place.realMw)} MW`
-    : `包络 ${megawatts(place.envMw)} MW`
-  return `${computeKindLabel[kind]} · ${where} · ${place.sites} 座 · ${power}`
+  return `${computeKindLabel.current} · ${where} · ${place.sites} 座 · ${megawatts(place.realMw)} MW`
 }

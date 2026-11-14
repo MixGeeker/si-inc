@@ -19,11 +19,15 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   const [location, setLocation] = useState<Location | null>(() => atlas.locate(31.2, 49.1))
   const [zoom, setZoom] = useState(EUROPE.zoom)
   const [rig] = useState(() => new MapCamera(setZoom))
+  const [night, setNight] = useState(true)
   const [cloud, setCloud] = useState(true)
   const [current, setCurrent] = useState(true)
   const [reduced, setReduced] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches)
   const [full, setFull] = useState(Boolean(document.fullscreenElement))
   const [screenError, setScreenError] = useState("")
+  useEffect(() => {
+    document.querySelector(".game")?.classList.toggle("day", !night)
+  }, [night])
   useEffect(() => {
     const media = matchMedia("(prefers-reduced-motion: reduce)")
     const update = () => setReduced(media.matches)
@@ -70,10 +74,11 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
 
   return <>
     <Suspense fallback={<span className="map-loading" role="status">正在载入地图…</span>}>
-      <MapViewport atlas={atlas} rig={rig} selected={location?.country} layers={{ cloud, current, reduced, speed }}
+      <MapViewport atlas={atlas} rig={rig} selected={location?.country} layers={{ cloud, current, reduced, speed, night }}
         pick={setLocation} marker={run ? undefined : mapPreview.marker} showNews={() => send({ type: "open-panel", panel: "news" })}/>
     </Suspense>
-    <Hud location={location} content={content} zoom={zoom} speed={speed} open={p => send({ type: "open-panel", panel: p })}
+    <Hud location={location} content={content} zoom={zoom} speed={speed} night={night} toggleNight={() => setNight(value => !value)}
+      open={p => send({ type: "open-panel", panel: p })}
       setSpeed={n => send({ type: "set-speed", speed: n })} setZoom={n => rig.zoom(n)}/>
 
     {panel === "world" && <SceneDialog title="世界" onBack={back}>

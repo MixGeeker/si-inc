@@ -42,11 +42,12 @@ test("the compute snapshot covers every market once and its recorded share sums 
   }
 })
 
-test("compute places drop unknown sites and keep one point per small country or province", () => {
-  assert.equal(placesFile.places.length, 62)
-  assert.equal(new Set(placesFile.places.map(place => place.id)).size, 62)
+test("compute places keep only built capacity, one point per small country or province", () => {
+  assert.equal(placesFile.places.length, 38)
+  assert.equal(new Set(placesFile.places.map(place => place.id)).size, 38)
   for (const place of placesFile.places) {
-    assert.ok(place.kind === "current" || place.kind === "planned")
+    assert.equal(place.kind, "current")
+    assert.ok(place.realMw > 0)
     assert.equal(Number.isFinite(place.lat) && Number.isFinite(place.lon), true)
     assert.ok(place.sites >= 1)
   }

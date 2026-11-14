@@ -5,7 +5,7 @@ import { HUD, hudScale } from "../../cartography/layout"
 import kyiv from "../../cartography/data/kyiv.webp"
 import type { MapPanel } from "../machine"
 import type { HudContent } from "./hudContent"
-type Props = {location:Location|null; content:HudContent; zoom:number; speed:number; open:(p:MapPanel)=>void; setSpeed:(n:number)=>void; setZoom:(n:number)=>void}
+type Props = {location:Location|null; content:HudContent; zoom:number; speed:number; night:boolean; toggleNight:()=>void; open:(p:MapPanel)=>void; setSpeed:(n:number)=>void; setZoom:(n:number)=>void}
 
 function Control({label,run,children,pressed,description}:{label:string;run:()=>void;children:ReactNode;pressed?:boolean;description?:string}) {
   return <g className="svg-button" role="button" tabIndex={0} aria-label={label} aria-pressed={pressed} aria-description={description} onClick={run}
@@ -73,7 +73,7 @@ function RegionStrip({location,open,x,y,content}:{location:Location|null;open:(p
     </Control>
   </g>
 }
-export default function Hud({location,content,zoom,speed,open,setSpeed,setZoom}:Props) {
+export default function Hud({location,content,zoom,speed,night,toggleNight,open,setSpeed,setZoom}:Props) {
   const host=useRef<HTMLDivElement>(null)
   const [size,setSize]=useState({width:HUD.width,height:HUD.height})
   useLayoutEffect(()=>{
@@ -95,13 +95,9 @@ export default function Hud({location,content,zoom,speed,open,setSpeed,setZoom}:
   return <div className="hud-layer" ref={host}>
     <svg className="hud" viewBox={`0 0 ${w} ${h}`} aria-label="地图控制台">
       <Symbols/>
-      <defs><pattern id="scanlines" width="3" height="4" patternUnits="userSpaceOnUse"><path d="M0 1h3" stroke="#162a3a" opacity=".3"/></pattern>
+      <defs><pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse"><path d="M0 1h4" stroke="#6f8f9c" strokeWidth=".6" opacity=".28"/></pattern>
         <clipPath id="news-clip"><path d="M16 26h92v58l-36 34H16z"/></clipPath>
-        <pattern id="hex-grid" width="142" height="82" patternUnits="userSpaceOnUse"><path d="m0 41 23.6-41H71l23.6 41L71 82H23.6ZM94.6 41H142" stroke="#b2ecf8" strokeWidth="1.3" fill="none"/></pattern>
-        <radialGradient id="rim"><stop offset=".67" stopColor="white" stopOpacity="0"/><stop offset="1" stopColor="white" stopOpacity=".26"/></radialGradient>
-        <mask id="rim-mask"><rect width={w} height={h} fill="url(#rim)"/></mask>
       </defs>
-      <rect width={w} height={h} fill="url(#hex-grid)" opacity=".6" mask="url(#rim-mask)"/>
       <path d={`M0 ${h-182}h21l32 32v105H${w-53}v-105l32-32h21V${h}H0Z`} fill="#091d24aa" stroke="#53a1bc" strokeWidth="1.5"/>
       <Control label="新闻" run={()=>open("news")}>
         <Glass d="M16 26h959l34 33v17H109l-36 42H16Z"/>
@@ -113,6 +109,12 @@ export default function Hud({location,content,zoom,speed,open,setSpeed,setZoom}:
         <path d="M914 29h59l33 31v13h-62l-30-29Z" fill="#03151e" stroke="#84beca" strokeWidth="1.6"/>
         <path d="m944 42 15 14 16-14" fill="none" stroke="#eefcff" strokeWidth="7"/>
       </Control>
+      <g transform={`translate(${w-430} 26)`}>
+        <Control label={night ? "切换到白天" : "切换到黑夜"} pressed={night} run={toggleNight}>
+          <Glass d="M0 0h92v51H0Z"/>
+          <text x="46" y="35" textAnchor="middle" fontSize="28">{night ? "黑夜" : "白天"}</text>
+        </Control>
+      </g>
       <g transform={`translate(${w-326} 26)`}>
         <Control label="日期与菜单" run={()=>open("menu")}>
           <Glass d="M0 0h306v51H32L0 18Z"/><text x="30" y="38" fontSize="38" fontFamily="Arial,sans-serif">{content.date}</text>
