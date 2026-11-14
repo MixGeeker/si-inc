@@ -5,6 +5,8 @@ import { victoryEpilogues } from "../v0.1/endings/standard.ts"
 import { trees } from "../v0.1/evolution/trees.ts"
 import { actions } from "../v0.1/evolution/actions.ts"
 import { channels } from "../v0.1/world/channels.ts"
+import { computeSnapshot } from "../v0.1/world/compute.ts"
+import { regionIds } from "../v0.1/world/regions.ts"
 import { decisions } from "../v0.1/events/decisions.ts"
 import { news } from "../v0.1/events/news.ts"
 import { competition } from "../v0.1/events/competition.ts"
@@ -26,6 +28,17 @@ test("18 evolution slots have unique IDs, including the mutually exclusive subsc
   assert.equal(new Set(variants.map(s => s.id)).size, variants.length)
   const abilityIds = [...actions.map(a => a.id), ...Object.values(standardScenario.factions).map(f => f.ability.id)]
   assert.equal(new Set(abilityIds).size, abilityIds.length)
+})
+
+test("the compute snapshot covers every market once and its recorded share sums to 100%", () => {
+  assert.deepEqual(Object.keys(computeSnapshot.markets).sort(), [...regionIds].sort())
+  const shares = Object.values(computeSnapshot.markets).map(market => market.recordedRealShareBps)
+  assert.equal(shares.reduce((sum, share) => sum + share, 0), 10000)
+  assert.equal(new Set(computeSnapshot.sites.map(site => site.id)).size, computeSnapshot.sites.length)
+  for (const site of computeSnapshot.sites) {
+    assert.ok(regionIds.includes(site.market))
+    assert.equal(Number.isFinite(site.lat) && Number.isFinite(site.lon), true)
+  }
 })
 
 test("news, competitive events and decisions can be addressed by unambiguous IDs", () => {

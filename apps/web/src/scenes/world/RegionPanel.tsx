@@ -12,7 +12,7 @@ function Reading({ atlas, place }: { atlas: Atlas; place: Location }) {
   }
   return <dl className="readings">
     {place.islandName && <div><dt>群岛</dt><dd>{place.islandName}</dd></div>}
-    {place.site && <div><dt>交通节点</dt><dd>{place.site}</dd></div>}
+    {place.site && <div><dt>算力站</dt><dd>{place.site}</dd></div>}
     <div><dt>坐标</dt><dd>{Math.abs(place.lat).toFixed(2)}°{place.lat >= 0 ? "N" : "S"} &nbsp; {Math.abs(place.lon).toFixed(2)}°{place.lon >= 0 ? "E" : "W"}</dd></div>
     <div><dt>地形高度</dt><dd>{Math.round(atlas.metres(place.lon, place.lat)).toLocaleString("zh-CN")} m</dd></div>
     <div><dt>850 hPa 风</dt><dd>{format("air")}</dd></div>

@@ -21,6 +21,9 @@ button,select,input { font: inherit; }
 .zoom-rail:focus-visible { opacity: 1; background: #57b9d01a; outline: 1px solid #9cecf2; }
 .zoom-rail::-webkit-slider-thumb { appearance: none; width: 1px; height: 1px; background: transparent; }
 .map-loading { position: absolute; top: 45%; left: 50%; transform: translate(-50%,-50%); z-index: 1; padding: .55em 1.2em; background: #091e28ed; border: 1px solid #4b89a0; font-size: 14px; }
+.compute-key { position: absolute; z-index: 3; left: 16px; top: 64px; display: flex; gap: 12px; pointer-events: none; padding: 6px 10px; background: #091e28e6; border: 1px solid #4b89a0; font-size: 12px; }
+.compute-key span { display: inline-flex; align-items: center; gap: 6px; }
+.compute-key i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid #1a100c; }
 dialog { padding: 0; margin: auto; color: #eff6f4; background: transparent; border: 0; overflow: visible; }
 dialog::backdrop { background: #04121933; }
 .info-dialog { width: min(470px,78vw); }

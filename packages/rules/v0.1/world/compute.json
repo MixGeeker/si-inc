@@ -1,0 +1,4160 @@
+{
+  "source": {
+    "project": "compute-globe",
+    "contentVersion": "data-f9b37f94f0e6d484",
+    "researchCutoff": "2026-09-20",
+    "collectedThrough": "2026-09-17",
+    "evaluationDate": "2026-09-25",
+    "methodologyVersion": "capacity-selection-v1",
+    "realMw": "单站选中的装机功率；没有装机记录时用建成功率。单位 MW。",
+    "envMw": "同一单站已选宣称、建成、装机中的最大值，表示资料里的规模包络，不是可以再加的新增量。",
+    "excluded": "区域汇总、未定位算力池、跨站项目、发电和电网接入容量没有放进这份快照，避免和单站重复相加。"
+  },
+  "markets": {
+    "na": {
+      "countries": [
+        "US",
+        "CA"
+      ],
+      "sites": 115,
+      "sitesWithRealMw": 22,
+      "realMw": 3784.5,
+      "envMw": 38181.7,
+      "recordedRealShareBps": 5578
+    },
+    "we": {
+      "countries": [
+        "GB",
+        "FR",
+        "DE",
+        "ES",
+        "PT",
+        "IT",
+        "CH",
+        "LU",
+        "SI",
+        "CZ",
+        "GR"
+      ],
+      "sites": 28,
+      "sitesWithRealMw": 9,
+      "realMw": 144.8,
+      "envMw": 4190.5,
+      "recordedRealShareBps": 213
+    },
+    "nordic": {
+      "countries": [
+        "SE",
+        "NO",
+        "FI",
+        "IS"
+      ],
+      "sites": 9,
+      "sitesWithRealMw": 4,
+      "realMw": 161.1,
+      "envMw": 922.5,
+      "recordedRealShareBps": 237
+    },
+    "ee": {
+      "countries": [
+        "BG"
+      ],
+      "sites": 1,
+      "sitesWithRealMw": 1,
+      "realMw": 0.0102,
+      "envMw": 0.0102,
+      "recordedRealShareBps": 0
+    },
+    "ea": {
+      "countries": [
+        "CN",
+        "JP",
+        "KR"
+      ],
+      "sites": 30,
+      "sitesWithRealMw": 5,
+      "realMw": 2069,
+      "envMw": 6950.2,
+      "recordedRealShareBps": 3049
+    },
+    "sa": {
+      "countries": [
+        "IN"
+      ],
+      "sites": 8,
+      "sitesWithRealMw": 4,
+      "realMw": 166.3,
+      "envMw": 4599,
+      "recordedRealShareBps": 245
+    },
+    "sea": {
+      "countries": [
+        "ID",
+        "MY",
+        "SG"
+      ],
+      "sites": 9,
+      "sitesWithRealMw": 5,
+      "realMw": 218.9,
+      "envMw": 1489.9,
+      "recordedRealShareBps": 323
+    },
+    "mena": {
+      "countries": [
+        "AE",
+        "SA",
+        "QA",
+        "IL"
+      ],
+      "sites": 12,
+      "sitesWithRealMw": 2,
+      "realMw": 17.6,
+      "envMw": 3039.6,
+      "recordedRealShareBps": 26
+    },
+    "ssa": {
+      "countries": [],
+      "sites": 0,
+      "sitesWithRealMw": 0,
+      "realMw": 0,
+      "envMw": 0,
+      "recordedRealShareBps": 0
+    },
+    "latam": {
+      "countries": [],
+      "sites": 0,
+      "sitesWithRealMw": 0,
+      "realMw": 0,
+      "envMw": 0,
+      "recordedRealShareBps": 0
+    },
+    "ca": {
+      "countries": [],
+      "sites": 0,
+      "sitesWithRealMw": 0,
+      "realMw": 0,
+      "envMw": 0,
+      "recordedRealShareBps": 0
+    },
+    "oc": {
+      "countries": [
+        "AU"
+      ],
+      "sites": 9,
+      "sitesWithRealMw": 4,
+      "realMw": 223,
+      "envMw": 1184,
+      "recordedRealShareBps": 329
+    }
+  },
+  "sites": [
+    {
+      "id": "fac-cn-vnet-ulanqab",
+      "name": "世纪互联乌兰察布数据中心智算基地",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 40.99,
+      "lon": 113.13,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "蒙西电网",
+      "realMw": 1300,
+      "envMw": 1300,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-cn-zhonglian-yanggao",
+      "name": "中联绿色云谷产业基地（阳高）",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 40.37,
+      "lon": 113.75,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 400,
+      "envMw": 400,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-cn-chindata-lingqiu",
+      "name": "秦淮数据灵丘基地",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 39.44,
+      "lon": 114.23,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 350,
+      "envMw": 500,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-kr-nhn-seoul-yangpyeong",
+      "name": "NHN Cloud GPU Cluster (Yangpyeong-dong, Seoul)",
+      "country": "KR",
+      "countryName": "韩国",
+      "market": "ea",
+      "lat": 37.524,
+      "lon": 126.896,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 13,
+      "envMw": 13,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-jp-aist-abci3",
+      "name": "ABCI 3.0 (AIST Kashiwa AI Data Center)",
+      "country": "JP",
+      "countryName": "日本",
+      "market": "ea",
+      "lat": 35.897,
+      "lon": 139.937,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "public_hpc"
+      ],
+      "gridZone": null,
+      "realMw": 6,
+      "envMw": 6,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-cn-alibaba-zhangbei",
+      "name": "阿里云张北数据中心",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 41.15,
+      "lon": 114.72,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "冀北电网",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-aliyun-ulanqab",
+      "name": "阿里云乌兰察布数据中心",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 40.99,
+      "lon": 113.13,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "蒙西电网",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-baidu-yangquan",
+      "name": "百度云计算（阳泉）中心",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 37.86,
+      "lon": 113.58,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-chinatelecom-lingang",
+      "name": "中国电信临港信息园区（临港智算中心）",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 30.9,
+      "lon": 121.93,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-cmcc-hohhot",
+      "name": "中国移动呼和浩特数据中心（含中国移动智算中心·呼和浩特）",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 40.84,
+      "lon": 111.75,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "蒙西电网",
+      "realMw": null,
+      "envMw": 120,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-envision-xinghe-ulanqab",
+      "name": "远景星河基地（乌兰察布）",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 41.02,
+      "lon": 113.13,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "蒙西电网",
+      "realMw": null,
+      "envMw": 2000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-gds-langfang",
+      "name": "万国数据廊坊算力中心集群",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 39.54,
+      "lon": 116.68,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "冀北电网",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-huawei-guian",
+      "name": "华为贵安云数据中心",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 26.43,
+      "lon": 106.47,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-huawei-horinger",
+      "name": "华为云和林格尔数据中心",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 40.73,
+      "lon": 111.84,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "蒙西电网",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-huawei-ulanqab",
+      "name": "华为乌兰察布数据中心",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 40.9942,
+      "lon": 113.2321,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "蒙西电网",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-huawei-wuhu",
+      "name": "华为云华东（芜湖）数据中心",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 31.35,
+      "lon": 118.43,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-kuaishou-ulanqab",
+      "name": "快手智能云乌兰察布数据中心",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 40.99,
+      "lon": 113.13,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "蒙西电网",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-tencent-qingyuan",
+      "name": "腾讯云清远数据中心",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 23.68,
+      "lon": 113.06,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-vnet-huailai",
+      "name": "世纪互联怀来国家算力枢纽示范基地",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 40.4,
+      "lon": 115.87,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "冀北电网",
+      "realMw": null,
+      "envMw": 500,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-volcengine-datong-taihang",
+      "name": "火山云太行算力中心（大同）",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 39.76,
+      "lon": 114.27,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-cn-zhongjin-ulanqab",
+      "name": "中金数据乌兰察布零碳算力基地",
+      "country": "CN",
+      "countryName": "中国",
+      "market": "ea",
+      "lat": 40.99,
+      "lon": 113.13,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "蒙西电网",
+      "realMw": null,
+      "envMw": 360,
+      "realBasis": null
+    },
+    {
+      "id": "fac-jp-kddi-osaka-sakai",
+      "name": "KDDI Osaka Sakai Data Center",
+      "country": "JP",
+      "countryName": "日本",
+      "market": "ea",
+      "lat": 34.5955,
+      "lon": 135.4331,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "関西電力エリア",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-jp-sakura-ishikari",
+      "name": "Sakura Internet Ishikari Data Center (Koukaryoku GPU cloud)",
+      "country": "JP",
+      "countryName": "日本",
+      "market": "ea",
+      "lat": 43.1714,
+      "lon": 141.3156,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-jp-softbank-sakai-ai-dc",
+      "name": "SoftBank Sakai AI Data Center (former Sharp Sakai Plant)",
+      "country": "JP",
+      "countryName": "日本",
+      "market": "ea",
+      "lat": 34.5955,
+      "lon": 135.4331,
+      "precision": "exact_site",
+      "status": "announced",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "関西電力エリア",
+      "realMw": null,
+      "envMw": 150,
+      "realBasis": null
+    },
+    {
+      "id": "fac-jp-softbank-tomakomai-dc",
+      "name": "SoftBank / IDC Frontier Hokkaido Data Center (Tomakomai)",
+      "country": "JP",
+      "countryName": "日本",
+      "market": "ea",
+      "lat": 42.6342,
+      "lon": 141.6054,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 50,
+      "realBasis": null
+    },
+    {
+      "id": "fac-kr-haenam-naicc",
+      "name": "National AI Computing Center (Haenam Solaseado)",
+      "country": "KR",
+      "countryName": "韩国",
+      "market": "ea",
+      "lat": 34.573,
+      "lon": 126.599,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 80,
+      "realBasis": null
+    },
+    {
+      "id": "fac-kr-lgcns-busan-aibox",
+      "name": "LG CNS Busan AI Box Campus",
+      "country": "KR",
+      "countryName": "韩国",
+      "market": "ea",
+      "lat": 35.163,
+      "lon": 128.836,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 1.2,
+      "realBasis": null
+    },
+    {
+      "id": "fac-kr-lguplus-paju-aidc",
+      "name": "LG Uplus Paju AI Data Centre",
+      "country": "KR",
+      "countryName": "韩国",
+      "market": "ea",
+      "lat": 37.79,
+      "lon": 126.79,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 200,
+      "realBasis": null
+    },
+    {
+      "id": "fac-kr-naver-gak-sejong",
+      "name": "NAVER GAK Sejong",
+      "country": "KR",
+      "countryName": "韩国",
+      "market": "ea",
+      "lat": 36.48,
+      "lon": 127.29,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 270,
+      "realBasis": null
+    },
+    {
+      "id": "fac-kr-sk-ulsan-aidc",
+      "name": "SK Telecom–AWS Ulsan AI Data Center",
+      "country": "KR",
+      "countryName": "韩国",
+      "market": "ea",
+      "lat": 35.5384,
+      "lon": 129.3114,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 1000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-bg-discoverer-sofia",
+      "name": "Discoverer",
+      "country": "BG",
+      "countryName": "保加利亚",
+      "market": "ee",
+      "lat": 42.675,
+      "lon": 23.368,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": 0.0102,
+      "envMw": 0.0102,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-sa-center3-program",
+      "name": "center3 (stc) Data Center Portfolio & 1GW Expansion Plan",
+      "country": "SA",
+      "countryName": "沙特",
+      "market": "mena",
+      "lat": 24.0,
+      "lon": 45.0,
+      "precision": "country",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 9.6,
+      "envMw": 9.6,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-il-nebius-modiin",
+      "name": "Mega Or / Nebius Modi'in AI Data Center",
+      "country": "IL",
+      "countryName": "以色列",
+      "market": "mena",
+      "lat": 31.892,
+      "lon": 35.01,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 8,
+      "envMw": 8,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-ae-khazna-qaj1",
+      "name": "Khazna QAJ1 Ajman Data Center",
+      "country": "AE",
+      "countryName": "阿联酋",
+      "market": "mena",
+      "lat": 25.4052,
+      "lon": 55.5136,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 100,
+      "realBasis": null
+    },
+    {
+      "id": "fac-ae-msft-g42-200mw-expansion",
+      "name": "Microsoft–G42 UAE Data Center Expansion (delivered by Khazna)",
+      "country": "AE",
+      "countryName": "阿联酋",
+      "market": "mena",
+      "lat": 24.0,
+      "lon": 54.0,
+      "precision": "country",
+      "status": "announced",
+      "kinds": [
+        "unknown"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-ae-stargate-uae",
+      "name": "Stargate UAE",
+      "country": "AE",
+      "countryName": "阿联酋",
+      "market": "mena",
+      "lat": 24.45,
+      "lon": 54.38,
+      "precision": "admin_region",
+      "status": "under_construction",
+      "kinds": [
+        "sovereign",
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 1000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-il-megaor-beit-shemesh",
+      "name": "Mega Or Beit Shemesh Data Center",
+      "country": "IL",
+      "countryName": "以色列",
+      "market": "mena",
+      "lat": 31.745,
+      "lon": 34.986,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 222,
+      "realBasis": null
+    },
+    {
+      "id": "fac-il-national-ai-supercomputer",
+      "name": "Israel National AI Supercomputer (Telem Program)",
+      "country": "IL",
+      "countryName": "以色列",
+      "market": "mena",
+      "lat": 31.892,
+      "lon": 35.01,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-qa-qai-brookfield-compute-center",
+      "name": "Qai–Brookfield Integrated Compute Center (planned)",
+      "country": "QA",
+      "countryName": "卡塔尔",
+      "market": "mena",
+      "lat": 25.2854,
+      "lon": 51.531,
+      "precision": "country",
+      "status": "announced",
+      "kinds": [
+        "sovereign",
+        "unknown"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-sa-groq-dammam",
+      "name": "Groq Dammam AI Inference Center (GroqCloud region)",
+      "country": "SA",
+      "countryName": "沙特",
+      "market": "mena",
+      "lat": 26.4207,
+      "lon": 50.0888,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "unknown"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-sa-humain-dammam",
+      "name": "HUMAIN Dammam Data Center (Phase 1)",
+      "country": "SA",
+      "countryName": "沙特",
+      "market": "mena",
+      "lat": 26.4207,
+      "lon": 50.0888,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 100,
+      "realBasis": null
+    },
+    {
+      "id": "fac-sa-humain-riyadh",
+      "name": "HUMAIN Riyadh Data Center (Phase 1)",
+      "country": "SA",
+      "countryName": "沙特",
+      "market": "mena",
+      "lat": 24.7136,
+      "lon": 46.6753,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 100,
+      "realBasis": null
+    },
+    {
+      "id": "fac-sa-neom-oxagon-datavolt",
+      "name": "NEOM Oxagon DataVolt Net-Zero AI Data Center Campus",
+      "country": "SA",
+      "countryName": "沙特",
+      "market": "mena",
+      "lat": 27.9,
+      "lon": 35.3,
+      "precision": "admin_region",
+      "status": "announced",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 1500,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-fairwater-atlanta",
+      "name": "Microsoft Fairwater Atlanta",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 33.41,
+      "lon": -84.6,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "Southern Company / Georgia Power",
+      "realMw": 859,
+      "envMw": 859,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-us-google-new-albany",
+      "name": "Google New Albany Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 40.073,
+      "lon": -82.821,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": 407,
+      "envMw": 407,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-switch-core-las-vegas",
+      "name": "Switch The Core Campus (Las Vegas)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 36.06,
+      "lon": -115.19,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 311,
+      "envMw": 495,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-meta-gallatin",
+      "name": "Meta Gallatin Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 36.39,
+      "lon": -86.45,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "TVA",
+      "realMw": 300,
+      "envMw": 300,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-stargate-abilene",
+      "name": "Stargate Abilene",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.502213,
+      "lon": -99.788717,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": 300,
+      "envMw": 1200,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-us-hut8-vega",
+      "name": "Hut 8 Vega Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 35.24,
+      "lon": -102.43,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": 205,
+      "envMw": 205,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-meta-temple",
+      "name": "Meta Temple Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 31.1292,
+      "lon": -97.3669,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": 152,
+      "envMw": 152,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-core-scientific-calvert-city",
+      "name": "Core Scientific Calvert City KY Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 37.05108,
+      "lon": -88.39441,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "TVA",
+      "realMw": 150,
+      "envMw": 150,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-us-coreweave-helios",
+      "name": "CoreWeave Helios Campus (Afton / Dickens County)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 33.762,
+      "lon": -100.816,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": 133,
+      "envMw": 526,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-core-scientific-denton",
+      "name": "Core Scientific Denton TX Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 33.2148,
+      "lon": -97.2101,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": 132,
+      "envMw": 262,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-us-colossus-1-memphis",
+      "name": "xAI Colossus 1 (Memphis)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 35.0592,
+      "lon": -90.1557,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "TVA",
+      "realMw": 130,
+      "envMw": 130,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-us-meta-los-lunas",
+      "name": "Meta Los Lunas Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 34.806,
+      "lon": -106.733,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "WECC",
+      "realMw": 120,
+      "envMw": 120,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-qts-richmond-1",
+      "name": "QTS Richmond 1 Campus (Sandston)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 37.4897,
+      "lon": -77.2453,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "PJM",
+      "realMw": 110,
+      "envMw": 240,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-polaris-forge-1-ellendale",
+      "name": "Applied Digital Polaris Forge 1 AI Factory Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 46.0039,
+      "lon": -98.5239,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "MISO",
+      "realMw": 100,
+      "envMw": 400,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-ca-iren-mackenzie",
+      "name": "IREN Mackenzie Data Center",
+      "country": "CA",
+      "countryName": "加拿大",
+      "market": "na",
+      "lat": 55.338,
+      "lon": -123.095,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "BC Hydro",
+      "realMw": 80,
+      "envMw": 80,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-qts-atlanta-metro",
+      "name": "QTS Atlanta-Metro Campus (Atlanta 1)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 33.7866,
+      "lon": -84.4113,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 72,
+      "envMw": 278,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-ca-iren-prince-george",
+      "name": "IREN Prince George Data Center",
+      "country": "CA",
+      "countryName": "加拿大",
+      "market": "na",
+      "lat": 53.917,
+      "lon": -122.75,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "BC Hydro",
+      "realMw": 50,
+      "envMw": 50,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-iren-childress",
+      "name": "IREN Childress Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 34.361,
+      "lon": -100.053,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": 50,
+      "envMw": 200,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-core-scientific-marble",
+      "name": "Core Scientific Marble Campus (CoreWeave)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 35.1870942,
+      "lon": -83.9179055,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "TVA",
+      "realMw": 37,
+      "envMw": 65,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-us-compass-red-oak",
+      "name": "Compass Datacenters Red Oak Campus (Dallas II)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.5176,
+      "lon": -96.8045,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": 36,
+      "envMw": 350,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-us-coreweave-chester",
+      "name": "CoreWeave Chester (Chirisa Meadowville Campus)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 37.36,
+      "lon": -77.329,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "PJM",
+      "realMw": 28,
+      "envMw": 120,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-us-terawulf-lake-mariner",
+      "name": "TeraWulf Lake Mariner Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 43.35973,
+      "lon": -78.60527,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build",
+        "colocation"
+      ],
+      "gridZone": "NYISO",
+      "realMw": 22.5,
+      "envMw": 360,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-ca-bell-ai-fabric",
+      "name": "Bell AI Fabric (British Columbia supercluster)",
+      "country": "CA",
+      "countryName": "加拿大",
+      "market": "na",
+      "lat": 50.6745,
+      "lon": -120.3273,
+      "precision": "admin_region",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "BC Hydro",
+      "realMw": null,
+      "envMw": 7,
+      "realBasis": null
+    },
+    {
+      "id": "fac-ca-estruxture-cal-3",
+      "name": "eStruxture CAL-3",
+      "country": "CA",
+      "countryName": "加拿大",
+      "market": "na",
+      "lat": 51.2,
+      "lon": -114.0,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "AESO",
+      "realMw": null,
+      "envMw": 90,
+      "realBasis": null
+    },
+    {
+      "id": "fac-ca-hypertec-lasalle",
+      "name": "Hypertec LaSalle Campus (Sovereign AI Research Hub)",
+      "country": "CA",
+      "countryName": "加拿大",
+      "market": "na",
+      "lat": 45.43,
+      "lon": -73.63,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "Hydro-Québec",
+      "realMw": null,
+      "envMw": 3,
+      "realBasis": null
+    },
+    {
+      "id": "fac-ca-telus-rimouski",
+      "name": "TELUS Sovereign AI Factory Rimouski",
+      "country": "CA",
+      "countryName": "加拿大",
+      "market": "na",
+      "lat": 48.4529,
+      "lon": -68.523,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "sovereign"
+      ],
+      "gridZone": "Hydro-Québec",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-ca-wonder-valley",
+      "name": "Wonder Valley (Greenview Industrial Gateway AI Data Centre Industrial Park)",
+      "country": "CA",
+      "countryName": "加拿大",
+      "market": "na",
+      "lat": 54.81,
+      "lon": -118.8,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "unknown"
+      ],
+      "gridZone": "off-grid (Alberta, planned gas+geothermal; AESO region)",
+      "realMw": null,
+      "envMw": 100,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-aws-butts-county-ga",
+      "name": "AWS Butts County Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 33.294,
+      "lon": -84.194,
+      "precision": "admin_region",
+      "status": "announced",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-aws-clinton",
+      "name": "AWS Clinton Data Center (former Delphi Plant)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.368,
+      "lon": -90.337,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-aws-douglas-county-ga",
+      "name": "AWS Douglas County Data Center Campuses",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 33.749,
+      "lon": -84.748,
+      "precision": "admin_region",
+      "status": "announced",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-aws-falls-township-pa",
+      "name": "AWS Falls Township Innovation Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 40.1759,
+      "lon": -74.8189,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-aws-madison-county-project-atlas",
+      "name": "AWS Madison County Data Center Campuses (Project Atlas)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.6126,
+      "lon": -90.0368,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "MISO (Entergy Mississippi)",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-aws-new-albany",
+      "name": "AWS New Albany Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 40.091,
+      "lon": -82.809,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-aws-richmond-county-nc",
+      "name": "AWS Richmond County AI Innovation Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 34.9393,
+      "lon": -79.7739,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-aws-susquehanna-nuclear-campus",
+      "name": "AWS Susquehanna Nuclear Data Center Campus (Salem Township)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.0545,
+      "lon": -76.2356,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": 960,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-aws-vicksburg",
+      "name": "AWS Vicksburg Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.373,
+      "lon": -90.823,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-cedar-rapids",
+      "name": "Google Cedar Rapids Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.9779,
+      "lon": -91.6656,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-cipher-barber-lake",
+      "name": "Cipher Mining Barber Lake",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.39,
+      "lon": -100.86,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": null,
+      "envMw": 168,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-colossus-2-memphis",
+      "name": "xAI Colossus 2 (Memphis)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 34.99586,
+      "lon": -90.03487,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "TVA",
+      "realMw": null,
+      "envMw": 170,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-core-scientific-dalton-1",
+      "name": "Core Scientific Dalton 1 (Industrial South Road)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 34.71316,
+      "lon": -84.95143,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 30,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-core-scientific-dalton-4",
+      "name": "Core Scientific Dalton 4 (Old Tilton Road)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 34.665,
+      "lon": -84.939,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 145,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-core-scientific-muskogee",
+      "name": "Core Scientific Muskogee Campus (CoreWeave)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 35.69694,
+      "lon": -95.38558,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "SPP",
+      "realMw": null,
+      "envMw": 70,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-coreweave-kenilworth-nest",
+      "name": "CoreWeave Kenilworth Data Center (NEST Campus)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 40.6765,
+      "lon": -74.2904,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": 250,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-coreweave-lancaster",
+      "name": "CoreWeave Lancaster PA AI Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 40.062,
+      "lon": -76.284,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": 100,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-council-bluffs",
+      "name": "Google Council Bluffs Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.2619,
+      "lon": -95.8608,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-crusoe-childress-lancium",
+      "name": "Crusoe-Lancium Childress AI Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 34.43,
+      "lon": -100.2,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": null,
+      "envMw": 1000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-databank-red-oak",
+      "name": "DataBank Red Oak Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.52,
+      "lon": -96.8,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 240,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-el-paso-tx",
+      "name": "Meta El Paso Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 31.86,
+      "lon": -106.42,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 1000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-fairwater-mount-pleasant",
+      "name": "Microsoft Fairwater (Mount Pleasant, WI)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 42.7,
+      "lon": -87.88,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": 2000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-fleet-south-valley",
+      "name": "Fleet Data Centers South Valley Campus (TRIC)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 39.5142,
+      "lon": -119.4868,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "NV Energy",
+      "realMw": null,
+      "envMw": 200,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-fort-wayne",
+      "name": "Google Fort Wayne Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.0793,
+      "lon": -85.1394,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-frontier-shackelford",
+      "name": "Vantage Frontier Campus (Shackelford County)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.727,
+      "lon": -99.299,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": null,
+      "envMw": 1400,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-goodnight-claude",
+      "name": "Goodnight Campus (Claude, Armstrong County)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 35.01757,
+      "lon": -101.31173,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "SPP",
+      "realMw": null,
+      "envMw": 1030,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-arcola",
+      "name": "Google Arcola Data Center Campus (Dulles Arcola Center)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 38.943,
+      "lon": -77.525,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-bristow",
+      "name": "Google Bristow / Prince William County Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 38.788,
+      "lon": -77.548,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": 100.7,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-columbus",
+      "name": "Google Columbus Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 39.859,
+      "lon": -82.995,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-kansas-city-east",
+      "name": "Google Kansas City East Data Center Campus (Hunt Midwest)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 39.175,
+      "lon": -94.488,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "SPP",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-lancaster-oh",
+      "name": "Google Lancaster Ohio Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 39.72,
+      "lon": -82.65,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-lincoln",
+      "name": "Google Lincoln Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 40.855,
+      "lon": -96.645,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-midlothian",
+      "name": "Google Midlothian Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.482,
+      "lon": -96.994,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-muskogee-council-hill",
+      "name": "Google Muskogee County Data Center Campus – Council Hill",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 35.555,
+      "lon": -95.652,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-muskogee-summit",
+      "name": "Google Muskogee County Data Center Campus – Summit",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 35.668,
+      "lon": -95.571,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-omaha-northwest",
+      "name": "Google Northwest Omaha Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.306,
+      "lon": -96.152,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-red-oak",
+      "name": "Google Red Oak Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.518,
+      "lon": -96.804,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-stillwater",
+      "name": "Google Stillwater Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 36.147,
+      "lon": -97.072,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-storey-county",
+      "name": "Google Storey County Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 39.53,
+      "lon": -119.48,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "WECC",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-google-the-dalles",
+      "name": "Google The Dalles Data Center Campuses",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 45.606,
+      "lon": -121.185,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "BPA",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-hyperion-richland",
+      "name": "Meta Hyperion Data Center (Richland Parish)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.4771,
+      "lon": -91.6323,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": 5000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-iren-sweetwater",
+      "name": "IREN Sweetwater Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.47,
+      "lon": -100.41,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": null,
+      "envMw": 2000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-kansas-city-mo",
+      "name": "Meta Kansas City Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 39.322,
+      "lon": -94.596,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "SPP",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-lambda-kansas-city",
+      "name": "Lambda Kansas City AI Factory",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 39.295603,
+      "lon": -94.67394,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "SPP",
+      "realMw": null,
+      "envMw": 24,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-lighthouse-port-washington",
+      "name": "Vantage Lighthouse Campus (Port Washington)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 43.3871,
+      "lon": -87.8757,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": 902,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-mesa",
+      "name": "Google Mesa Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 33.4152,
+      "lon": -111.8315,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "SRP",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-meta-aiken",
+      "name": "Meta Aiken Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 33.56,
+      "lon": -81.81,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "Santee Cooper",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-meta-cheyenne",
+      "name": "Meta Cheyenne Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.1,
+      "lon": -104.8,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-meta-eagle-mountain",
+      "name": "Meta Eagle Mountain Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 40.337,
+      "lon": -112.012,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "WECC",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-meta-huntsville",
+      "name": "Meta Huntsville Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 34.85,
+      "lon": -86.7,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "TVA",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-meta-jeffersonville",
+      "name": "Meta Jeffersonville Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 38.38,
+      "lon": -85.7,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-meta-kuna",
+      "name": "Meta Kuna Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 43.45,
+      "lon": -116.35,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "Idaho Power",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-meta-mesa",
+      "name": "Meta Mesa Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 33.349,
+      "lon": -111.634,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-meta-rosemount",
+      "name": "Meta Rosemount Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 44.73506,
+      "lon": -93.06261,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": 75,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-meta-sarpy",
+      "name": "Meta Sarpy Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.11,
+      "lon": -96.13,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "SPP",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-microsoft-arcola-iad11",
+      "name": "Microsoft IAD11 Stone Ridge (Arcola Business Park)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 38.946,
+      "lon": -77.54,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-microsoft-castroville",
+      "name": "Microsoft Castroville Datacenter Campus (SAT89/SAT90)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 29.356,
+      "lon": -98.878,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-microsoft-cheyenne",
+      "name": "Microsoft Cheyenne Datacenter Expansion",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.14,
+      "lon": -104.82,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-microsoft-goodyear",
+      "name": "Microsoft Goodyear Datacenter Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 33.423,
+      "lon": -112.375,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-microsoft-sat14",
+      "name": "Microsoft SAT14 (Wiseman Boulevard)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 29.469,
+      "lon": -98.677,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-microsoft-texas-research-park",
+      "name": "Microsoft Texas Research Park Campus (SAT40 / Lambda Drive)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 29.415,
+      "lon": -98.799,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-microsoft-west-des-moines",
+      "name": "Microsoft West Des Moines Datacenter Campuses",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.577,
+      "lon": -93.711,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-montgomery-al",
+      "name": "Meta Montgomery Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 32.3668,
+      "lon": -86.3,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-nebius-vineland",
+      "name": "Nebius Vineland Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 39.435,
+      "lon": -75.005,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": 350,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-papillion",
+      "name": "Google Papillion Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.1544,
+      "lon": -96.0422,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "SPP",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-polaris-forge-2-harwood",
+      "name": "Applied Digital Polaris Forge 2 AI Factory Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 46.979,
+      "lon": -96.881,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": 300,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-project-jade-cheyenne",
+      "name": "Project Jade (Cheyenne AI Data Center Campus)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.05,
+      "lon": -104.86,
+      "precision": "city",
+      "status": "permitted",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 1800,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-project-jupiter-santa-teresa",
+      "name": "Project Jupiter (Santa Teresa)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 31.8719,
+      "lon": -106.6765,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-project-rainier-new-carlisle",
+      "name": "AWS Project Rainier (New Carlisle)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.7003,
+      "lon": -86.5095,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM (Indiana Michigan Power)",
+      "realMw": null,
+      "envMw": 2200,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-prometheus-new-albany",
+      "name": "Meta Prometheus Supercluster (New Albany)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 40.0811,
+      "lon": -82.8088,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": 1000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-pryor",
+      "name": "Google Pryor Data Center",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 36.2425,
+      "lon": -95.3302,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "SPP",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-qts-cedar-rapids",
+      "name": "QTS Cedar Rapids Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.89,
+      "lon": -91.75,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": 1050,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-qts-eagle-mountain",
+      "name": "QTS Eagle Mountain Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 40.3141,
+      "lon": -112.0069,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "PacifiCorp",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-qts-hillsboro-2",
+      "name": "QTS Hillsboro 2 Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 45.548,
+      "lon": -122.911,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "WECC",
+      "realMw": null,
+      "envMw": 180,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-qts-richmond-2",
+      "name": "QTS Richmond 2 Campus (Sandston)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 37.491,
+      "lon": -77.246,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": 180,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-qts-richmond-3",
+      "name": "QTS Richmond 3 Campus (Sandston)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 37.486,
+      "lon": -77.238,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": 240,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-related-coreweave-cheyenne",
+      "name": "Related Digital Cheyenne Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.13,
+      "lon": -104.76,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 302,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-stack-nva02",
+      "name": "STACK NVA02 Campus (Manassas)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 38.78,
+      "lon": -77.52,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": 420,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-stargate-lordstown",
+      "name": "Stargate Lordstown (SoftBank)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 41.1665,
+      "lon": -80.8665,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "unknown"
+      ],
+      "gridZone": "PJM",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-stargate-michigan",
+      "name": "Stargate Michigan (The Barn, Saline Township)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 42.145,
+      "lon": -83.82,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": 1000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-stargate-milam-freebird",
+      "name": "Stargate Milam County (SB Energy)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 30.79,
+      "lon": -97.02,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": null,
+      "envMw": 1200,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-stream-phoenix",
+      "name": "Stream PHXA Hyperscale Campus (Goodyear / Phoenix)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 33.435,
+      "lon": -112.358,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "WECC",
+      "realMw": null,
+      "envMw": 280,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-switch-citadel-tahoe-reno",
+      "name": "Switch Tahoe Reno — The Citadel Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 39.514,
+      "lon": -119.485,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "NV Energy",
+      "realMw": null,
+      "envMw": 650,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-switch-pyramid-grand-rapids",
+      "name": "Switch Grand Rapids — The Pyramid Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 42.8465,
+      "lon": -85.5467,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": 320,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-tract-silver-springs",
+      "name": "Tract Silver Springs Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 39.4155,
+      "lon": -119.225,
+      "precision": "city",
+      "status": "permitted",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "NV Energy",
+      "realMw": null,
+      "envMw": 1600,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-vantage-tx1",
+      "name": "Vantage TX1 Campus (Omicron Drive, San Antonio)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 29.416944,
+      "lon": -98.788611,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "ERCOT",
+      "realMw": null,
+      "envMw": 96,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-west-memphis",
+      "name": "Google West Memphis Data Center Campus",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 35.1465,
+      "lon": -90.1845,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "MISO",
+      "realMw": null,
+      "envMw": 1000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-us-xai-southaven",
+      "name": "xAI Southaven Campus (MACROHARDRR + Stanton Road Power Plant)",
+      "country": "US",
+      "countryName": "美国",
+      "market": "na",
+      "lat": 34.989,
+      "lon": -90.0,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": "TVA",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-no-green-mountain-hamar",
+      "name": "Green Mountain OSL2-Hamar",
+      "country": "NO",
+      "countryName": "挪威",
+      "market": "nordic",
+      "lat": 60.84112,
+      "lon": 11.26967,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 90,
+      "envMw": 150,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-fi-nebius-mantsala",
+      "name": "Nebius Mäntsälä DC1",
+      "country": "FI",
+      "countryName": "芬兰",
+      "market": "nordic",
+      "lat": 60.635,
+      "lon": 25.319,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": 40,
+      "envMw": 75,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-is-atnorth-ice02-keflavik",
+      "name": "atNorth ICE02",
+      "country": "IS",
+      "countryName": "冰岛",
+      "market": "nordic",
+      "lat": 63.999,
+      "lon": -22.6,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 24,
+      "envMw": 57,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-fi-lumi-kajaani",
+      "name": "LUMI",
+      "country": "FI",
+      "countryName": "芬兰",
+      "market": "nordic",
+      "lat": 64.227,
+      "lon": 27.728,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": 7.1,
+      "envMw": 8.5,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-fi-google-hamina",
+      "name": "Google Hamina 数据中心",
+      "country": "FI",
+      "countryName": "芬兰",
+      "market": "nordic",
+      "lat": 60.569,
+      "lon": 27.198,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-no-coreweave-n01-vennesla",
+      "name": "CoreWeave N01 Vennesla (Bulk Infrastructure)",
+      "country": "NO",
+      "countryName": "挪威",
+      "market": "nordic",
+      "lat": 58.257573,
+      "lon": 7.889861,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "NO2",
+      "realMw": null,
+      "envMw": 42,
+      "realBasis": null
+    },
+    {
+      "id": "fac-no-stargate-norway-kvandal",
+      "name": "Stargate Norway",
+      "country": "NO",
+      "countryName": "挪威",
+      "market": "nordic",
+      "lat": 68.5,
+      "lon": 17.55,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 230,
+      "realBasis": null
+    },
+    {
+      "id": "fac-se-ecodatacenter-borlange-mistral",
+      "name": "EcoDataCenter Borlänge (Mistral AI 园区）",
+      "country": "SE",
+      "countryName": "瑞典",
+      "market": "nordic",
+      "lat": 60.5232,
+      "lon": 15.4209,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 360,
+      "realBasis": null
+    },
+    {
+      "id": "fac-se-microsoft-sweden-central",
+      "name": "Microsoft 瑞典中部区域数据中心群",
+      "country": "SE",
+      "countryName": "瑞典",
+      "market": "nordic",
+      "lat": 60.617,
+      "lon": 16.775,
+      "precision": "admin_region",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-au-airtrunk-syd1",
+      "name": "AirTrunk SYD1",
+      "country": "AU",
+      "countryName": "澳大利亚",
+      "market": "oc",
+      "lat": -33.799523,
+      "lon": 150.881568,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 130,
+      "envMw": 130,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-au-nextdc-m3",
+      "name": "NEXTDC M3 Melbourne",
+      "country": "AU",
+      "countryName": "澳大利亚",
+      "market": "oc",
+      "lat": -37.807,
+      "lon": 144.885,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 42,
+      "envMw": 225,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-au-airtrunk-syd2",
+      "name": "AirTrunk SYD2",
+      "country": "AU",
+      "countryName": "澳大利亚",
+      "market": "oc",
+      "lat": -33.80761,
+      "lon": 151.1449,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 30,
+      "envMw": 110,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-au-cdc-canberra",
+      "name": "CDC Canberra Campus Network",
+      "country": "AU",
+      "countryName": "澳大利亚",
+      "market": "oc",
+      "lat": -35.32,
+      "lon": 149.14,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "colocation",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": 21,
+      "envMw": 39,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-au-airtrunk-mel1",
+      "name": "AirTrunk MEL1",
+      "country": "AU",
+      "countryName": "澳大利亚",
+      "market": "oc",
+      "lat": -37.8004,
+      "lon": 144.7737,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 100,
+      "realBasis": null
+    },
+    {
+      "id": "fac-au-cdc-maddington",
+      "name": "CDC Maddington (Perth) Campus",
+      "country": "AU",
+      "countryName": "澳大利亚",
+      "market": "oc",
+      "lat": -32.05,
+      "lon": 115.984,
+      "precision": "exact_site",
+      "status": "announced",
+      "kinds": [
+        "colocation",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 150,
+      "realBasis": null
+    },
+    {
+      "id": "fac-au-nextdc-s3",
+      "name": "NEXTDC S3 Sydney",
+      "country": "AU",
+      "countryName": "澳大利亚",
+      "market": "oc",
+      "lat": -33.809,
+      "lon": 151.184,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 80,
+      "realBasis": null
+    },
+    {
+      "id": "fac-au-nextdc-s4",
+      "name": "NEXTDC S4 Sydney",
+      "country": "AU",
+      "countryName": "澳大利亚",
+      "market": "oc",
+      "lat": -33.84,
+      "lon": 150.858,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 350,
+      "realBasis": null
+    },
+    {
+      "id": "fac-au-southgate-melbourne",
+      "name": "Southgate Melbourne (Firmus / CDC)",
+      "country": "AU",
+      "countryName": "澳大利亚",
+      "market": "oc",
+      "lat": -37.8136,
+      "lon": 144.9631,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "NEM-VIC",
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-in-ctrls-chennai-namma",
+      "name": "CtrlS Chennai Datacenter Park (Namma), Ambattur",
+      "country": "IN",
+      "countryName": "印度",
+      "market": "sa",
+      "lat": 13.11,
+      "lon": 80.15,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 72,
+      "envMw": 72,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-in-yotta-nm1",
+      "name": "Yotta NM1 (Shakti Cloud), Navi Mumbai",
+      "country": "IN",
+      "countryName": "印度",
+      "market": "sa",
+      "lat": 19.03,
+      "lon": 73.02,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build",
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 52,
+      "envMw": 52,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-in-yotta-d1-noida",
+      "name": "Yotta D1, Greater Noida",
+      "country": "IN",
+      "countryName": "印度",
+      "market": "sa",
+      "lat": 28.47,
+      "lon": 77.5,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build",
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 30,
+      "envMw": 30,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-in-stt-chennai-siruseri",
+      "name": "STT GDC Chennai Siruseri Campus (STT Chennai 7)",
+      "country": "IN",
+      "countryName": "印度",
+      "market": "sa",
+      "lat": 12.831,
+      "lon": 80.227,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 12.3,
+      "envMw": 45,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-in-adaniconnex-vizag",
+      "name": "Google AI Hub Visakhapatnam (AdaniConneX campus)",
+      "country": "IN",
+      "countryName": "印度",
+      "market": "sa",
+      "lat": 17.69,
+      "lon": 83.22,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 400,
+      "realBasis": null
+    },
+    {
+      "id": "fac-in-ctrls-chandanvelly",
+      "name": "CtrlS Chandanvelly Datacenter Park, Hyderabad",
+      "country": "IN",
+      "countryName": "印度",
+      "market": "sa",
+      "lat": 17.2327,
+      "lon": 78.1713,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 600,
+      "realBasis": null
+    },
+    {
+      "id": "fac-in-jio-jamnagar",
+      "name": "Reliance Jamnagar AI Data Center",
+      "country": "IN",
+      "countryName": "印度",
+      "market": "sa",
+      "lat": 22.47,
+      "lon": 70.06,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 3000,
+      "realBasis": null
+    },
+    {
+      "id": "fac-in-stt-mumbai-palava",
+      "name": "STT GDC Mumbai Palava Campus",
+      "country": "IN",
+      "countryName": "印度",
+      "market": "sa",
+      "lat": 19.17,
+      "lon": 73.1,
+      "precision": "city",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 400,
+      "realBasis": null
+    },
+    {
+      "id": "fac-my-gds-ntp",
+      "name": "GDS (DayOne) Nusajaya Tech Park Data Center Campus",
+      "country": "MY",
+      "countryName": "马来西亚",
+      "market": "sea",
+      "lat": 1.422,
+      "lon": 103.648,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 69.9,
+      "envMw": 69.9,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-my-pdg-jh1",
+      "name": "Princeton Digital Group JH1 Campus",
+      "country": "MY",
+      "countryName": "马来西亚",
+      "market": "sea",
+      "lat": 1.69142,
+      "lon": 103.41441,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 52,
+      "envMw": 150,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-my-airtrunk-jhb1",
+      "name": "AirTrunk JHB1",
+      "country": "MY",
+      "countryName": "马来西亚",
+      "market": "sea",
+      "lat": 1.4698094,
+      "lon": 103.596198,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "TNB（马来西亚半岛电网）",
+      "realMw": 50,
+      "envMw": 100,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-id-dci-h2",
+      "name": "DCI Indonesia H2 Campus (Karawang)",
+      "country": "ID",
+      "countryName": "印尼",
+      "market": "sea",
+      "lat": -6.355,
+      "lon": 107.305,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 27,
+      "envMw": 600,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-my-bridge-my06",
+      "name": "Bridge Data Centres MY06 (Sedenak)",
+      "country": "MY",
+      "countryName": "马来西亚",
+      "market": "sea",
+      "lat": 1.628,
+      "lon": 103.527,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 20,
+      "envMw": 110,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-id-oracle-batam",
+      "name": "Oracle Indonesia North (Batam) / DayOne Nongsa",
+      "country": "ID",
+      "countryName": "印尼",
+      "market": "sea",
+      "lat": 1.185,
+      "lon": 104.102,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "PLN Batam",
+      "realMw": null,
+      "envMw": 72,
+      "realBasis": null
+    },
+    {
+      "id": "fac-my-airtrunk-jhb2",
+      "name": "AirTrunk JHB2",
+      "country": "MY",
+      "countryName": "马来西亚",
+      "market": "sea",
+      "lat": 1.4664694,
+      "lon": 103.5958909,
+      "precision": "exact_site",
+      "status": "announced",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "TNB（马来西亚半岛电网）",
+      "realMw": null,
+      "envMw": 270,
+      "realBasis": null
+    },
+    {
+      "id": "fac-my-ytl-kulai",
+      "name": "YTL Green Data Center Park (Kulai)",
+      "country": "MY",
+      "countryName": "马来西亚",
+      "market": "sea",
+      "lat": 1.656,
+      "lon": 103.603,
+      "precision": "city",
+      "status": "partially_operational",
+      "kinds": [
+        "self_build",
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 48,
+      "realBasis": null
+    },
+    {
+      "id": "fac-sg-airtrunk-sgp2",
+      "name": "AirTrunk SGP2",
+      "country": "SG",
+      "countryName": "新加坡",
+      "market": "sea",
+      "lat": 1.374,
+      "lon": 103.974,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 70,
+      "realBasis": null
+    },
+    {
+      "id": "fac-fr-eclairion-bruyeres",
+      "name": "Eclairion Bruyères-le-Châtel (Mistral 部署)",
+      "country": "FR",
+      "countryName": "法国",
+      "market": "we",
+      "lat": 48.595,
+      "lon": 2.194,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": "RTE",
+      "realMw": 60,
+      "envMw": 60,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-pt-sines-data-campus",
+      "name": "SINES Data Campus (Start Campus)",
+      "country": "PT",
+      "countryName": "葡萄牙",
+      "market": "we",
+      "lat": 37.9368,
+      "lon": -8.8039,
+      "precision": "exact_site",
+      "status": "partially_operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": 33,
+      "envMw": 1200,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-es-marenostrum-5-barcelona",
+      "name": "MareNostrum 5",
+      "country": "ES",
+      "countryName": "西班牙",
+      "market": "we",
+      "lat": 41.389,
+      "lon": 2.116,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": 20,
+      "envMw": 20,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-de-jupiter-juelich",
+      "name": "JUPITER",
+      "country": "DE",
+      "countryName": "德国",
+      "market": "we",
+      "lat": 50.921,
+      "lon": 6.358,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": 12,
+      "envMw": 12,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-ch-alps-lugano",
+      "name": "Alps (CSCS)",
+      "country": "CH",
+      "countryName": "瑞士",
+      "market": "we",
+      "lat": 46.024,
+      "lon": 8.961,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": 7,
+      "envMw": 7,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-it-leonardo-bologna",
+      "name": "Leonardo",
+      "country": "IT",
+      "countryName": "意大利",
+      "market": "we",
+      "lat": 44.52,
+      "lon": 11.34,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": 6,
+      "envMw": 6,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-gb-isambard-ai-bristol",
+      "name": "Isambard-AI",
+      "country": "GB",
+      "countryName": "英国",
+      "market": "we",
+      "lat": 51.503,
+      "lon": -2.477,
+      "precision": "exact_site",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": 5,
+      "envMw": 30,
+      "realBasis": "built"
+    },
+    {
+      "id": "fac-gb-dawn-cambridge",
+      "name": "Dawn",
+      "country": "GB",
+      "countryName": "英国",
+      "market": "we",
+      "lat": 52.21,
+      "lon": 0.091,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": 1,
+      "envMw": 1,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-cz-karolina-ostrava",
+      "name": "Karolina",
+      "country": "CZ",
+      "countryName": "捷克",
+      "market": "we",
+      "lat": 49.802,
+      "lon": 18.24,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": 0.8,
+      "envMw": 0.8,
+      "realBasis": "installed"
+    },
+    {
+      "id": "fac-de-aws-sovereign-brandenburg",
+      "name": "AWS European Sovereign Cloud (Brandenburg)",
+      "country": "DE",
+      "countryName": "德国",
+      "market": "we",
+      "lat": 52.412,
+      "lon": 12.55,
+      "precision": "admin_region",
+      "status": "operational",
+      "kinds": [
+        "self_build",
+        "sovereign",
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-de-hammerhai-stuttgart",
+      "name": "HammerHAI",
+      "country": "DE",
+      "countryName": "德国",
+      "market": "we",
+      "lat": 48.782,
+      "lon": 9.177,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-es-aws-aragon",
+      "name": "AWS 西班牙（阿拉贡）数据中心群",
+      "country": "ES",
+      "countryName": "西班牙",
+      "market": "we",
+      "lat": 41.649,
+      "lon": -0.889,
+      "precision": "admin_region",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-fr-alice-recoque-bruyeres",
+      "name": "Alice Recoque",
+      "country": "FR",
+      "countryName": "法国",
+      "market": "we",
+      "lat": 48.5966322,
+      "lon": 2.1993077,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": "RTE",
+      "realMw": null,
+      "envMw": 15,
+      "realBasis": null
+    },
+    {
+      "id": "fac-fr-campus-ai-paris",
+      "name": "Campus AI (MGX-Bpifrance-Mistral-NVIDIA 巴黎 AI 园区）",
+      "country": "FR",
+      "countryName": "法国",
+      "market": "we",
+      "lat": 48.585,
+      "lon": 2.777,
+      "precision": "exact_site",
+      "status": "announced",
+      "kinds": [
+        "self_build",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 1400,
+      "realBasis": null
+    },
+    {
+      "id": "fac-fr-jean-zay-saclay",
+      "name": "Jean Zay",
+      "country": "FR",
+      "countryName": "法国",
+      "market": "we",
+      "lat": 48.711,
+      "lon": 2.169,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-gb-coreweave-crawley",
+      "name": "CoreWeave Crawley (Digital Realty)",
+      "country": "GB",
+      "countryName": "英国",
+      "market": "we",
+      "lat": 51.113,
+      "lon": -0.183,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-gb-coreweave-london-docklands",
+      "name": "CoreWeave London Docklands (Global Switch)",
+      "country": "GB",
+      "countryName": "英国",
+      "market": "we",
+      "lat": 51.507,
+      "lon": 0.02,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-gb-culham-aigz",
+      "name": "Culham AI Growth Zone",
+      "country": "GB",
+      "countryName": "英国",
+      "market": "we",
+      "lat": 51.659,
+      "lon": -1.229,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "self_build",
+        "public_hpc"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 500,
+      "realBasis": null
+    },
+    {
+      "id": "fac-gb-google-waltham-cross",
+      "name": "Google Waltham Cross 数据中心",
+      "country": "GB",
+      "countryName": "英国",
+      "market": "we",
+      "lat": 51.686,
+      "lon": -0.033,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 77,
+      "realBasis": null
+    },
+    {
+      "id": "fac-gb-latos-cardiff",
+      "name": "Latos Cardiff hyperscale 数据中心",
+      "country": "GB",
+      "countryName": "英国",
+      "market": "we",
+      "lat": 51.487,
+      "lon": -3.144,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "colocation"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 90,
+      "realBasis": null
+    },
+    {
+      "id": "fac-gb-nscale-loughton",
+      "name": "Nscale Loughton AI Campus",
+      "country": "GB",
+      "countryName": "英国",
+      "market": "we",
+      "lat": 51.646,
+      "lon": 0.055,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 50,
+      "realBasis": null
+    },
+    {
+      "id": "fac-gb-qts-cambois-blyth",
+      "name": "QTS Cambois 数据中心园区 (Blyth)",
+      "country": "GB",
+      "countryName": "英国",
+      "market": "we",
+      "lat": 55.1426,
+      "lon": -1.5283,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 720,
+      "realBasis": null
+    },
+    {
+      "id": "fac-gb-stargate-uk-cobalt-park",
+      "name": "Stargate UK (Cobalt Park)",
+      "country": "GB",
+      "countryName": "英国",
+      "market": "we",
+      "lat": 55.033,
+      "lon": -1.503,
+      "precision": "city",
+      "status": "paused",
+      "kinds": [
+        "self_build"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-gr-daedalus-lavrio",
+      "name": "DAEDALUS",
+      "country": "GR",
+      "countryName": "希腊",
+      "market": "we",
+      "lat": 37.714,
+      "lon": 24.056,
+      "precision": "exact_site",
+      "status": "under_construction",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-lu-meluxina-ai-bissen",
+      "name": "MeluXina-AI",
+      "country": "LU",
+      "countryName": "卢森堡",
+      "market": "we",
+      "lat": 49.864,
+      "lon": 6.071,
+      "precision": "city",
+      "status": "announced",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-lu-meluxina-bissen",
+      "name": "MeluXina",
+      "country": "LU",
+      "countryName": "卢森堡",
+      "market": "we",
+      "lat": 49.864,
+      "lon": 6.071,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    },
+    {
+      "id": "fac-pt-deucalion-guimaraes",
+      "name": "Deucalion",
+      "country": "PT",
+      "countryName": "葡萄牙",
+      "market": "we",
+      "lat": 41.444,
+      "lon": -8.296,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": 1.7,
+      "realBasis": null
+    },
+    {
+      "id": "fac-si-vega-maribor",
+      "name": "Vega",
+      "country": "SI",
+      "countryName": "斯洛文尼亚",
+      "market": "we",
+      "lat": 46.525,
+      "lon": 15.628,
+      "precision": "city",
+      "status": "operational",
+      "kinds": [
+        "public_hpc",
+        "sovereign"
+      ],
+      "gridZone": null,
+      "realMw": null,
+      "envMw": null,
+      "realBasis": null
+    }
+  ]
+}

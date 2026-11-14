@@ -4,7 +4,7 @@ import { Atlas, relief, surfaceUrl, type Country, type Location } from "./atlas"
 import { attachNavigation, MapCamera } from "./camera"
 import { hudScale, Y_SCALE } from "./layout"
 import TerrainScene, { type LayerState } from "./TerrainScene"
-import { journeys, sites } from "./traffic"
+import { computeColors, computeKindLabel, computeSiteLabel, computeSites } from "./compute-markers"
 
 type Props = {atlas:Atlas; rig:MapCamera; selected?:Country|null; layers:LayerState; pick:(pos:Location)=>void; marker?:{lon:number;lat:number;label:string}; showNews:()=>void}
 class GraphicsBoundary extends Component<{children:ReactNode; fail:()=>void},{failed:boolean}> {
@@ -50,7 +50,7 @@ function FlatMap({atlas,selected,rig,project,reduced}:{atlas:Atlas;selected?:Cou
 
 export default function MapViewport({atlas,rig,selected,layers,pick,marker,showNews}:Props) {
   const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null)
-  const marks=useRef<(SVGGElement|null)[]>([]), vehicles=useRef<(SVGGElement|null)[]>([])
+  const marks=useRef<(SVGGElement|null)[]>([])
   const islands=useMemo(()=>atlas.countries.flatMap(country=>country.islandGroup ? [{country,...country.islandGroup}] : []),[atlas])
   const islandMarks=useRef<(SVGGElement|null)[]>([])
   const eventPin=useRef<SVGGElement>(null)
@@ -61,8 +61,8 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
   const select=useRef(pick); select.current=pick
   const onReady=useCallback(()=>setReady(true),[])
   const onFail=useCallback(()=>setFailed(true),[])
-  const altitudes=useMemo(()=>sites.map(p=>relief(atlas.metres(p.lon,p.lat))+.18),[atlas])
-  const project=useCallback((t:number)=>{
+  const altitudes=useMemo(()=>computeSites.map(p=>relief(atlas.metres(p.lon,p.lat))+.18),[atlas])
+  const project=useCallback((_time:number)=>{
     if (!overlay.current) return
     const w=rig.width,h=rig.height
     overlay.current.setAttribute("viewBox",`0 0 ${w} ${h}`)
@@ -74,33 +74,25 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
       el.style.display=visible ? "" : "none"
       if(visible) el.setAttribute("transform",`translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) scale(${scale}) rotate(${angle})`)
     }
-    sites.forEach((p,i)=>place(marks.current[i],p.lon,p.lat,altitudes[i]))
+    computeSites.forEach((p,i)=>place(marks.current[i],p.lon,p.lat,altitudes[i]))
     islands.forEach((island,i)=>place(islandMarks.current[i],island.lon,island.lat,.06))
     if(eventPin.current && marker) {
       if (rig.current.zoom<.17) place(eventPin.current,marker.lon,marker.lat,.30)
       else eventPin.current.style.display="none"
     }
-    journeys.forEach((route,i)=>{
-      const fraction=(route.phase+t/(route.kind==="ship" ? 220 : 105))%1
-      const lon=route.start[0]+(route.end[0]-route.start[0])*fraction
-      const lat=route.start[1]+(route.end[1]-route.start[1])*fraction
-      const end=rig.screen(route.end[0],route.end[1],0), start=rig.screen(route.start[0],route.start[1],0)
-      const angle=Math.atan2(end.y-start.y,end.x-start.x)*180/Math.PI+(route.kind==="plane" ? 90 : 0)
-      place(vehicles.current[i],lon,lat,route.kind==="plane" ? 2.7 : .08,angle,size*(.25+rig.current.zoom*1.48))
-    })
   },[altitudes,islands,marker,rig])
   useEffect(()=>{
     const el=host.current!
     const detach=attachNavigation(el,rig,atlas,(location,point)=>{
       let distance=Math.max(5,hudScale(rig.width,rig.height)*14), nearest=-1
-      sites.forEach((site,i)=>{
+      computeSites.forEach((site,i)=>{
         const screen=rig.screen(site.lon,site.lat,altitudes[i])
         const dist=Math.hypot(screen.x-point.x,screen.y-point.y)
-        if(screen.visible && dist<distance) {distance=dist;nearest=i}
+        if(screen.visible && dist<=distance) {distance=dist;nearest=i}
       })
       if(nearest<0) {select.current(location);return}
-      const site=sites[nearest]
-      select.current({...atlas.locate(site.lon,site.lat),site:`${site.kind==="plane" ? "机场" : "港口"} · ${site.id}`})
+      const site=computeSites[nearest]
+      select.current({...atlas.locate(site.lon,site.lat),site:computeSiteLabel(site)})
     })
     const signal=()=>wake.current()
     const lost=(e:Event)=>{e.preventDefault();setLost(true)}
@@ -121,11 +113,15 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
     </Canvas></GraphicsBoundary>}
     {(failed || lost) && <FlatMap atlas={atlas} selected={selected} rig={rig} project={project} reduced={layers.reduced}/>}
     {!ready && !failed && !rig.flat && <span className="map-loading" role="status">正在建立地形…</span>}
-    <svg ref={overlay} className="geo-marks" aria-label="交通与事件标记">
+    <div className="compute-key" aria-hidden="true">
+      {(Object.keys(computeKindLabel) as (keyof typeof computeKindLabel)[]).map(kind =>
+        <span key={kind}><i style={{ background: computeColors[kind] }} />{computeKindLabel[kind]}</span>)}
+    </div>
+    <svg ref={overlay} className="geo-marks" aria-label="算力站点">
       <defs><radialGradient id="event-red" cx=".38" cy=".30" r=".78"><stop stopColor="#dd3045"/><stop offset=".43" stopColor="#92172a"/><stop offset="1" stopColor="#290510"/></radialGradient></defs>
-      {sites.map((p,i)=><g key={p.id} ref={el=>{marks.current[i]=el}}>
-        <rect x="-11.5" y="-11.5" width="23" height="23" rx="2.5" fill="#102931" fillOpacity=".86" stroke="#b9d5d2" strokeWidth=".9"/>
-        <use href={`#${p.kind}`} x="-9.8" y="-9.8" width="19.6" height="19.6"/>
+      {computeSites.map((p,i)=><g key={p.id} ref={el=>{marks.current[i]=el}}>
+        <circle r="6.2" fill={computeColors[p.kind]} stroke="#1a100c" strokeWidth="1.35"/>
+        <title>{computeSiteLabel(p)}</title>
       </g>)}
       {islands.map(({country,name,lon,lat},i)=>{
         const choose=()=>pick({country,lon,lat,islandName:name})
@@ -137,10 +133,6 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
           <path d="M0-5 5 0 0 5-5 0Z" stroke="#e6eee0" strokeWidth="1.4" fill={selected?.id===country.id ? "#e8f1b7" : "#426057"}/>
         </g>
       })}
-      {journeys.map((r,i)=><g key={i} ref={el=>{vehicles.current[i]=el}}>
-        {r.kind==="plane" && <use href="#plane" x="-29" y="-23" width="56" height="53" color="#21323b" opacity=".52" transform="translate(4 4)"/>}
-        <use href={`#${r.kind}`} x={r.kind==="ship" ? -23 : -28} y={r.kind==="ship" ? -8 : -26} width={r.kind==="ship" ? 46 : 56} height={r.kind==="ship" ? 16 : 53}/>
-      </g>)}
       {marker && <g ref={eventPin} style={{display:"none",pointerEvents:"auto",cursor:"pointer"}} role="button" aria-label={marker.label} tabIndex={0}
         onPointerDown={e=>e.stopPropagation()} onPointerUp={e=>e.stopPropagation()}
         onClick={showNews} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();showNews()}}}>
