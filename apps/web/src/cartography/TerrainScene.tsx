@@ -34,7 +34,7 @@ export default function TerrainScene({atlas,rig,selected,layers,project,onReady}
   useLayoutEffect(()=>{
     set({camera:rig.camera})
     rig.setFlat(false)
-    gl.setClearColor(0x164458,1)
+    gl.setClearColor(0x04060f,1)
     const node = gl.domElement
     node.setAttribute("aria-label","三维世界地形")
     node.dataset.renderer = "terrain"

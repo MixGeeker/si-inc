@@ -1,11 +1,12 @@
-:root { font-family: "Segoe UI","Microsoft YaHei","Noto Sans CJK SC",sans-serif; color: #edf7f6; background: #102e39; color-scheme: dark; }
+:root { font-family: "Segoe UI","Microsoft YaHei","Noto Sans CJK SC",sans-serif; color: #edf7f6; background: #04060f; color-scheme: dark; }
 * { box-sizing: border-box; }
 html,body,#root { margin: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
 button,select,input { font: inherit; }
-.game { position: absolute; inset: 0; width: 100%; height: 100%; height: 100dvh; overflow: hidden; isolation: isolate; background: #163e4d; user-select: none; container-type: size; }
+.game { position: absolute; inset: 0; width: 100%; height: 100%; height: 100dvh; overflow: hidden; isolation: isolate; background: #04060f; user-select: none; container-type: size; }
 .map-viewport,.flat-map,.geo-marks,.hud,.hud-layer { position: absolute; inset: 0; width: 100%; height: 100%; }
 .hud-layer { z-index: 2; pointer-events: none; }
 .map-viewport { touch-action: none; outline: 0; cursor: grab; }
+.map-vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 46%, transparent 58%, #02030a88 100%); }
 .map-viewport:active { cursor: grabbing; }
 .map-viewport:focus-visible { box-shadow: inset 0 0 0 2px #8ad3dc; }
 .geo-marks,.hud { pointer-events: none; overflow: visible; }
@@ -23,7 +24,7 @@ button,select,input { font: inherit; }
 .map-loading { position: absolute; top: 45%; left: 50%; transform: translate(-50%,-50%); z-index: 1; padding: .55em 1.2em; background: #091e28ed; border: 1px solid #4b89a0; font-size: 14px; }
 .compute-key { position: absolute; z-index: 3; left: 16px; top: 64px; display: flex; gap: 12px; pointer-events: none; padding: 6px 10px; background: #091e28e6; border: 1px solid #4b89a0; font-size: 12px; }
 .compute-key span { display: inline-flex; align-items: center; gap: 6px; }
-.compute-key i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid #1a100c; }
+.compute-key i { width: 7px; height: 7px; border-radius: 1px; transform: rotate(45deg); border: 1px solid #1a100c; }
 dialog { padding: 0; margin: auto; color: #eff6f4; background: transparent; border: 0; overflow: visible; }
 dialog::backdrop { background: #04121933; }
 .info-dialog { width: min(470px,78vw); }

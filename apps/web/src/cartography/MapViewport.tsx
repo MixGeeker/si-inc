@@ -4,7 +4,7 @@ import { Atlas, relief, surfaceUrl, type Country, type Location } from "./atlas"
 import { attachNavigation, MapCamera } from "./camera"
 import { hudScale, Y_SCALE } from "./layout"
 import TerrainScene, { type LayerState } from "./TerrainScene"
-import { computeColors, computeKindLabel, computeSiteLabel, computeSites } from "./compute-markers"
+import { computeColors, computeKindLabel, computeLegendKinds, computePlaceLabel, computePlaces } from "./compute-markers"
 
 type Props = {atlas:Atlas; rig:MapCamera; selected?:Country|null; layers:LayerState; pick:(pos:Location)=>void; marker?:{lon:number;lat:number;label:string}; showNews:()=>void}
 class GraphicsBoundary extends Component<{children:ReactNode; fail:()=>void},{failed:boolean}> {
@@ -43,7 +43,7 @@ function FlatMap({atlas,selected,rig,project,reduced}:{atlas:Atlas;selected?:Cou
   return <svg ref={svg} className="flat-map" preserveAspectRatio="none" role="img" aria-label="二维矢量世界地图">
     <defs><g id="flat-world"><image href={surfaceUrl} width="360" height="180"/>
       {atlas.countries.map(c=><path key={c.id} d={c.d} fill={selected?.id===c.id ? "#f8ffc12b" : "none"}
-        stroke={selected?.id===c.id ? "#ffffe4" : "#bdd1b7"} strokeWidth={selected?.id===c.id ? .19 : .065} fillRule="evenodd"/>)}
+        stroke={selected?.id===c.id ? "#d7e8ea" : "#6f9eab"} strokeWidth={selected?.id===c.id ? .16 : .07} fillRule="evenodd"/>)}
     </g></defs>{[-360,0,360].map(x=><use key={x} x={x} href="#flat-world"/>)}
   </svg>
 }
@@ -61,7 +61,7 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
   const select=useRef(pick); select.current=pick
   const onReady=useCallback(()=>setReady(true),[])
   const onFail=useCallback(()=>setFailed(true),[])
-  const altitudes=useMemo(()=>computeSites.map(p=>relief(atlas.metres(p.lon,p.lat))+.18),[atlas])
+  const altitudes=useMemo(()=>computePlaces.map(p=>relief(atlas.metres(p.lon,p.lat))+.18),[atlas])
   const project=useCallback((_time:number)=>{
     if (!overlay.current) return
     const w=rig.width,h=rig.height
@@ -74,7 +74,7 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
       el.style.display=visible ? "" : "none"
       if(visible) el.setAttribute("transform",`translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) scale(${scale}) rotate(${angle})`)
     }
-    computeSites.forEach((p,i)=>place(marks.current[i],p.lon,p.lat,altitudes[i]))
+    computePlaces.forEach((p,i)=>place(marks.current[i],p.lon,p.lat,altitudes[i]))
     islands.forEach((island,i)=>place(islandMarks.current[i],island.lon,island.lat,.06))
     if(eventPin.current && marker) {
       if (rig.current.zoom<.17) place(eventPin.current,marker.lon,marker.lat,.30)
@@ -84,15 +84,15 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
   useEffect(()=>{
     const el=host.current!
     const detach=attachNavigation(el,rig,atlas,(location,point)=>{
-      let distance=Math.max(5,hudScale(rig.width,rig.height)*14), nearest=-1
-      computeSites.forEach((site,i)=>{
+      let distance=Math.max(8,hudScale(rig.width,rig.height)*26), nearest=-1
+      computePlaces.forEach((site,i)=>{
         const screen=rig.screen(site.lon,site.lat,altitudes[i])
         const dist=Math.hypot(screen.x-point.x,screen.y-point.y)
         if(screen.visible && dist<=distance) {distance=dist;nearest=i}
       })
       if(nearest<0) {select.current(location);return}
-      const site=computeSites[nearest]
-      select.current({...atlas.locate(site.lon,site.lat),site:computeSiteLabel(site)})
+      const site=computePlaces[nearest]
+      select.current({...atlas.locate(site.lon,site.lat),site:computePlaceLabel(site)})
     })
     const signal=()=>wake.current()
     const lost=(e:Event)=>{e.preventDefault();setLost(true)}
@@ -112,16 +112,18 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
       <Suspense fallback={null}><TerrainScene atlas={atlas} rig={rig} selected={selected} layers={layers} project={project} onReady={onReady}/></Suspense>
     </Canvas></GraphicsBoundary>}
     {(failed || lost) && <FlatMap atlas={atlas} selected={selected} rig={rig} project={project} reduced={layers.reduced}/>}
+    <div className="map-vignette" />
     {!ready && !failed && !rig.flat && <span className="map-loading" role="status">正在建立地形…</span>}
     <div className="compute-key" aria-hidden="true">
-      {(Object.keys(computeKindLabel) as (keyof typeof computeKindLabel)[]).map(kind =>
+      {computeLegendKinds.map(kind =>
         <span key={kind}><i style={{ background: computeColors[kind] }} />{computeKindLabel[kind]}</span>)}
     </div>
     <svg ref={overlay} className="geo-marks" aria-label="算力站点">
       <defs><radialGradient id="event-red" cx=".38" cy=".30" r=".78"><stop stopColor="#dd3045"/><stop offset=".43" stopColor="#92172a"/><stop offset="1" stopColor="#290510"/></radialGradient></defs>
-      {computeSites.map((p,i)=><g key={p.id} ref={el=>{marks.current[i]=el}}>
-        <circle r="6.2" fill={computeColors[p.kind]} stroke="#1a100c" strokeWidth="1.35"/>
-        <title>{computeSiteLabel(p)}</title>
+      {computePlaces.map((p,i)=><g key={p.id} ref={el=>{marks.current[i]=el}}>
+        <rect x="-12.4" y="-12.4" width="24.8" height="24.8" rx="3" fill="#07141c" fillOpacity=".9" stroke={computeColors[p.kind === "current" ? "current" : "planned"]} strokeWidth="2.1"/>
+        <path d="M0-6.3 6.3 0 0 6.3-6.3 0Z" fill={computeColors[p.kind === "current" ? "current" : "planned"]}/>
+        <title>{computePlaceLabel(p)}</title>
       </g>)}
       {islands.map(({country,name,lon,lat},i)=>{
         const choose=()=>pick({country,lon,lat,islandName:name})

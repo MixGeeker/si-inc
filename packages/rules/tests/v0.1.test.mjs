@@ -7,6 +7,7 @@ import { actions } from "../v0.1/evolution/actions.ts"
 import { channels } from "../v0.1/world/channels.ts"
 import { computeSnapshot } from "../v0.1/world/compute.ts"
 import { regionIds } from "../v0.1/world/regions.ts"
+import placesFile from "../v0.1/world/compute-places.json" with { type: "json" }
 import { decisions } from "../v0.1/events/decisions.ts"
 import { news } from "../v0.1/events/news.ts"
 import { competition } from "../v0.1/events/competition.ts"
@@ -38,6 +39,16 @@ test("the compute snapshot covers every market once and its recorded share sums 
   for (const site of computeSnapshot.sites) {
     assert.ok(regionIds.includes(site.market))
     assert.equal(Number.isFinite(site.lat) && Number.isFinite(site.lon), true)
+  }
+})
+
+test("compute places drop unknown sites and keep one point per small country or province", () => {
+  assert.equal(placesFile.places.length, 62)
+  assert.equal(new Set(placesFile.places.map(place => place.id)).size, 62)
+  for (const place of placesFile.places) {
+    assert.ok(place.kind === "current" || place.kind === "planned")
+    assert.equal(Number.isFinite(place.lat) && Number.isFinite(place.lon), true)
+    assert.ok(place.sites >= 1)
   }
 })
 
