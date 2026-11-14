@@ -104,9 +104,9 @@ Vite 从 `apps/web/index.html` 构建到 `apps/web/dist/`。它将哈希脚本�
 
 | 阶段 | 代码位置 | 职责 |
 | --- | --- | --- |
-| 单人模拟 | `packages/game/{simulation,replay}.ts` | 初始化、逐周推进、终局与重放，共用于浏览器、本地平衡模拟和挑战 Worker |
+| 单人模拟 | `packages/game/run.ts` 和 `types.ts` | 已接入开局、周数、基础收益、种子事件和决策日志。后续在共享引擎接入地区模拟、完整胜负与回放恢复。 |
 | 内容制作 | `packages/rules/v0.1/` 的 world、evolution、factions、events 等目录 | 已有市场、渠道、三棵技能树、阵营能力和示例事件。后续补全权重、系数、技能前置和正式新闻池。 |
-| 浏览器接入 | `apps/web/src/scenes/`，待建本地时钟与存档适配器 | 让周模拟消费场景计算的速度，用 IndexedDB 保存和恢复对局。 |
+| 浏览器接入 | `apps/web/src/scenes/store.ts` 和 `clock.ts` | 时钟按有效速度发送周事件，标签页隐藏时暂停。IndexedDB 存档适配器待接入。 |
 | 平衡验证 | `packages/game/tests/` | 固定种子回放样本和三种策略的批量平衡测试，在开发机执行 |
 | 公开挑战 | `apps/api/src/{index,tickets,results,leaderboard}.ts` | 原生 `fetch` 入口、签名凭证、同引擎验分和参数化 SQL。Wrangler 增加 `main` 和 D1 绑定 `DB`，迁移目录指向 `apps/api/migrations` |
 

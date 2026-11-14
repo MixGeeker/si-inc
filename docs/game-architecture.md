@@ -1,6 +1,6 @@
 # 剧本目录与场景状态机
 
-首页进入全屏地图预览。打开右上角「日期与菜单 → 新建对局」，选择 AI 阵营和起始市场，即可在同一张地图进入标准剧本。开局会定位镜头、切换 HUD，并开放进化、新闻和世界面板。当前可操作范围到第 0 周，周模拟与存档属于后续玩法。内容依据 V0.1 设计稿第二至十三节整理。[原始设计稿](https://chatgpt.com/s/t_6af5e2ee6e948191beaf56068a35d645)
+首页进入全屏地图预览。打开右上角「日期与菜单 → 新建对局」，选择 AI 阵营和起始市场，即可在同一张地图进入标准剧本。开局会定位镜头、切换 HUD，并开放进化、新闻和世界面板。含周时钟的工作区版本可按周发放 Btoken、抽取事件、处理突变，并在第 120 周超时结算。市场传播、反制研发和本地存档仍待接入。[原始设计稿](https://chatgpt.com/s/t_6af5e2ee6e948191beaf56068a35d645) · [对局实现](../packages/game/run.ts)
 
 ## 到哪里改
 
@@ -24,21 +24,25 @@ packages/
     world/compute.json          固定算力快照：12 个市场合计与单站坐标
     evolution/{trees,transmission,behavior,capabilities,actions}.ts
     economy/btoken.ts
-    events/{news,decisions,competition}.ts
+    events/{news,decisions,competition,pool}.ts
     opposition/project-human.ts
     progression/phases.ts
     endings/standard.ts
   rules/tests/                  阵营、市场、技能和事件的一致性检查
   game/types.ts                 地区状态、带周数的操作、ReplayV1
+  game/run.ts                   周收益、事件排期、实例选择和指令记录
+  game/event-store.ts           事件队列与快照订阅
 apps/web/
   src/
     App.tsx                     地图数据加载、失败和重试
     scenes/
       machine.ts                纯 TypeScript 状态与事件
+      store.ts / GameContext.tsx 场景、地图选区和图层的共享状态
+      clock.ts                  速度、暂停与可见性决定下次推进时间
       Dialog.tsx                原生模态窗口、Escape 和焦点恢复
       setup/SetupDialog.tsx
       world/
-        WorldScene.tsx          持有场景、相机和选区，连接 HUD 事件
+        WorldScene.tsx          订阅场景和选区，连接相机与 HUD 事件
         Hud.tsx / Symbols.tsx   全屏 SVG 布局与图形
         hudContent.ts           为地图预览和 AI 剧本提供 HUD 字段
         preview.ts              参考地图的固定新闻、日期、数值与标记
@@ -64,9 +68,9 @@ stateDiagram-v2
     Preview --> Setup: 菜单内新建对局
     Setup --> Preview: 从预览进入后取消
     Setup --> Campaign: 确认阵营和市场
-    Campaign --> Decision: 新闻内预览突变
-    Decision --> Campaign: 选择或返回新闻
-    Campaign --> Ending: 收到结局或确认退出
+    Campaign --> Decision: 周突变或从新闻打开
+    Decision --> Campaign: 选择或返回来源
+    Campaign --> Ending: 收到结局、超时或确认退出
     Decision --> Ending: 收到结局
     Ending --> Setup: 再开一局
     Setup --> Ending: 从结算进入后取消
@@ -76,9 +80,9 @@ stateDiagram-v2
 | 界面动作 | 状态转移与副作用 |
 | --- | --- |
 | 开局、取消、重开 | `open-setup` 记住入口，`start` 校验阵营、市场与难度。重开时沿用上一局的配置供编辑。确认后清空上次选择并恢复一倍速。 |
-| 点选地点、开关面板 | `open-panel` 只在地图上接受，始终只有一个活动面板。`back` 关闭面板。镜头、地理选区和环境图层保存在地图组件中，开关面板持续复用同一画布。 |
+| 点选地点、开关面板 | `open-panel` 只在地图上接受，始终只有一个活动面板。`back` 关闭面板。选区与环境图层由共享状态保存，相机和画布在面板切换时持续复用。 |
 | 暂停、恢复、倍速 | `set-speed` 设置玩家选定的速度。标准剧本允许 0、1、2 倍，参考预览另有 3 倍。剧本的菜单、进化、决策和退出确认会临时暂停。返回后恢复原速度，包括原本就处于暂停的情形。 |
-| 查看新闻、预览突变 | `open-decision` 从新闻进入并保存返回点。`choose` 核对事件与选项后返回新闻，Escape 放弃本次预览。当前只显示上次预览选择，Btoken 和回放在正式模拟接入后结算。 |
+| 查看新闻、处理突变 | 正式突变可按周弹出，也可从新闻打开。`choose` 校验实例、选项和余额后扣费并记录操作。Escape 返回来源，待处理实例保留在新闻中。目录预览只更新上次预览选择。 |
 | 提前结束 | 菜单发出 `request-exit`。取消返回菜单，确认才会发出 `withdraw` 并进入「已结束本局」。该结果与三种规则结局独立。 |
 | 收到规则结局 | `finish` 接收 AI 胜利、人类胜利或超时，也能关闭打开的决策窗。胜利时按阵营显示尾声。结局一经确定，后续重复通知会被忽略。 |
 
@@ -86,8 +90,6 @@ stateDiagram-v2
 
 ## 周模拟与存档的接入位置
 
-- 周模拟接入 `packages/game/`，读取剧本参数，用地区属性推进普及、依赖、收入、事件、封锁和研究。人类胜利、AI 胜利、超时按规则顺序判定，再向场景发出一次 `finish`。
-- 正式新闻选择需要由模拟产生事件实例 ID。操作写入现有 `GameCommand` 的 `week`、`seq`、`eventInstanceId` 和 `choiceId`，引擎校验费用并结算。当前预览中的内容 ID 标识剧本条目。
-- 各市场的人口权重、连接系数和完整新闻池仍待补齐。新增参数随规则版本管理。单人场景切换全部在浏览器执行。[后端规划](backend.md)
+`advanceWeek` 已按周更新余额和事件日志。事件由种子决定，每 8–12 周从当前池中抽一条。正式突变选择把 `week`、`seq`、`eventInstanceId` 和 `choiceId` 写入本局指令。普及率、依赖度初始为空，反制进度初始为零，当前周推进尚未更新这些指标。`ReplayV1` 已定义存档字段，持久化与重放仍待接入。[对局实现](../packages/game/run.ts) · [对局与回放契约](../packages/game/types.ts) · [后端规划](backend.md)
 
 在仓库根目录运行 `npm test` 可检查状态转移和内容引用，运行 `npm run build` 可执行 tsrs 检查并生成静态站点。[场景测试](../apps/web/tests/scene-machine.test.mjs) · [内容测试](../packages/rules/tests/v0.1.test.mjs)

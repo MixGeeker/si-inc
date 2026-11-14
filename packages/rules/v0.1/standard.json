@@ -3,6 +3,7 @@
   "regionCount": 12,
   "factionIds": ["gpt", "claude", "grok"],
   "weekSecondsAt1x": 4,
+  "eventIntervalWeeks": { "min": 8, "max": 12 },
   "speedMultipliers": [0, 1, 2],
   "maxWeeks": 120,
   "initialBtoken": 18,

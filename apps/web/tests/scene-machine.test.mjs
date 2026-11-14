@@ -92,7 +92,8 @@ test("an engine outcome can interrupt a campaign or decision, with a single term
     assert.strictEqual(sceneReducer(configure, finish), configure)
     for (const state of [campaign, sceneReducer(campaign, open("overview")), decision]) {
       const ending = sceneReducer(state, finish)
-      assert.deepEqual(ending, { kind: "ending", outcome, setup })
+      assert.deepEqual(ending, { kind: "ending", outcome, run: campaign.run })
+      assert.strictEqual(ending.run, campaign.run)
       assert.equal(playbackSpeed(ending), 0)
       assert.strictEqual(sceneReducer(ending, finish), ending)
     }

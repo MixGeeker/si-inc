@@ -1,4 +1,4 @@
-// Authored examples. Timing and effects will be applied by the weekly simulation.
+// Authored news used by the standard weekly event pool.
 export const news = [
   { id: "ai-search", title: "全球用户开始使用 AI 代替搜索引擎", body: "搜索习惯改变，各市场的潜在用户增加。" },
   { id: "overnight-agent", title: "某 AI Agent 连夜完成 127 单工作", body: "企业加速部署 Agent，员工也更担心岗位被替代。" },

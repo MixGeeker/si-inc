@@ -1,4 +1,5 @@
 import { Fragment } from "react"
+import type { RunState } from "../../../../../packages/game/run"
 import { btoken } from "../../../../../packages/rules/v0.1/economy/btoken"
 import { competition } from "../../../../../packages/rules/v0.1/events/competition"
 import { decisions, type DecisionId } from "../../../../../packages/rules/v0.1/events/decisions"
@@ -12,12 +13,11 @@ import { channels } from "../../../../../packages/rules/v0.1/world/channels"
 import { SceneDialog } from "../Dialog"
 import type { RunSetup, Scene } from "../machine"
 
-export function EvolutionPanel({ setup }: { setup: RunSetup }) {
-  const { factions, rules } = standardScenario
-  const faction = factions[setup.factionId]
+export function EvolutionPanel({ run }: { run: RunState }) {
+  const faction = standardScenario.factions[run.setup.factionId]
   return <>
     <h3>{faction.name} · {faction.ability.name}</h3><p>{faction.ability.description}</p>
-    <p className="source-note">开局 {rules.initialBtoken} Btoken · 下列为剧本技能价格</p>
+    <p className="source-note">当前余额 {run.balance} Btoken</p>
     {trees.map(tree => <details key={tree.name}><summary>{tree.name}</summary>
       <dl className="readings">{tree.skills.map(skill => <Fragment key={skill.id}>
         <div><dt>{skill.name}</dt><dd>{skill.cost} Btoken</dd></div>
@@ -55,11 +55,23 @@ export function MarketPanel({ setup }: { setup: RunSetup }) {
 
 type Campaign = Extract<Scene, { kind: "campaign" }>
 
-export function CampaignNews({ scene, openDecision }: { scene: Campaign; openDecision: (id: DecisionId) => void }) {
-  const { lastDecision, setup } = scene
+export function CampaignNews({ scene, openDecision }: { scene: Campaign; openDecision: (id: DecisionId, instanceId?: string) => void }) {
+  const { lastDecision, run } = scene
+  const { setup } = run
   const previous = lastDecision && decisions[lastDecision.id].choices.find(c => c.id === lastDecision.choiceId)
   return <>
     <h3>{standardScenario.factions[setup.factionId].name} 已进入{standardScenario.regions[setup.startRegionId].name}市场</h3>
+    <h4>本局事件</h4>
+    {run.events.length === 0 ? <p>暂无事件</p> : <ol>{[...run.events].reverse().map(entry => {
+      const { content } = entry
+      const chosen = content.kind === "decision" && decisions[content.id].choices.find(c => c.id === entry.choiceId)
+      return <li key={entry.instanceId}>
+        <strong>第 {entry.week} 周 · {content.title}</strong><p>{content.body}</p>
+        {content.kind === "decision" && (chosen
+          ? <p>已选择 · {chosen.label}</p>
+          : <button onClick={() => openDecision(content.id, entry.instanceId)}>处理突变</button>)}
+      </li>
+    })}</ol>}
     <details><summary>剧本新闻</summary>
       {news.map(item => <section key={item.id}><h4>{item.title}</h4><p>{item.body}</p></section>)}
     </details>
@@ -68,16 +80,20 @@ export function CampaignNews({ scene, openDecision }: { scene: Campaign; openDec
     </details>
     <div className="window-actions">{(Object.keys(decisions) as DecisionId[]).map(id =>
       <button key={id} onClick={() => openDecision(id)}>预览突变 · {decisions[id].title}</button>)}</div>
-    {previous && <p role="status">上次选择 · {previous.label}</p>}
+    {previous && <p role="status">上次预览选择 · {previous.label}</p>}
   </>
 }
 
-export function DecisionDialog({ id, back, choose }: { id: DecisionId; back: () => void; choose: (choiceId: string) => void }) {
-  const decision = decisions[id]
+export function DecisionDialog({ scene, back, choose }: {
+  scene: Extract<Scene, { kind: "decision" }>; back: () => void; choose: (choiceId: string) => void
+}) {
+  const decision = decisions[scene.id]
+  const balance = scene.back.run.balance
+  const live = scene.instanceId !== undefined
   return <SceneDialog title={decision.title} onBack={back}>
     <p>{decision.prompt}</p>
-    <p className="source-note">剧本选择预览</p>
-    <div className="window-actions">{decision.choices.map(c => <button key={c.id} onClick={() => choose(c.id)}>
+    <p className="source-note">{live ? `当前余额 ${balance} Btoken` : "剧本选择预览 · 免费试选"}</p>
+    <div className="window-actions">{decision.choices.map(c => <button key={c.id} disabled={live && c.cost > balance} onClick={() => choose(c.id)}>
       {c.label}{c.cost > 0 && ` · ${c.cost} Btoken`}
     </button>)}</div>
   </SceneDialog>

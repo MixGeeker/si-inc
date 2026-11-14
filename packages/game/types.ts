@@ -1,10 +1,10 @@
 export interface RegionState {
-  regionId: string
-  adoptionBps: number
+  readonly regionId: string
+  readonly adoptionBps: number
   /** Share of local AI users who depend on it. 10,000 basis points represent 100%. */
-  dependencyBps: number
-  lockdownBps: number
-  milestonesClaimed: string[]
+  readonly dependencyBps: number
+  readonly lockdownBps: number
+  readonly milestonesClaimed: readonly string[]
 }
 
 type Action =
@@ -13,16 +13,16 @@ type Action =
   | { kind: "chooseEvent"; eventInstanceId: string; choiceId: string }
 
 /** A decision made after `week` completed weeks. Sequence numbers increase across the run. */
-export type GameCommand = { week: number; seq: number } & Action
+export type GameCommand = Readonly<{ week: number; seq: number } & Action>
 
 /** Persist the rules, seed and inputs together. The engine derives balances and results. */
 export interface ReplayV1 {
-  saveVersion: 1
-  rulesVersion: string
-  seed: number
-  factionId: string
-  startRegionId: string
-  difficultyId: string
-  completedWeek: number
-  commands: readonly GameCommand[]
+  readonly saveVersion: 1
+  readonly rulesVersion: string
+  readonly seed: number
+  readonly factionId: string
+  readonly startRegionId: string
+  readonly difficultyId: string
+  readonly completedWeek: number
+  readonly commands: readonly GameCommand[]
 }
