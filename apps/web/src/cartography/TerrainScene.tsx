@@ -1,12 +1,15 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { useFrame, useLoader, useThree } from "@react-three/fiber"
-import { Mesh, TextureLoader } from "three"
+import { Color, MathUtils, Mesh, TextureLoader } from "three"
 import { Atlas, surfaceUrl, vaporUrl, type Country } from "./atlas"
 import humidityUrl from "./data/humidity.png"
 import { MapCamera } from "./camera"
 import { WORLD_WIDTH, WORLD_HEIGHT, Y_SCALE } from "./layout"
 import { CurrentTraces } from "./currents"
 import { borders, materials, reliefGeometry, selectionTexture, velocityTexture } from "./materials"
+import { SWEEP_MS, cloudCoverAt, hasOutgoingClouds, type CloudSweep } from "./cloud-sweep"
+
+type LightTransition = CloudSweep & { lightStartedAt:number; initialNight:number }
 
 export type LayerState = { cloud:boolean; current:boolean; speed:number; reduced:boolean; night:boolean }
 type Props = {atlas:Atlas; rig:MapCamera; selected?:Country | null; layers:LayerState;
@@ -20,6 +23,9 @@ export default function TerrainScene({atlas,rig,selected,layers,project,onReady}
   const blank = useMemo(()=>selectionTexture(null),[])
   const mark = useMemo(()=>selected ? selectionTexture(selected) : blank,[selected,blank])
   const mat = useMemo(()=>materials(surface,vapor,humidity,wind,bordersMap,blank),[surface,vapor,humidity,wind,bordersMap,blank])
+  const backdrop = useMemo(()=>({ day:new Color(0x164458), night:new Color(0x04060f), color:new Color() }),[])
+  const previousNight = useRef(layers.night)
+  const sweep = useRef<LightTransition | null>(null)
   const traces = useMemo(()=>new CurrentTraces(atlas),[atlas])
   const elapsed = useRef(0), seaDt = useRef(0), overlayDt = useRef(1)
   const terrainMeshes=useRef<(Mesh|null)[]>([])
@@ -45,12 +51,29 @@ export default function TerrainScene({atlas,rig,selected,layers,project,onReady}
   useLayoutEffect(()=>{
     mat.uniforms.selected.value = mark.texture
     mat.uniforms.selectionRect.value = mark.rect
-    mat.uniforms.cloudsOn.value = layers.cloud ? 1 : 0
     mat.uniforms.currentsOn.value = layers.current ? 1 : 0
-    mat.uniforms.night.value = layers.night ? 1 : 0
-    gl.setClearColor(layers.night ? 0x04060f : 0x164458, 1)
+    if (!layers.cloud || layers.reduced) {
+      sweep.current = null
+    } else if (layers.night !== previousNight.current) {
+      const now = performance.now()
+      const previous = sweep.current
+      // A second toggle redirects the light while clouds already in flight keep moving left.
+      sweep.current = {
+        startedAt: previous && hasOutgoingClouds(previous, now) ? previous.startedAt : now,
+        initialCover: previous ? cloudCoverAt(previous, now, previousNight.current) : mat.uniforms.cloudCover.value,
+        lightStartedAt: now,
+        initialNight: mat.uniforms.night.value,
+      }
+    }
+    previousNight.current = layers.night
+    if (!sweep.current) {
+      mat.uniforms.cloudSweep.value = 0
+      mat.setCloudCover(Number(layers.cloud && !layers.night))
+      mat.uniforms.night.value = Number(layers.night)
+      gl.setClearColor(layers.night ? backdrop.night : backdrop.day, 1)
+    }
     invalidate()
-  },[mat,mark,layers,invalidate])
+  },[mat,mark,layers,gl,backdrop,invalidate])
   useEffect(()=>()=>{if(mark!==blank) mark.texture.dispose()},[mark,blank])
   useEffect(()=>()=>{geometry.dispose(); wind.dispose(); bordersMap.dispose(); blank.texture.dispose()
     mat.ground.dispose(); mat.sky.dispose(); traces.geometry.dispose()
@@ -60,6 +83,20 @@ export default function TerrainScene({atlas,rig,selected,layers,project,onReady}
     const w=gl.domElement.clientWidth, h=gl.domElement.clientHeight
     rig.resize(w,h)
     const moved = rig.step(delta,layers.reduced)
+    const gust = sweep.current
+    if (gust) {
+      const now = performance.now()
+      const age = now - gust.startedAt
+      const uniforms = mat.uniforms
+      gl.getDrawingBufferSize(uniforms.viewportPixels.value)
+      uniforms.cloudSweep.value = hasOutgoingClouds(gust, now) ? MathUtils.smoothstep(age, 0, SWEEP_MS) : 0
+      const cover = cloudCoverAt(gust, now, layers.night)
+      mat.setCloudCover(cover)
+      const light = MathUtils.smoothstep(now - gust.lightStartedAt, 0, SWEEP_MS)
+      uniforms.night.value = MathUtils.lerp(gust.initialNight, Number(layers.night), light)
+      gl.setClearColor(backdrop.color.lerpColors(backdrop.day, backdrop.night, uniforms.night.value), 1)
+      if (light === 1 && cover === Number(!layers.night)) sweep.current = null
+    }
     const speed = layers.reduced ? 0 : layers.speed
     const dt = Math.min(delta,.12)*speed
     elapsed.current += dt
@@ -74,7 +111,7 @@ export default function TerrainScene({atlas,rig,selected,layers,project,onReady}
       gl.domElement.dataset.tilt = rig.tilt.toFixed(2)
       gl.domElement.dataset.zoom = rig.current.zoom.toFixed(3)
     }
-    if (moved || speed>0) state.invalidate()
+    if (moved || speed>0 || sweep.current) state.invalidate()
   })
   return <>
     {[-360,0,360].map((x,i)=><group key={x} position-x={x}>
