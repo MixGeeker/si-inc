@@ -20,7 +20,7 @@ export function SetupDialog({ previous, start, back }: { previous?: RunSetup; st
       <label>起始市场<select required value={startRegionId} onChange={e => setRegion(e.target.value)}>
         <option value="">选择市场</option>{Object.entries(regions).map(([id, r]) => <option key={id} value={id}>{r.name}</option>)}
       </select></label>
-      <p>{difficulty.name}难度 · {rules.initialBtoken} Btoken · {rules.maxWeeks} 周上限</p>
+      <p>{difficulty.name}难度 · {rules.initialBtoken} token · {rules.maxWeeks} 周上限</p>
       <div className="window-actions"><button type="submit" disabled={!faction || !isRegionId(startRegionId)}>进入地图</button></div>
     </form>
   </SceneDialog>

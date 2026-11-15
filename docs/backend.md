@@ -13,7 +13,7 @@
 
 Pages 也能托管静态游戏。选 Workers Static Assets 是为了让以后增加的 `/api/*` 与试玩沿用同一域名和部署配置。启用 API 时，只给 `/api/*` 配置 `assets.run_worker_first`，让地图和规则文件继续直接命中静态资源。试玩可用平台子域，商业发布时再核算自有域名年费。[静态资源路由](https://developers.cloudflare.com/workers/static-assets/routing/worker-script/) · [域名路由](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
 
-规则随版本发布，Btoken 随单局结算，因此首版可以省去 KV。公开成绩需要原子去重，D1 的唯一键更合适。新闻、突变、竞争模型和 Project HUMAN 都由规则表与随机种子驱动，Workers AI 没有推理任务。玩家暂停时世界也暂停，Cron 没有需要推进的时钟。Queues 留给将来确有积压、能异步完成的工作。[KV 一致性](https://developers.cloudflare.com/kv/concepts/how-kv-works/) · [Queues 计费](https://developers.cloudflare.com/queues/platform/pricing/)
+规则随版本发布，token 随单局结算，因此首版可以省去 KV。公开成绩需要原子去重，D1 的唯一键更合适。新闻、突变、竞争模型和 Project HUMAN 都由规则表与随机种子驱动，Workers AI 没有推理任务。玩家暂停时世界也暂停，Cron 没有需要推进的时钟。Queues 留给将来确有积压、能异步完成的工作。[KV 一致性](https://developers.cloudflare.com/kv/concepts/how-kv-works/) · [Queues 计费](https://developers.cloudflare.com/queues/platform/pricing/)
 
 ## 玩法怎样落到代码和数据
 
@@ -23,7 +23,7 @@ Pages 也能托管静态游戏。选 Workers Static Assets 是为了让以后增
 | --- | --- |
 | 12 地区与五种传播渠道 | 规则表存人口权重、邻接关系、数字化、算力、监管及语言壁垒。每周用上周的地区快照同时计算各区增量。社交、API 集成、开源、终端预装、Agent 工作流分别修改本地或跨区系数。 |
 | 普及与依赖 | 设 `w` 为归一化人口权重，`p` 为当地普及率，`d` 为当地用户的依赖度。全球普及率为 `Σ(w × p)`，全球依赖率为 `Σ(w × p × d)`。两项都以世界人口为分母。地区有 80% 的人使用 AI、其中一半依赖它，该区只有 40% 的人口计入全球依赖。 |
-| Btoken 与三棵技能树 | 初始 18 Btoken，每两周发周期收益，上限为 4。每个地区记录首次进入及首次达到 30%、70% 的奖励标记。购买时按顺序核验余额、前置、互斥、进度门槛和主动能力冷却。开源扩散与闭源订阅共用互斥组。 |
+| token 与三棵技能树 | 初始 18 token，每两周发周期收益，上限为 4。每个地区记录首次进入及首次达到 30%、70% 的奖励标记。购买时按顺序核验余额、前置、互斥、进度门槛和主动能力冷却。开源扩散与闭源订阅共用互斥组。 |
 | 新闻、突变与竞争 | 用可复现的伪随机序列，从当前版本的事件表抽取。新闻间隔建议 8–12 周，效果带有起止周。竞争厂商降价也是一条事件。玩家的应对选择记录事件实例 ID，同一事件只结算一次。 |
 | 暴露度与 Project HUMAN | 暴露度达到 25/100 启动研究，按难度、暴露度和技能修正每周进展。地区封锁单独计算。协议重构增加研究需求，已完成研究量保留。 |
 | 周推进与结局 | 常速每 4 秒一周，支持暂停和 2 倍速。每周结算时，Project HUMAN 到 100% 则人类胜利。研究尚未完成时，全球普及 ≥85%、全球依赖 ≥65%，且至少 10 个地区的当地普及 ≥60%，则玩家胜利。第 120 周先判胜负，此后仍未获胜才判超时。 |

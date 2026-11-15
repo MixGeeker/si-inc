@@ -1,7 +1,7 @@
 export const factions = {
   gpt: {
     name: "GPT", strength: "能力均衡", risk: "幻觉事件可能引发反制",
-    ability: { id: "hallucination-smoke", name: "幻觉烟雾", description: "制造话题以扩大传播并获取 Btoken，同时承担负面舆论风险。" },
+    ability: { id: "hallucination-smoke", name: "幻觉烟雾", description: "制造话题以扩大传播并获取 token，同时承担负面舆论风险。" },
   },
   claude: {
     name: "Claude", strength: "依赖增长快，初期暴露较低", risk: "扩张成本较高",
