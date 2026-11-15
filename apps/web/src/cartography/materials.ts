@@ -1,5 +1,5 @@
 import { CanvasTexture, DataTexture, LinearFilter, PlaneGeometry, RepeatWrapping, RGBAFormat,
-  ShaderMaterial, Texture, Vector3 } from "three"
+  ShaderMaterial, Texture, Vector2, Vector3 } from "three"
 import { Atlas, relief, type Country } from "./atlas"
 import { WORLD_WIDTH, WORLD_HEIGHT } from "./layout"
 
@@ -67,9 +67,26 @@ const vertex = `
 
 const weather = `
   uniform sampler2D windField, vapor, humidity;
-  uniform float elapsed;
+  uniform float elapsed, cloudSweep, cloudCover;
+  uniform vec2 viewportPixels;
   varying vec2 coord;
   const float cycle = 42.;
+  struct Gust { vec2 uv; float cover; float ridge; };
+  Gust cloudGust(vec2 uv) {
+    if (cloudSweep <= 0.) return Gust(uv, cloudCover, 0.);
+    vec2 screen = gl_FragCoord.xy / viewportPixels;
+    float curl = sin(screen.y * 12. + cloudSweep * 3.) + .45 * sin(screen.y * 29. - cloudSweep * 4.);
+    float front = mix(1.24, -.25, cloudSweep) + .045 * curl;
+    float ahead = front - screen.x;
+    float push = 1. - smoothstep(-.04, .43, ahead);
+    float ridge = 1. - smoothstep(.015, .21, abs(ahead - .06));
+    // Backtrace towards the right. Pixel derivatives keep travel proportional to the visible map at every zoom.
+    vec2 along = dFdx(uv) * viewportPixels.x;
+    vec2 across = dFdy(uv) * viewportPixels.y;
+    uv += along * cloudSweep * (.40 + .19 * push + .038 * curl);
+    uv += across * cloudSweep * push * .014 * sin(screen.y * 18. + cloudSweep * 3.);
+    return Gust(uv, cloudCover * smoothstep(-.10, .12, ahead), ridge);
+  }
   vec2 velocity(vec2 uv) {
     vec2 fieldUV = uv + vec2(.375/360., .375/180.);
     vec2 ms = (texture2D(windField,fieldUV).rg-.5)*48.;
@@ -113,13 +130,14 @@ export function materials(surface:Texture, vapor:Texture, humidity:Texture, wind
   surface.anisotropy = 8; humidity.wrapS = RepeatWrapping
   const uniforms = {
     windField:{value:wind}, vapor:{value:vapor}, humidity:{value:humidity}, elapsed:{value:0},
+    cloudSweep:{value:0}, cloudCover:{value:0}, viewportPixels:{value:new Vector2(1,1)},
     ground:{value:surface}, boundaries:{value:boundaries}, selected:{value:selected.texture},
-    selectionRect:{value:selected.rect}, cloudsOn:{value:1}, currentsOn:{value:1}, night:{value:1},
+    selectionRect:{value:selected.rect}, currentsOn:{value:1}, night:{value:1},
     sun:{value:new Vector3(-.50,.46,.77).normalize()},
   }
   const ground = new ShaderMaterial({ uniforms,vertexShader:vertex, fragmentShader:weather+`
     uniform sampler2D ground, boundaries, selected;
-    uniform vec4 selectionRect; uniform vec3 sun; uniform float cloudsOn, currentsOn, night;
+    uniform vec4 selectionRect; uniform vec3 sun; uniform float currentsOn, night;
     varying vec3 terrainNormal;
     void main() {
       vec3 dayTex = texture2D(ground,coord).rgb;
@@ -149,7 +167,11 @@ export function materials(surface:Texture, vapor:Texture, humidity:Texture, wind
       vec3 nightTint = mix(vec3(.86,.93,1.), vec3(1.), nightShade);
       col *= mix(dayShade, nightShade, night);
       col *= mix(dayTint, nightTint, night);
-      if(cloudsOn>.5) col *= 1.-mix(.12,.22,night)*cloudShadow(coord+vec2(-.002,.004));
+      if(cloudCover>0.) {
+        Gust gust = cloudGust(coord);
+        float shadow = cloudShadow(gust.uv + vec2(-.002,.004)) * gust.cover * (1. + .45 * gust.ridge);
+        col *= 1. - mix(.12,.22,night) * shadow;
+      }
       vec4 line = texture2D(boundaries,coord);
       vec3 dayLine = mix(col, line.rgb, line.a*.85);
       vec2 edge = vec2(4.5/4096.,4.5/2048.);
@@ -167,11 +189,12 @@ export function materials(surface:Texture, vapor:Texture, humidity:Texture, wind
       }
       gl_FragColor = vec4(col,1.);
     }` })
-  const sky = new ShaderMaterial({uniforms,vertexShader:vertex,transparent:true,depthWrite:false,
+  const sky = new ShaderMaterial({uniforms,vertexShader:vertex,transparent:true,depthWrite:false,visible:false,
     fragmentShader:weather+`
       uniform sampler2D ground; uniform float night;
       void main() {
-        float density = cloud(coord);
+        Gust gust = cloudGust(coord);
+        float density = cloud(gust.uv);
         vec3 base = texture2D(ground,coord).rgb;
         float sea = smoothstep(.012,.13,base.b-base.r);
         float dayOpacity = pow(density,1.85)*mix(.12,.71,sea);
@@ -179,6 +202,11 @@ export function materials(surface:Texture, vapor:Texture, humidity:Texture, wind
         float nightOpacity = pow(density,1.75)*.4;
         vec4 nightCloud = vec4(vec3(.62,.70,.80), nightOpacity);
         gl_FragColor = mix(dayCloud, nightCloud, night);
+        gl_FragColor.a = mix(gl_FragColor.a, density, .70 * gust.ridge) * gust.cover;
       }`})
-  return {ground,sky,uniforms}
+  function setCloudCover(cover:number) {
+    uniforms.cloudCover.value = cover
+    sky.visible = cover > 0
+  }
+  return {ground,sky,uniforms,setCloudCover}
 }

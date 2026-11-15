@@ -164,7 +164,7 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
     {panel === "world" && <SceneDialog title="世界" onBack={back}>
       {run && <MarketPanel setup={run.setup}/>}
       <fieldset><legend>环境图层</legend>
-        <label><input type="checkbox" checked={cloud} onChange={e => send({ type: "set-layer", layer: "cloud", enabled: e.target.checked })}/> 大气云层</label>
+        <label><input type="checkbox" checked={cloud} onChange={e => send({ type: "set-layer", layer: "cloud", enabled: e.target.checked })}/> 白天显示云层</label>
         <label><input type="checkbox" checked={current} onChange={e => send({ type: "set-layer", layer: "current", enabled: e.target.checked })}/> 表层洋流</label>
       </fieldset>
       <p className="source-note">十一月气候态 · NOAA 风场与全球漂流浮标</p>
