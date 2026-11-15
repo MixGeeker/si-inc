@@ -6,9 +6,12 @@ import { standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
 export type { RunSetup }
 const mapPanels = ["menu", "world", "region", "overview", "news"] as const
 export type MapPanel = typeof mapPanels[number]
-type Preview = { kind: "preview"; panel: MapPanel | null; speed: number }
+const newsViews = ["archive", "current", "week"] as const
+export type NewsView = typeof newsViews[number]
+type NewsFocus = { newsView?: NewsView; newsItemId?: string }
+type Preview = { kind: "preview"; panel: MapPanel | null; speed: number } & NewsFocus
 
-interface Campaign {
+interface Campaign extends NewsFocus {
   kind: "campaign"
   run: RunState
   panel: MapPanel | "confirm-exit" | null
@@ -30,7 +33,7 @@ export type Scene =
   | Ending
 
 export type SceneEvent =
-  | { type: "open-panel"; panel: MapPanel }
+  | { type: "open-panel"; panel: MapPanel; newsView?: NewsView; newsItemId?: string }
   | { type: "back" }
   | { type: "set-speed"; speed: number }
   | { type: "open-setup" }
@@ -46,17 +49,45 @@ export type SceneEvent =
 export const previewSpeeds = [0, 1, 2, 3] as const
 export const initialScene: Preview = { kind: "preview", panel: null, speed: 1 }
 
+function isNewsView(value: string): value is NewsView {
+  return (newsViews as readonly string[]).includes(value)
+}
+
+function showNews(scene: Preview | Campaign, view: NewsView, itemId: string | undefined): Preview | Campaign {
+  const { newsView, newsItemId, ...rest } = scene
+  void newsView
+  void newsItemId
+  const opened = { ...rest, panel: "news" as const, newsView: view }
+  return itemId === undefined ? opened : { ...opened, newsItemId: itemId }
+}
+
 export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
   switch (event.type) {
-    case "open-panel":
-      if ((scene.kind === "preview" || scene.kind === "campaign") && scene.panel === null && mapPanels.includes(event.panel)) {
-        return { ...scene, panel: event.panel }
+    case "open-panel": {
+      if (scene.kind !== "preview" && scene.kind !== "campaign") break
+      if (!mapPanels.includes(event.panel)) break
+      if (event.panel === "news") {
+        if (event.newsView !== undefined && !isNewsView(event.newsView)) return scene
+        if (event.newsItemId !== undefined && event.newsItemId === "") return scene
+        const view = event.newsView ?? "archive"
+        const itemId = event.newsItemId
+        if (scene.panel !== null && scene.panel !== "news") return scene
+        if (scene.panel === "news" && (scene.newsView ?? "archive") === view && scene.newsItemId === itemId) return scene
+        return showNews(scene, view, itemId)
       }
-      break
+      if (scene.panel !== null) return scene
+      return { ...scene, panel: event.panel }
+    }
     case "back":
       if (scene.kind === "setup" || scene.kind === "decision") return scene.back
       if (scene.kind === "campaign" && scene.panel === "confirm-exit") return { ...scene, panel: "menu" }
-      if ((scene.kind === "preview" || scene.kind === "campaign") && scene.panel) return { ...scene, panel: null }
+      if ((scene.kind === "preview" || scene.kind === "campaign") && scene.panel) {
+        if (scene.newsView === undefined && scene.newsItemId === undefined) return { ...scene, panel: null }
+        const { newsView, newsItemId, ...rest } = scene
+        void newsView
+        void newsItemId
+        return { ...rest, panel: null }
+      }
       break
     case "open-setup":
       if ((scene.kind === "preview" && scene.panel === "menu") || scene.kind === "ending") {

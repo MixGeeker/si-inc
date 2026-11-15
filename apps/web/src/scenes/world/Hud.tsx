@@ -3,69 +3,219 @@ import { Glyph, Symbols } from "./Symbols"
 import { surfaceUrl, type Location } from "../../cartography/atlas"
 import { HUD, hudScale } from "../../cartography/layout"
 import kyiv from "../../cartography/data/kyiv.webp"
-import type { MapPanel } from "../machine"
-import type { HudContent } from "./hudContent"
-type Props = {location:Location|null; content:HudContent; zoom:number; speed:number; night:boolean; toggleNight:()=>void; open:(p:MapPanel)=>void; setSpeed:(n:number)=>void; setZoom:(n:number)=>void}
+import type { MapPanel, NewsView } from "../machine"
+import type { DecisionId } from "../../../../../packages/rules/v0.1/events/decisions"
+import type { HudContent, PreviewHud } from "./hudContent"
+import { NewsLayer } from "./NewsLayer"
+import type { NewsItem } from "./newsFeed"
+import type { CountryChip, MarketChip } from "./placeFixture"
+export type PlaceLevel =
+  | { kind: "world"; markets: MarketChip[] }
+  | { kind: "market"; name: string; reward: string; countries: CountryChip[]; note: string }
+  | { kind: "country"; name: string; lines: [string, string][]; footer: string; backLabel: string }
+type Props = {location:Location|null; place:PlaceLevel|null; placeThumb:Location|null; content:HudContent; newsItems:readonly NewsItem[]; newsView:NewsView|null; newsItemId?:string; newsWeek:number|null; openNews:(view:NewsView, itemId?:string)=>void; closeNews:()=>void; decide:(id:DecisionId, instanceId:string)=>void; zoom:number; speed:number; night:boolean; toggleNight:()=>void; open:(p:MapPanel)=>void; chooseMarket:(id:MarketChip["id"])=>void; chooseCountry:(id:string)=>void; placeBack:()=>void; setSpeed:(n:number)=>void; setZoom:(n:number)=>void}
 
-function Control({label,run,children,pressed,description}:{label:string;run:()=>void;children:ReactNode;pressed?:boolean;description?:string}) {
-  return <g className="svg-button" role="button" tabIndex={0} aria-label={label} aria-pressed={pressed} aria-description={description} onClick={run}
+function Control({label,run,children,pressed,description,news}:{label:string;run:()=>void;children:ReactNode;pressed?:boolean;description?:string;news?:boolean}) {
+  return <g className="svg-button" data-news={news ? "" : undefined} role="button" tabIndex={0} aria-label={label} aria-pressed={pressed} aria-description={description} onClick={run}
     onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();run()}}}>
     <title>{label}</title>{children}
   </g>
 }
 function Glass({d,accent=false}:{d:string;accent?:boolean}) {
-  return <path d={d} fill="url(#hud-glass)" stroke={accent ? "#b7deed" : "url(#hud-edge)"} strokeWidth="1.8" strokeLinejoin="round"/>
+  return <>
+    <path d={d} fill="url(#hud-glass)"/>
+    <path d={d} fill="url(#panel-grid)" pointerEvents="none"/>
+    <path d={d} fill="none" stroke={accent ? "#ffe7c8" : "#d8fff4"} strokeOpacity={accent ? .45 : .22} strokeWidth="3.2" filter="url(#edge-bloom)"/>
+    <path className="plate-edge" d={d} fill="none" stroke={accent ? "#fff6ea" : "#f7fffc"} strokeOpacity={accent ? .72 : .62} strokeWidth="1.15" strokeLinejoin="miter" filter="url(#edge-glow)"/>
+  </>
 }
-function SideMeter({world,x,y,open,content}:{world?:boolean;x:number;y:number;open:(p:MapPanel)=>void;content:HudContent}) {
+function cutRect(x:number,y:number,rw:number,rh:number,c:number) {
+  return `M${x+c} ${y}H${x+rw-c}L${x+rw} ${y+c}V${y+rh-c}L${x+rw-c} ${y+rh}H${x+c}L${x} ${y+rh-c}V${y+c}Z`
+}
+function Corner({x,y,sx,sy,reach=78}:{x:number;y:number;sx:number;sy:number;reach?:number}) {
+  return <g transform={`translate(${x} ${y}) scale(${sx} ${sy})`}>
+    <path d={`M0 ${reach}V26L26 0H${reach}`} fill="none" stroke="#9dffe6" strokeWidth="3.4" strokeOpacity=".55" filter="url(#edge-bloom)"/>
+    <path d={`M0 ${reach}V26L26 0H${reach}`} fill="none" stroke="#f7fffc" strokeWidth="1.5" strokeOpacity=".92"/>
+    <path d={`M8 ${reach-16}V34L34 8H${reach-16}`} fill="none" stroke="#f7fffc" strokeWidth="1" strokeOpacity=".4"/>
+    <path d="M20 20h9v9h-9z" fill="#f4fffb" fillOpacity=".72"/>
+    <path d="M0 52H-10M52 0V-10" fill="none" stroke="#ffffff" strokeWidth="1.3" strokeOpacity=".9"/>
+  </g>
+}
+function mapFrame(w:number,h:number) {
+  return {left:36, top:HUD.newsBottom+20, right:w-HUD.railRight-44, bottom:h-HUD.regionHeight-28, cut:52}
+}
+function FrameFrost({width,height,unit}:{width:number;height:number;unit:number}) {
+  const frame=mapFrame(width/unit,height/unit)
+  const l=frame.left*unit, t=frame.top*unit, r=frame.right*unit, b=frame.bottom*unit, c=frame.cut*unit
+  const hole=`M${l+c} ${t}H${r-c}L${r} ${t+c}V${b-c}L${r-c} ${b}H${l+c}L${l} ${b-c}V${t+c}Z`
+  const clip=`path(evenodd, "M0 0H${width}V${height}H0Z ${hole}")`
+  return <div className="frame-frost" style={{clipPath:clip}} aria-hidden="true"/>
+}
+function ScreenBezel({w,h}:{w:number;h:number}) {
+  const pad=10
+  const {left,top,right,bottom}=mapFrame(w,h)
+  const wide=right-left, tall=bottom-top, band=28
+  const map=cutRect(left,top,wide,tall,52)
+  const inner=cutRect(left+band,top+band,wide-band*2,tall-band*2,34)
+  const cx=(left+right)/2, cy=(top+bottom)/2
+  return <g className="screen-bezel" pointerEvents="none">
+    <path d={`${map} ${inner}`} fill="url(#bezel-glass)" fillRule="evenodd"/>
+    <path d={map} fill="none" stroke="#7dffe4" strokeWidth="5" strokeOpacity=".72" filter="url(#edge-bloom)" strokeLinejoin="miter"/>
+    <path d={map} fill="none" stroke="#f7fffc" strokeWidth="1.35" strokeOpacity=".88" strokeLinejoin="miter"/>
+    <path d={inner} fill="none" stroke="#ffffff" strokeWidth="1.2" strokeOpacity=".55" filter="url(#edge-glow)" strokeLinejoin="miter"/>
+    <path d={`M${left+58} ${top}H${right-58}`} fill="none" stroke="#ffffff" strokeWidth="1.6" strokeOpacity=".9" filter="url(#edge-glow)"/>
+    <Corner x={left} y={top} sx={1} sy={1}/><Corner x={right} y={top} sx={-1} sy={1}/>
+    <Corner x={left} y={bottom} sx={1} sy={-1}/><Corner x={right} y={bottom} sx={-1} sy={-1}/>
+    <path d={`M${cx-54} ${top} l12 -12h84l12 12M${cx-8} ${top-7}h16`} fill="none" stroke="#f7fffc" strokeWidth="1.15" strokeOpacity=".62" filter="url(#edge-glow)"/>
+    <path d={`M${cx-54} ${bottom} l12 12h84l12 -12`} fill="none" stroke="#f7fffc" strokeWidth="1.1" strokeOpacity=".4"/>
+    <path d={`M${left} ${cy-40} l-12 12v56l12 12M${right} ${cy-40} l12 12v56l-12 12`} fill="none" stroke="#f7fffc" strokeWidth="1.1" strokeOpacity=".45"/>
+    <path d={`M${left-7} ${cy-28}h7m-7 14h7m-7 14h7m-7 14h7M${right} ${cy-28}h7m-7 14h7m-7 14h7m-7 14h7`} fill="none" stroke="#f7fffc" strokeWidth="1" strokeOpacity=".4"/>
+    <Corner x={pad} y={pad} sx={1} sy={1} reach={60}/><Corner x={w-pad} y={pad} sx={-1} sy={1} reach={60}/>
+    <Corner x={pad} y={h-pad} sx={1} sy={-1} reach={60}/><Corner x={w-pad} y={h-pad} sx={-1} sy={-1} reach={60}/>
+    <path d={`M${pad+72} ${pad}H${w/2-92}M${w/2+92} ${pad}H${w-pad-72}`} fill="none" stroke="#f7fffc" strokeWidth="1.15" strokeOpacity=".46" filter="url(#edge-glow)"/>
+    <path d={`M${pad+96} ${pad+6}H${w/2-150}M${w/2+150} ${pad+6}H${w-pad-96}`} fill="none" stroke="#f7fffc" strokeWidth="1" strokeOpacity=".16"/>
+    <path d={`M${w/2-78} ${pad}h34l8 8h12l8-8h34`} fill="none" stroke="#f7fffc" strokeWidth="1.15" strokeOpacity=".7" filter="url(#edge-glow)"/>
+    <rect x={w/2-3} y={pad-3} width="6" height="6" fill="#ffe1bf" fillOpacity=".8"/>
+    <path d={`M${w/2-168} 4v7m10-7v7m10-7v7m10-7v7M${w/2+128} 4v7m10-7v7m10-7v7m10-7v7`} fill="none" stroke="#f7fffc" strokeWidth="1" strokeOpacity=".45"/>
+    <path d={`M${pad} ${pad+68}V${h-pad-68}M${w-pad} ${pad+68}V${h-pad-68}`} fill="none" stroke="#f7fffc" strokeWidth="1.15" strokeOpacity=".34" filter="url(#edge-glow)"/>
+    <path d={`M4 ${h/2-40}h7m-7 16h7m-7 16h7m-7 16h7M${w-4} ${h/2-40}h-7m7 16h-7m7 16h-7m7 16h-7`} fill="none" stroke="#f7fffc" strokeWidth="1" strokeOpacity=".36"/>
+  </g>
+}
+function SideMeter({world,x,y,open,content}:{world?:boolean;x:number;y:number;open:(p:MapPanel)=>void;content:PreviewHud}) {
   const label=world ? "世界" : content.overview
   return <g transform={`translate(${x} ${y})`}>
     <Control label={label} run={()=>open(world ? "world" : "overview")}>
       <Glass d="M0 1H312L345 33V120H0Z"/>
-      <path d="M2 54h141l14-14M2 72h43" fill="none" stroke="#bad5d6" strokeWidth="1.7"/>
-      <path d="M245 6h64l30 28v13h-64l-30-29Z" fill={world ? "url(#hud-blue)" : "url(#hud-red)"} stroke="#d9fcff" strokeWidth="2.2"/>
-      <path d="M250 9h59l26 25v8h-56l-29-27Z" fill="none" stroke="#ffffff68"/>
+      <path d="M2 54h141l14-14M2 72h43" fill="none" stroke="#f4fffb" strokeOpacity=".28" strokeWidth="1"/>
+      <path d="M245 6h64l30 28v13h-64l-30-29Z" fill={world ? "url(#hud-blue)" : "url(#hud-red)"}/>
+      <path d="M245 6h64l30 28v13h-64l-30-29Z" fill="none" stroke="#f7fffc" strokeOpacity=".32" strokeWidth="1" filter="url(#edge-glow)"/>
+      <path d="M250 9h59l26 25v8h-56l-29-27Z" fill="none" stroke="#ffffff" strokeOpacity=".28"/>
       <Glyph name={world ? "flask" : "hexes"} x={world ? 270 : 260} y={8} width={world ? 40 : 76} height={38}/>
       <text x="8" y="49" fontSize="32">{label}</text>
-      <rect x="13" y="78" width="321" height="35" fill={world ? "#07334fcc" : "#350d18cc"} stroke={world ? "#67ddff" : "#d44762"} strokeWidth="2"/>
-      <path d="M16 80h316" stroke="#ffffff65"/>
+      <rect x="13" y="78" width="321" height="35" fill={world ? "#06241ca8" : "#2a140890"}/>
+      <path d="M16 79.5h316" stroke="#ffffff" strokeOpacity=".4"/>
       <Glyph name={world ? "flask" : content.currencyIcon} x={21} y={78} size={34}/>
       <text x="75" y="108" fontSize="35" fontFamily="Arial,sans-serif">{world ? content.research : content.balance}</text>
     </Control>
   </g>
 }
 
-function RegionStrip({location,open,x,y,content}:{location:Location|null;open:(p:MapPanel)=>void;x:number;y:number;content:HudContent}) {
-  const country=location?.country
-  const name=country?.name ?? (location ? "海域" : "世界概况")
-  const thumbnail = country?.id==="UKR" ? kyiv : surfaceUrl
+function ResourceMeter({x,y,title,value,detail,icon,research,onOpen}:{x:number;y:number;title:string;value:string;detail:string;icon:string;research?:boolean;onOpen?:()=>void}) {
+  const face = <>
+    <Glass d="M0 1H312L345 33V120H0Z"/>
+    <path d="M2 34h120l14-14" fill="none" stroke="#f4fffb" strokeOpacity=".28" strokeWidth="1"/>
+    <path d="M245 6h64l30 28v13h-64l-30-29Z" fill={research ? "url(#hud-blue)" : "url(#hud-red)"}/>
+    <path d="M245 6h64l30 28v13h-64l-30-29Z" fill="none" stroke="#f7fffc" strokeOpacity=".32" strokeWidth="1" filter="url(#edge-glow)"/>
+    <path d="M250 9h59l26 25v8h-56l-29-27Z" fill="none" stroke="#ffffff" strokeOpacity=".28"/>
+    <Glyph name={icon} x={268} y={8} width={40} height={38}/>
+    <text x="8" y="30" fontSize="28">{title}</text>
+    <text x="8" y="58" fontSize="20" fill="#9ddecb">{detail}</text>
+    <rect x="13" y="78" width="321" height="35" fill={research ? "#06241ca8" : "#2a140890"}/>
+    <path d="M16 79.5h316" stroke="#ffffff" strokeOpacity=".4"/>
+    <Glyph name={icon} x={21} y={78} size={34}/>
+    <text x="75" y="108" fontSize="35" fontFamily="Arial,sans-serif">{value}</text>
+  </>
+  return <g transform={`translate(${x} ${y})`}>
+    {onOpen ? <Control label={title} description={`${value}，${detail}`} run={onOpen}>{face}</Control>
+      : <g role="group" aria-label={`${title}，${value}，${detail}`}>{face}</g>}
+  </g>
+}
+
+function PlaceThumb({location}:{location:Location|null}) {
+  const country = location?.country
+  const thumbnail = country?.id === "UKR" ? kyiv : surfaceUrl
+  return <>
+    <clipPath id="feed-clip"><path d="M7 7h170l26 25v172H30L7 181Z"/></clipPath>
+    <svg x="7" y="7" width="198" height="198" viewBox="7 7 198 198" overflow="hidden" clipPath="url(#feed-clip)">
+      {country?.id === "UKR" ? <image href={thumbnail} x="7" y="7" width="198" height="198" preserveAspectRatio="xMidYMid slice"/> :
+        <svg x="7" y="7" width="198" height="198" preserveAspectRatio="xMidYMid slice"
+          viewBox={location ? `${location.lon + 154} ${69 - location.lat} 52 42` : "55 15 250 150"}>
+          <image href={thumbnail} width="360" height="180"/>
+        </svg>}
+      <path d="M5 5h200v200H5z" fill="url(#scanlines)"/>
+    </svg>
+    <path d="M7 7h170l26 25v172H30L7 181Z" fill="none" stroke="#f7fffc" strokeOpacity=".4" strokeWidth="1" filter="url(#edge-glow)"/>
+  </>
+}
+
+function StripBar({footer, human}:{footer?:string; human:string}) {
+  return <>
+    <path d="M217 163h757v37H217z" fill="url(#hud-blue)"/>
+    <path d="M217 163h757v37H217z" fill="none" stroke="#f7fffc" strokeOpacity=".22" strokeWidth="1"/>
+    <path d="M219 164h754" stroke="#ffffff" strokeOpacity=".35"/>
+    <path d="M219 164h754v31H219z" fill="url(#rule)"/>
+    {footer && <text x="232" y="188" fontSize="20">{footer}</text>}
+    <text x="960" y="188" textAnchor="end" fontSize="20">{human}</text>
+  </>
+}
+
+function CampaignStrip({x,y,level,human,thumb,onMarket,onCountry,onBack}:{
+  x:number; y:number; level:PlaceLevel; human:string; thumb:Location|null
+  onMarket:(id:MarketChip["id"])=>void; onCountry:(id:string)=>void; onBack:()=>void
+}) {
+  const name = level.kind === "world" ? "全球" : level.name
   const outline = "M0 0H956l30 31v180H31L0 178Z"
   return <g transform={`translate(${x} ${y})`}>
-    <path d="M-54 220V82l31-32H1038v170Z" fill="url(#hud-glass)" stroke="#61b9d1" strokeWidth="1.3"/>
+    <path d="M-54 220V82l31-32H1038v170Z" fill="url(#hud-glass)"/>
+    <path d="M-54 220V82l31-32H1038v170Z" fill="none" stroke="#f7fffc" strokeOpacity=".2" strokeWidth="1" filter="url(#edge-glow)"/>
     <g aria-hidden="true" pointerEvents="none">
       <Glass d={outline}/>
-      <clipPath id="feed-clip"><path d="M7 7h170l26 25v172H30L7 181Z"/></clipPath>
-      <svg x="7" y="7" width="198" height="198" viewBox="7 7 198 198" overflow="hidden" clipPath="url(#feed-clip)">
-        {country?.id==="UKR" ? <image href={thumbnail} x="7" y="7" width="198" height="198" preserveAspectRatio="xMidYMid slice"/> :
-          <svg x="7" y="7" width="198" height="198" preserveAspectRatio="xMidYMid slice"
-            viewBox={location ? `${location.lon+154} ${69-location.lat} 52 42` : "55 15 250 150"}>
-            <image href={thumbnail} width="360" height="180"/>
-          </svg>}
-        <path d="M5 5h200v200H5z" fill="url(#scanlines)"/>
-      </svg>
-      <path d="M7 7h170l26 25v172H30L7 181Z" fill="none" stroke="#c7d5de" strokeWidth="1.8"/>
-      <text x="212" y="34" fontSize="32">{name}</text><path d="M205 42h113l15-15" fill="none" stroke="#d0e5e4" strokeWidth="1.5"/>
+      <PlaceThumb location={thumb}/>
+      {level.kind !== "world" && <path d="M360 28h80l12-12" fill="none" stroke="#f4fffb" strokeOpacity=".28" strokeWidth="1"/>}
+      {level.kind === "country" && level.lines.map(([label, value], i) => <g key={label} transform={`translate(${212 + i * 185} 58)`}>
+        <text fontSize="22" fill="#9ddecb">{label}</text>
+        <text y="40" fontSize="28" fontFamily="Arial,sans-serif">{value}</text>
+      </g>)}
+      {level.kind === "market" && level.countries.length === 0 && <text x="212" y="92" fontSize="24" fill="#9ddecb">{level.note}</text>}
+      <StripBar footer={level.kind === "world" ? undefined : level.kind === "market" ? level.reward : level.footer} human={human}/>
+    </g>
+    {level.kind !== "world" && <Control label={level.kind === "market" ? "返回全球" : level.backLabel} description={`返回上一层，当前是${name}`} run={onBack}>
+      <rect x="206" y="6" width="220" height="34" fill="transparent"/>
+      <text x="212" y="30" fontSize="26">{`‹ ${name}`}</text>
+    </Control>}
+    {level.kind === "world" && level.markets.map((market, i) => <g key={market.id} transform={`translate(${212 + (i % 4) * 186} ${58 + Math.floor(i / 4) * 34})`}>
+      <Control label={market.name} description={market.share === "—" ? `我方 —，${market.reward}` : `我方 ${market.share}，来自日本试玩，${market.reward}`} run={() => onMarket(market.id)}>
+        <rect width="180" height="30" fill="transparent"/>
+        <text fontSize="16">{market.name}</text>
+        <text x="172" y="0" textAnchor="end" fontSize="15" fill="#9ddecb">{market.share}</text>
+      </Control>
+    </g>)}
+    {level.kind === "market" && level.countries.map((country, i) => <g key={country.id} transform={`translate(${212 + (i % 5) * 148} 62)`}>
+      <Control label={country.name} description={`我方 ${country.share}，${country.detail}`} run={() => onCountry(country.id)}>
+        <rect width="140" height="78" fill="transparent"/>
+        <text fontSize="22">{country.name}</text>
+        <text y="28" fontSize="16" fill="#9ddecb">我方 {country.share}</text>
+        <text y="50" fontSize="15" fill="#9ddecb">{country.detail}</text>
+      </Control>
+    </g>)}
+  </g>
+}
+
+function RegionStrip({location,open,x,y,content}:{location:Location|null;open:(p:MapPanel)=>void;x:number;y:number;content:PreviewHud}) {
+  const country=location?.country
+  const name=country?.name ?? (location ? "海域" : "世界概况")
+  const outline = "M0 0H956l30 31v180H31L0 178Z"
+  return <g transform={`translate(${x} ${y})`}>
+    <path d="M-54 220V82l31-32H1038v170Z" fill="url(#hud-glass)"/>
+    <path d="M-54 220V82l31-32H1038v170Z" fill="none" stroke="#f7fffc" strokeOpacity=".2" strokeWidth="1" filter="url(#edge-glow)"/>
+    <g aria-hidden="true" pointerEvents="none">
+      <Glass d={outline}/>
+      <PlaceThumb location={location}/>
+      <text x="212" y="34" fontSize="32">{name}</text><path d="M205 42h113l15-15" fill="none" stroke="#f4fffb" strokeOpacity=".28" strokeWidth="1"/>
       {content.metrics.map((metric,i)=><g key={metric.label} transform={`translate(${221+i*274} 54)`}>
-        <path d="M3 0h8v97H3z" fill="url(#vents)"/><rect x="16" y="47" width="227" height="46" fill="#6d8f9430"/>
+        <path d="M3 0h8v97H3z" fill="url(#vents)"/><rect x="16" y="47" width="227" height="46" fill="#12382e55"/>
         <Glyph name={metric.icon} x={16} y={0} size={48}/>
         <text x="75" y="36" fontSize="27">{metric.label}</text>
         <text x="21" y="77" fontSize="25" fontFamily="Arial,sans-serif">//{metric.value}</text>
       </g>)}
-      <path d="M891 4h63l28 26v15h-65l-26-25Z" fill="#041a25" stroke="#79bed4" strokeWidth="2"/>
+      <path d="M891 4h63l28 26v15h-65l-26-25Z" fill="#07140f"/>
+      <path d="M891 4h63l28 26v15h-65l-26-25Z" fill="none" stroke="#f7fffc" strokeOpacity=".3" strokeWidth="1" filter="url(#edge-glow)"/>
       <text x="918" y="36" fontSize="34" fontWeight="bold" letterSpacing="2">···</text>
-      <g opacity=".5" stroke="#a2a994" fill="#182527"><path d="m660 20 11-16h20l10 16-10 16h-20z"/><path d="m716 20 11-16h20l10 16-10 16h-20z"/><path d="m773 20 11-16h20l10 16-10 16h-20z"/><path d="m831 20 11-16h20l10 16-10 16h-20z"/></g>
-      <path d="M217 163h757v37H217z" fill="url(#hud-blue)" stroke="#9ae8f2" strokeWidth="2"/>
-      <path d="M219 164h754v31H219z" fill="url(#rule)"/><path d="M221 199h748" stroke="#25639b" strokeWidth="4"/>
-      <path d="M995 208v-114m8 114v-89" stroke="#4aab75" opacity=".8" strokeWidth="3"/><path d="M1012 208v-102" stroke="#972631" strokeWidth="3"/>
+      <g opacity=".4" stroke="#f4fffb" fill="#0c241c"><path d="m660 20 11-16h20l10 16-10 16h-20z"/><path d="m716 20 11-16h20l10 16-10 16h-20z"/><path d="m773 20 11-16h20l10 16-10 16h-20z"/><path d="m831 20 11-16h20l10 16-10 16h-20z"/></g>
+      <path d="M217 163h757v37H217z" fill="url(#hud-blue)"/>
+      <path d="M217 163h757" stroke="#ffffff" strokeOpacity=".3"/>
+      <path d="M219 164h754v31H219z" fill="url(#rule)"/>
+      <path d="M995 208v-114m8 114v-89" stroke="#f7fffc" strokeOpacity=".45" strokeWidth="1.2" filter="url(#edge-glow)"/><path d="M1012 208v-102" stroke="#ffe1bf" strokeOpacity=".7" strokeWidth="1.2" filter="url(#edge-glow)"/>
     </g>
     {/* The thumbnail projects a whole-world image. Its unclipped bounds must not capture neighboring buttons. */}
     <Control label={`地区详情 · ${name}`} description={content.metrics.map(m => `${m.label} ${m.value}`).join("，")} run={()=>open("region")}>
@@ -73,7 +223,7 @@ function RegionStrip({location,open,x,y,content}:{location:Location|null;open:(p
     </Control>
   </g>
 }
-export default function Hud({location,content,zoom,speed,night,toggleNight,open,setSpeed,setZoom}:Props) {
+export default function Hud({location,place,placeThumb,content,newsItems,newsView,newsItemId,newsWeek,openNews,closeNews,decide,zoom,speed,night,toggleNight,open,chooseMarket,chooseCountry,placeBack,setSpeed,setZoom}:Props) {
   const host=useRef<HTMLDivElement>(null)
   const [size,setSize]=useState({width:HUD.width,height:HUD.height})
   useLayoutEffect(()=>{
@@ -93,53 +243,72 @@ export default function Hud({location,content,zoom,speed,night,toggleNight,open,
   const progress=Math.log1p(68*zoom)/Math.log(69)
   const thumb=HUD.railTrackTop+(1-progress)*HUD.railTravel
   return <div className="hud-layer" ref={host}>
+    <FrameFrost width={size.width} height={size.height} unit={unit}/>
     <svg className="hud" viewBox={`0 0 ${w} ${h}`} aria-label="地图控制台">
       <Symbols/>
       <defs><pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse"><path d="M0 1h4" stroke="#6f8f9c" strokeWidth=".6" opacity=".28"/></pattern>
         <clipPath id="news-clip"><path d="M16 26h92v58l-36 34H16z"/></clipPath>
       </defs>
-      <path d={`M0 ${h-182}h21l32 32v105H${w-53}v-105l32-32h21V${h}H0Z`} fill="#091d24aa" stroke="#53a1bc" strokeWidth="1.5"/>
-      <Control label="新闻" run={()=>open("news")}>
-        <Glass d="M16 26h959l34 33v17H109l-36 42H16Z"/>
-        <path d="M17 26h91v59l-36 33H16Z" fill="#143a38" stroke="#88dbea" strokeWidth="2"/>
-        <g clipPath="url(#news-clip)"><image href={surfaceUrl} x="-63" y="24" width="230" height="114" opacity=".7"/>
-          <path d="M17 34h90v40H17z" fill="#061616b8"/><text x="22" y="62" fontSize="28" fontFamily="Arial,sans-serif" fontWeight="bold">NEWS</text></g>
-        <path d="M167 31h185v6H167zm537 12h90v6h-90z" fill="url(#vents)" opacity=".8"/>
-        <text x="552" y="63" textAnchor="middle" fontSize="39">{content.headline}</text>
-        <path d="M914 29h59l33 31v13h-62l-30-29Z" fill="#03151e" stroke="#84beca" strokeWidth="1.6"/>
-        <path d="m944 42 15 14 16-14" fill="none" stroke="#eefcff" strokeWidth="7"/>
+      <path d={`M0 ${h-182}h21l32 32v105H${w-53}v-105l32-32h21V${h}H0Z`} fill="#040c0a99"/>
+      <path d={`M0 ${h-182}h21l32 32`} fill="none" stroke="#ffffff" strokeOpacity=".28" filter="url(#edge-glow)"/>
+      <Glass d="M16 26h959l34 33v17H109l-36 42H16Z"/>
+      <path d="M17 26h91v59l-36 33H16Z" fill="#071612"/>
+      <path d="M17 26h91v59l-36 33H16Z" fill="none" stroke="#f7fffc" strokeOpacity=".34" strokeWidth="1" filter="url(#edge-glow)"/>
+      <g clipPath="url(#news-clip)"><image href={surfaceUrl} x="-63" y="24" width="230" height="114" opacity=".45"/>
+        <path d="M17 34h90v40H17z" fill="#04110fcc"/><text x="22" y="62" fontSize="26" fontFamily="Arial,sans-serif" fontWeight="bold" fill="#ffb15a">NEWS</text></g>
+      <path d="M167 31h185v6H167zm537 12h90v6h-90z" fill="url(#vents)" opacity=".8"/>
+      <path d="M914 29h59l33 31v13h-62l-30-29Z" fill="#1a0e08"/>
+      <path d="M914 29h59l33 31v13h-62l-30-29Z" fill="none" stroke="#ffe1bf" strokeOpacity=".55" strokeWidth="1" filter="url(#edge-glow)"/>
+      <path d="m944 42 15 14 16-14" fill="none" stroke="#ffe7c8" strokeWidth="2.4" filter="url(#edge-glow)"/>
+      <Control label="新闻总览" description="全部新闻" pressed={newsView==="archive"} news run={()=>openNews("archive")}>
+        <path d="M16 26h96v92H16Z" fill="transparent"/>
       </Control>
-      <g transform={`translate(${w-430} 26)`}>
+      <Control label="本周新闻" pressed={newsView==="week"} news run={()=>openNews("week")}>
+        <path d="M910 26h100v52H910Z" fill="transparent"/>
+      </Control>
+      {content.kind === "preview" ? <g transform={`translate(${w-430} 26)`}>
         <Control label={night ? "切换到白天" : "切换到黑夜"} pressed={night} run={toggleNight}>
           <Glass d="M0 0h92v51H0Z"/>
           <text x="46" y="35" textAnchor="middle" fontSize="28">{night ? "黑夜" : "白天"}</text>
         </Control>
-      </g>
+      </g> : <g transform={`translate(${w-586} 26)`} role="group" aria-label={night ? "第二幕，永夜" : "第一幕，永昼"}>
+        <Glass d="M0 0h248v51H0Z"/>
+        <text x="124" y="35" textAnchor="middle" fontSize="26">{night ? "第二幕 · 永夜" : "第一幕 · 永昼"}</text>
+      </g>}
       <g transform={`translate(${w-326} 26)`}>
         <Control label="日期与菜单" run={()=>open("menu")}>
           <Glass d="M0 0h306v51H32L0 18Z"/><text x="30" y="38" fontSize="38" fontFamily="Arial,sans-serif">{content.date}</text>
-          <path d="M260 4h42v42h-42z M265 9l32 32m0-32-32 32" fill="none" stroke="#d0edf1" strokeWidth="2.1"/>
+          <path d="M260 4h42v42h-42z M265 9l32 32m0-32-32 32" fill="none" stroke="#ffe1bf" strokeOpacity=".55" strokeWidth="1.1" filter="url(#edge-glow)"/>
         </Control>
         <Glass d="M90 51h216v38H126Z"/>
         {content.speeds.map((n)=><Control key={n} label={n===0 ? "暂停" : `${n} 倍速`} pressed={speed===n} run={()=>setSpeed(n)}>
           <rect x={120+n*40} y="53" width={n===3 ? 63 : 40} height="35" fill="transparent"/>
-          <g transform={`translate(${131+n*39} 60)`} fill={speed===n ? "#fff" : "#829195"} opacity={speed===n ? 1 : .75}>
+          <g transform={`translate(${131+n*39} 60)`} fill={speed===n ? "#ffb15a" : "#6f8f86"} opacity={speed===n ? 1 : .7}>
             {n===0 ? <path d="M1 0h6v20H1zm11 0h6v20h-6z"/> : Array.from({length:n},(_,j)=><path key={j} d={`M${j*14} 0l17 10-17 10Z`}/>)}
           </g>
         </Control>)}
       </g>
       <g transform={`translate(${railX} ${railY})`}>
         <Glass d="M0 0h33l35 34v568H34L0 568Z"/>
-        <path d="M34 4v592" stroke="#51747a" opacity=".25" strokeWidth="2"/>
-        <g transform={`translate(4 ${thumb})`}><path d="M0-6h16l5-8h13l5 8h20V7H39l-5 8H21l-5-8H0Z" fill="#051116" stroke="#62828b" strokeWidth="2"/>
-          <path d="m21 0 5-9h6l5 9-5 9h-6Z" fill="#163746"/></g>
+        <path d="M34 4v592" stroke="#f7fffc" strokeOpacity=".16" strokeWidth="1"/>
+        <g transform={`translate(4 ${thumb})`}><path d="M0-6h16l5-8h13l5 8h20V7H39l-5 8H21l-5-8H0Z" fill="#07140f"/>
+          <path d="M0-6h16l5-8h13l5 8h20V7H39l-5 8H21l-5-8H0Z" fill="none" stroke="#f7fffc" strokeOpacity=".4" strokeWidth="1" filter="url(#edge-glow)"/>
+          <path d="m21 0 5-9h6l5 9-5 9h-6Z" fill="#ff8a2a"/></g>
       </g>
-      <SideMeter x={20} y={h-130} open={open} content={content}/>
-      <RegionStrip x={w/2-503} y={h-HUD.regionHeight} location={location} open={open} content={content}/>
-      <SideMeter world x={w-362} y={h-130} open={open} content={content}/>
+      {content.kind === "preview" ? <>
+        <SideMeter x={20} y={h-130} open={open} content={content}/>
+        <RegionStrip x={w/2-503} y={h-HUD.regionHeight} location={location} open={open} content={content}/>
+        <SideMeter world x={w-362} y={h-130} open={open} content={content}/>
+      </> : <>
+        <ResourceMeter x={20} y={h-130} title="行动" value={content.token} detail={`建设卡 ${content.cards}`} icon="token"/>
+        {place && <CampaignStrip x={w/2-503} y={h-HUD.regionHeight} level={place} human={content.human} thumb={placeThumb} onMarket={chooseMarket} onCountry={chooseCountry} onBack={placeBack}/>}
+        <ResourceMeter x={w-362} y={h-130} title="研究" value={content.corpus} detail={content.yieldText} icon="flask" research onOpen={() => open("overview")}/>
+      </>}
+      <ScreenBezel w={w} h={h}/>
     </svg>
     <input className="zoom-rail" type="range" min="0" max="1000" step="1" value={Math.round(progress*1000)}
       style={{left:railX*unit,top:(railY+HUD.railTrackTop)*unit,width:68*unit,height:HUD.railTravel*unit}}
       aria-label="地图缩放" aria-valuetext={`${Math.round(zoom*100)}%`} onChange={e=>setZoom(Math.expm1(Number(e.target.value)/1000*Math.log(69))/68)}/>
+    <NewsLayer unit={unit} items={newsItems} view={newsView} itemId={newsItemId} week={newsWeek} dated={content.kind==="campaign"} open={openNews} close={closeNews} decide={decide}/>
   </div>
 }

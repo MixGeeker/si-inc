@@ -57,7 +57,7 @@ function ScreenGrid() {
       </mask>
     </defs>
     {size.width > 0 && <g mask="url(#grid-falloff)">
-      <rect width={size.width} height={size.height} fill="#05080e" opacity=".07" mask="url(#screen-grille)"/>
+      <rect width={size.width} height={size.height} fill="#03140f" opacity=".16" mask="url(#screen-grille)"/>
     </g>}
   </svg>
 }
@@ -99,8 +99,8 @@ const cursors = [
 ] as const
 
 function ComputeGlyph() {
-  const frame = "#c5ced3"
-  const accent = "#e09a3c"
+  const frame = "rgba(244,255,251,.55)"
+  const accent = "#e7c39a"
   const bolt = "#d7dee2"
   return <>
     <rect x="-13.5" y="-13.5" width="27" height="27" fill="#07141c" fillOpacity=".88" stroke={frame} strokeWidth="1.15"/>
@@ -188,14 +188,6 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
     {layers.night && <div className="map-vignette" />}
     <ScreenGrid/>
     {!ready && !failed && !rig.flat && <span className="map-loading" role="status">正在建立地形…</span>}
-    <div className="compute-key" aria-hidden="true">
-      <span>
-        <svg width="22" height="28" viewBox="-18 -16 36 42">
-          <ComputeGlyph/>
-        </svg>
-        AIDC算力中心
-      </span>
-    </div>
     <svg ref={overlay} className="geo-marks" aria-label="算力站点">
       <defs>
         <radialGradient id="event-red" cx=".38" cy=".30" r=".78"><stop stopColor="#dd3045"/><stop offset=".43" stopColor="#92172a"/><stop offset="1" stopColor="#290510"/></radialGradient>

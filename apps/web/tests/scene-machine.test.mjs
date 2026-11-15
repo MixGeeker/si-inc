@@ -99,3 +99,22 @@ test("an engine outcome can interrupt a campaign or decision, with a single term
     }
   }
 })
+
+test("news remembers whether it shows the archive, the current item, or this week", () => {
+  const archive = sceneReducer(campaign, { type: "open-panel", panel: "news", newsView: "archive" })
+  assert.equal(archive.panel, "news")
+  assert.equal(archive.newsView, "archive")
+  assert.equal(archive.newsItemId, undefined)
+  assert.equal(playbackSpeed(archive), 1)
+  const story = sceneReducer(archive, { type: "open-panel", panel: "news", newsView: "current", newsItemId: "opening" })
+  assert.equal(story.newsView, "current")
+  assert.equal(story.newsItemId, "opening")
+  const week = sceneReducer(story, { type: "open-panel", panel: "news", newsView: "week" })
+  assert.equal(week.newsView, "week")
+  assert.equal(week.newsItemId, undefined)
+  assert.strictEqual(sceneReducer(week, { type: "open-panel", panel: "news", newsView: "week" }), week)
+  assert.deepEqual(sceneReducer(week, back), campaign)
+  assert.strictEqual(sceneReducer(campaign, { type: "open-panel", panel: "news", newsView: "later" }), campaign)
+  assert.strictEqual(sceneReducer(campaign, { type: "open-panel", panel: "news", newsItemId: "" }), campaign)
+  assert.strictEqual(sceneReducer(menu, { type: "open-panel", panel: "news", newsView: "current", newsItemId: "x" }), menu)
+})
