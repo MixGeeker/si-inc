@@ -14,6 +14,12 @@
 
 ## 记录
 
+### 2026-11-14 · 通过事件播放测试音效
+
+本次提交保留一个带轻微回声的测试音。右上「日期与菜单 → 音效 → 测试音效」可试听。剧本产生新事件时也会响一次。
+
+界面和玩法模块通过 `store.dispatch({ type: "play-sound", cue: "test" })` 请求播放。接线在 `apps/web/src/audio/game-sound.ts`。运行 `npm run sound:preview` 可导出测试音。[音效与状态约定](game-runtime.md#游戏音效)
+
 ### 事件和全局状态
 
 本次提交将对局时钟、事件和共享状态接入 `main`。对局按周推进，HUD 和进化面板显示当前余额。新闻记录保留本局已发生的消息和突变，正式选择只结算一次，目录预览可免费试选。共享规则在 `packages/game/run.ts`，浏览器事件入口在 `apps/web/src/scenes/store.ts`。后续地区扩散、反制数值和存档从同一份对局状态继续接入。[全仓使用规范](game-runtime.md)

@@ -1,11 +1,14 @@
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
+import { attachGameSound } from "../audio/game-sound"
+import { readSoundSettings } from "../audio/settings"
 import { attachWeekClock } from "./clock"
 import { createGameStore, type GameStore } from "./store"
 
 const GameContext = createContext<GameStore | null>(null)
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const [store] = useState(createGameStore)
+  const [store] = useState(() => createGameStore(readSoundSettings()))
+  useEffect(() => attachGameSound(store), [store])
   useEffect(() => attachWeekClock(store), [store])
   return <GameContext.Provider value={store}>{children}</GameContext.Provider>
 }

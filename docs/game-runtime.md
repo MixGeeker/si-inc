@@ -10,6 +10,7 @@
 | 阵营、起点、种子、已完成周数、当前余额、研究与普及指标、事件、操作日志 | `RunState` | 界面通过 `visibleRunState(snapshot.scene)` 读。纯函数 `createRun`、`advanceWeek`、`resolveDecision` 负责初始化和结算。 |
 | 场景、当前面板、选择的倍速 | `GameState.scene` | 用场景事件更新。显示和时钟都用 `playbackSpeed(scene)` 读取有效速度。 |
 | 地图选区、昼夜、云层、洋流 | `GameState.selection` 和 `layers` | 发送 `pick-location`、`focus-country`、`map-preset` 或 `set-layer`。选区传坐标和国家 ID，地图按 ID 取轮廓。 |
+| 音效静音、音量 | `GameState.sound` | `set-sound-muted` 接受布尔值，`set-sound-volume` 接受 0–100 的整数。默认开启、音量 65%。静音保留音量；重开沿用设置，浏览器本地保存，下次打开时恢复。 |
 | 滚轮与相机插值、DOM 焦点、画布资源、表单草稿 | 对应组件、渲染器或浏览器适配器 | 在本地处理，玩家确认的操作转成游戏事件。 |
 
 周数表示已完成的整周，开局为 0。余额使用整数 Btoken，比例使用整数基点（10,000 为 100%）。未计算的普及率和依赖率用 `null`，HUD 显示「—」。菜单、决策窗与后台标签页暂停计时，恢复时沿用当前周的剩余时间。
@@ -18,7 +19,7 @@
 
 | 接口 | 行为 |
 | --- | --- |
-| `store.dispatch(event)` | 写入的唯一入口。输入由 `GameEvent` 约束，类型名使用已有的小写短横线形式。reducer 校验当前状态和载荷，返回原对象表示忽略。 |
+| `store.dispatch(event)` | 写入的唯一入口。输入由 `GameEvent` 约束，类型名使用已有的小写短横线形式。reducer 返回原对象表示忽略，返回新快照表示提交，返回 `acceptWithoutChange` 表示接受一次性事件并用当前快照通知 `store.on` 的订阅者。 |
 | `store.getSnapshot()` / `useGameSnapshot()` | 读取当前只读快照。快照及其嵌套数据冻结，有效转移产生新引用。组件也可以用 `useGameSnapshot(s => s.layers.night)` 只订阅一个值。选择函数返回标量或快照内已有的引用。 |
 | `store.subscribe(listener)` | 每次有效提交通知一次。监听器读取新快照，返回的函数取消订阅。 |
 | `store.on(type, listener)` | 按类型订阅已接受的输入或业务结果，参数为该类型的载荷与本次提交的快照。回调内发送的事件按先后排队，等本次通知完成再处理。 |
@@ -44,6 +45,18 @@ useEffect(() => store.on("event-occurred", ({ entry }) => {
   showHeadline(entry.content.title)
 }), [store, showHeadline])
 ```
+
+## 游戏音效
+
+目前只有 `test` 一个音效。在「日期与菜单 → 音效」点击「测试音效」，或在持有当前 store 的模块中发送同一条事件。
+
+```ts
+store.dispatch({ type: "play-sound", cue: "test" })
+```
+
+新剧本事件提交后，`event-occurred` 的订阅者发送 `play-sound`。store 校验音效名称、静音和音量，播放器通过 `store.on("play-sound", …)` 接收有效请求。播放请求复用已提交的快照，可以连续发送。[事件接线](../apps/web/src/audio/game-sound.ts)
+
+在根目录运行 `npm run sound:preview` 可将同一测试音导出为 `output/audio/sound-check.wav`。
 
 ## 剧本事件和回放
 

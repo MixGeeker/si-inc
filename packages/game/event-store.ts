@@ -20,9 +20,12 @@ function notify<T>(group: Set<T>, call: (observer: T) => void, errors: unknown[]
   }
 }
 
+/** Deliver an accepted one-shot event with the current snapshot. */
+export const acceptWithoutChange = Symbol("acceptWithoutChange")
+
 export function createEventStore<State extends object, Event extends { type: string }, Notice extends { type: string } = never>(
   initial: State,
-  reduce: (state: State, event: Event) => State,
+  reduce: (state: State, event: Event) => State | typeof acceptWithoutChange,
   notices?: (event: Event, next: State) => readonly Notice[],
 ) {
   const frozen = new WeakSet<object>()
@@ -59,12 +62,13 @@ export function createEventStore<State extends object, Event extends { type: str
     try {
       // Observers may append events. Finish broadcasting this commit before running the next.
       for (const input of queue) {
-        const next = reduce(state, input)
-        if (next === state) continue
+        const result = reduce(state, input)
+        if (result === state) continue
+        const next = result === acceptWithoutChange ? state : result
         freezeData(next)
         const messages: Message[] = [input, ...(notices?.(input, next) ?? [])]
         state = next
-        notify(subscribers, listener => listener(), errors)
+        if (result !== acceptWithoutChange) notify(subscribers, listener => listener(), errors)
         for (const message of messages) {
           freezeData(message)
           notify(observers, listener => listener(message, getSnapshot()), errors)

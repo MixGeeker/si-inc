@@ -9,6 +9,7 @@
     "predev": "npm run typecheck",
     "dev": "vite apps/web",
     "test": "node --experimental-strip-types --test",
+    "sound:preview": "node --experimental-strip-types scripts/render_sound_preview.mjs",
     "typecheck": "tsrs -p tsconfig.json && tsrs -p apps/web/tsconfig.json && tsrs -p apps/api/tsconfig.json && tsrs -p tsconfig.tools.json",
     "build": "npm run typecheck && vite build apps/web",
     "preview": "vite preview apps/web"

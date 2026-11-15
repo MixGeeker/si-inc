@@ -1,8 +1,10 @@
-import { createEventStore } from "../../../../packages/game/event-store.ts"
+import { acceptWithoutChange, createEventStore } from "../../../../packages/game/event-store.ts"
 import type { RunEvent, RunSetup } from "../../../../packages/game/run.ts"
 import type { GameCommand } from "../../../../packages/game/types.ts"
 import type { Outcome } from "../../../../packages/rules/v0.1/endings/standard.ts"
 import { standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
+import { soundBank, type SoundCue } from "../audio/cues.ts"
+import { defaultSound, validVolume, type SoundSettings } from "../audio/settings.ts"
 import { initialScene, sceneReducer, visibleRunState, type Scene, type SceneEvent } from "./machine.ts"
 
 export interface MapSelection {
@@ -19,9 +21,13 @@ export interface GameState {
   readonly scene: Scene
   readonly selection: MapSelection | null
   readonly layers: Readonly<typeof initialLayers>
+  readonly sound: SoundSettings
 }
 
 export type GameEvent = SceneEvent
+  | { type: "play-sound"; cue: SoundCue }
+  | { type: "set-sound-muted"; muted: boolean }
+  | { type: "set-sound-volume"; volume: number }
   | { type: "set-layer"; layer: keyof typeof initialLayers; enabled: boolean }
   | { type: "pick-location"; selection: MapSelection }
   | { type: "focus-country"; selection: MapSelection }
@@ -46,9 +52,19 @@ function sameSelection(current: MapSelection | null, next: MapSelection) {
     && current.countryId === next.countryId && current.site === next.site && current.islandName === next.islandName
 }
 
-function reduceGame(state: GameState, event: GameEvent): GameState {
+function reduceGame(state: GameState, event: GameEvent): GameState | typeof acceptWithoutChange {
   const { scene } = state
   switch (event.type) {
+    case "play-sound":
+      if (typeof event.cue !== "string" || !Object.hasOwn(soundBank, event.cue)
+        || state.sound.muted || state.sound.volume === 0) return state
+      return acceptWithoutChange
+    case "set-sound-muted":
+      if (typeof event.muted !== "boolean" || state.sound.muted === event.muted) return state
+      return { ...state, sound: { ...state.sound, muted: event.muted } }
+    case "set-sound-volume":
+      if (!validVolume(event.volume) || state.sound.volume === event.volume) return state
+      return { ...state, sound: { ...state.sound, volume: event.volume } }
     case "set-layer":
       if (!Object.hasOwn(initialLayers, event.layer) || typeof event.enabled !== "boolean"
         || state.layers[event.layer] === event.enabled) return state
@@ -97,8 +113,8 @@ function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
   return []
 }
 
-export function createGameStore() {
-  const initial = { scene: initialScene, layers: initialLayers, selection: previewSelection }
+export function createGameStore(sound: SoundSettings = defaultSound) {
+  const initial = { scene: initialScene, layers: initialLayers, selection: previewSelection, sound }
   return createEventStore<GameState, GameEvent, GameNotice>(initial, reduceGame, gameNotices)
 }
 

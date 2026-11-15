@@ -17,7 +17,7 @@ const MapViewport = lazy(() => import("../../cartography/MapViewport"))
 export function WorldScene({ atlas }: { atlas: Atlas }) {
   const store = useGameStore()
   const { dispatch: send } = store
-  const { scene, selection, layers: { night, cloud, current } } = useGameSnapshot()
+  const { scene, selection, layers: { night, cloud, current }, sound } = useGameSnapshot()
   const location: Location | null = useMemo(() => {
     if (!selection) return null
     if (selection.countryId === undefined) return atlas.locate(selection.lon, selection.lat)
@@ -115,6 +115,19 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       <div className="window-actions">{presets()}
         {document.fullscreenEnabled && <button onClick={fullscreen}>{full ? "退出全屏" : "进入全屏"}</button>}
       </div>
+      <fieldset><legend>音效</legend>
+        <div className="sound-controls">
+          <label className="sound-volume">音量
+            <input type="range" min="0" max="100" step="1" value={sound.volume} aria-valuetext={`${sound.volume}%`}
+              onChange={e => send({ type: "set-sound-volume", volume: e.currentTarget.valueAsNumber })}/>
+            <span aria-hidden="true">{sound.volume}%</span>
+          </label>
+          <label><input type="checkbox" checked={sound.muted}
+            onChange={e => send({ type: "set-sound-muted", muted: e.currentTarget.checked })}/> 静音</label>
+        </div>
+        <button type="button" disabled={sound.muted || sound.volume === 0}
+          onClick={() => send({ type: "play-sound", cue: "test" })}>测试音效</button>
+      </fieldset>
       <p className="source-note">拖动平移 · 滚轮或双指缩放 · Home 返回全球</p>
       {screenError && <p role="status">{screenError}</p>}
     </SceneDialog>}
