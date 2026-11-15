@@ -1,9 +1,7 @@
 import { Fragment } from "react"
 import type { RunState } from "../../../../../packages/game/run"
 import { btoken } from "../../../../../packages/rules/v0.1/economy/btoken"
-import { competition } from "../../../../../packages/rules/v0.1/events/competition"
 import { decisions, type DecisionId } from "../../../../../packages/rules/v0.1/events/decisions"
-import { news } from "../../../../../packages/rules/v0.1/events/news"
 import { actions } from "../../../../../packages/rules/v0.1/evolution/actions"
 import { trees } from "../../../../../packages/rules/v0.1/evolution/trees"
 import { projectHuman } from "../../../../../packages/rules/v0.1/opposition/project-human"
@@ -50,37 +48,6 @@ export function MarketPanel({ setup }: { setup: RunSetup }) {
         <dt>{level.title}</dt><dd>暴露度 ≥ {level.minExposureBps / 100}</dd>
       </div>)}</dl>
     </details>
-  </>
-}
-
-type Campaign = Extract<Scene, { kind: "campaign" }>
-
-export function CampaignNews({ scene, openDecision }: { scene: Campaign; openDecision: (id: DecisionId, instanceId?: string) => void }) {
-  const { lastDecision, run } = scene
-  const { setup } = run
-  const previous = lastDecision && decisions[lastDecision.id].choices.find(c => c.id === lastDecision.choiceId)
-  return <>
-    <h3>{standardScenario.factions[setup.factionId].name} 已进入{standardScenario.regions[setup.startRegionId].name}市场</h3>
-    <h4>本局事件</h4>
-    {run.events.length === 0 ? <p>暂无事件</p> : <ol>{[...run.events].reverse().map(entry => {
-      const { content } = entry
-      const chosen = content.kind === "decision" && decisions[content.id].choices.find(c => c.id === entry.choiceId)
-      return <li key={entry.instanceId}>
-        <strong>第 {entry.week} 周 · {content.title}</strong><p>{content.body}</p>
-        {content.kind === "decision" && (chosen
-          ? <p>已选择 · {chosen.label}</p>
-          : <button onClick={() => openDecision(content.id, entry.instanceId)}>处理突变</button>)}
-      </li>
-    })}</ol>}
-    <details><summary>剧本新闻</summary>
-      {news.map(item => <section key={item.id}><h4>{item.title}</h4><p>{item.body}</p></section>)}
-    </details>
-    <details><summary>竞争事件</summary>
-      {competition.map(item => <section key={item.id}><h4>{item.title}</h4><p>{item.body}</p></section>)}
-    </details>
-    <div className="window-actions">{(Object.keys(decisions) as DecisionId[]).map(id =>
-      <button key={id} onClick={() => openDecision(id)}>预览突变 · {decisions[id].title}</button>)}</div>
-    {previous && <p role="status">上次预览选择 · {previous.label}</p>}
   </>
 }
 

@@ -7,17 +7,32 @@ function percent(bps: number | null) {
   return bps === null ? "—" : `${bps / 100}%`
 }
 
+const empty = "—"
+
 export function hudContent(run: RunState | null, globalView: boolean) {
   if (run) {
     const { factions, regions, rules } = standardScenario
     return {
+      kind: "campaign" as const,
       headline: run.events.at(-1)?.content.title ?? `${factions[run.setup.factionId].name} 进入${regions[run.setup.startRegionId].name}市场`,
-      date: `第 ${run.completedWeek} 周`, overview: "进化", currencyIcon: "token", balance: run.balance,
-      research: percent(run.researchBps), speeds: rules.speedMultipliers,
-      metrics: [{ icon: "users", label: "普及率", value: percent(run.adoptionBps) }, { icon: "link", label: "依赖率", value: percent(run.dependencyBps) }],
+      date: `第 ${run.completedWeek} 周`,
+      overview: "研究",
+      speeds: rules.speedMultipliers,
+      token: String(run.balance),
+      cards: empty,
+      corpus: empty,
+      yieldText: `日产 ${empty}`,
+      human: "Project HUMAN 未启动",
+      factions: Object.entries(factions).map(([id, faction]) => ({
+        name: faction.name,
+        player: id === run.setup.factionId,
+        immersed: empty,
+        synths: empty,
+      })),
     }
   }
   return {
+    kind: "preview" as const,
     headline: mapPreview.headline, date: mapPreview.date, overview: "疾病概况",
     currencyIcon: "dna", balance: mapPreview.dna, research: mapPreview.research, speeds: previewSpeeds,
     metrics: [
@@ -28,3 +43,5 @@ export function hudContent(run: RunState | null, globalView: boolean) {
 }
 
 export type HudContent = ReturnType<typeof hudContent>
+export type CampaignHud = Extract<HudContent, { kind: "campaign" }>
+export type PreviewHud = Extract<HudContent, { kind: "preview" }>

@@ -5,9 +5,10 @@ interface Props {
   onBack: () => void
   children: ReactNode
   event?: boolean
+  className?: string
 }
 
-export function SceneDialog({ title, onBack, children, event }: Props) {
+export function SceneDialog({ title, onBack, children, event, className }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   useLayoutEffect(() => {
     const dialog = ref.current!
@@ -20,7 +21,7 @@ export function SceneDialog({ title, onBack, children, event }: Props) {
       }
     }
   }, [])
-  return <dialog ref={ref} aria-labelledby="window-title" className={event ? "event-dialog" : "info-dialog"}
+  return <dialog ref={ref} aria-labelledby="window-title" className={[event ? "event-dialog" : "info-dialog", className].filter(Boolean).join(" ")}
     onCancel={e => { e.preventDefault(); onBack() }}>
     {event ? <section className="event-body">
       <div className="event-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#bio"/></svg></div>
