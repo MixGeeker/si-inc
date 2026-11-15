@@ -44,6 +44,10 @@ dialog button:hover,dialog button:focus-visible { border-color: #d7f8ff; backgro
 .window-body legend { padding: 0; margin-bottom: .35em; }
 .window-body fieldset label { display: block; padding: .30em 0; }
 .window-body input { accent-color: #66c8df; }
+.sound-controls { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 1em; }
+.window-body .sound-volume { display: grid; grid-template-columns: auto minmax(0,1fr) 4ch; align-items: center; gap: .5em; }
+.sound-volume input { min-width: 0; width: 100%; margin: 0; }
+.sound-volume span { text-align: right; font-variant-numeric: tabular-nums; color: #b8e3eb; }
 .window-body .source-note { color: #acc9cf; font-size: .84em; margin: .6em 0; }
 .window-actions { display: flex; gap: .55em; flex-wrap: wrap; margin: 1em 0; }
 .window-body a { color: #a4d6e1; font-size: .85em; }
@@ -55,7 +59,7 @@ dialog button:hover,dialog button:focus-visible { border-color: #d7f8ff; backgro
 .window-content details ul { padding-left: 1.2em; }
 .setup-form { display: grid; gap: .65em; }
 .setup-form label { display: grid; grid-template-columns: 6em 1fr; align-items: center; }
-.setup-form button:disabled { opacity: .5; cursor: default; }
+.window-body button:disabled { opacity: .5; cursor: default; }
 .readings { margin: 0 0 .7em; }
 .readings div { display: flex; align-items: center; justify-content: space-between; gap: 1em; border-bottom: 1px solid #3f657269; padding: .4em 0; }
 .readings dt { color: #a8c8cf; }

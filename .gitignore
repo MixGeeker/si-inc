@@ -2,4 +2,5 @@
 node_modules/
 apps/web/dist/
 output/playwright/
+output/audio/
 .playwright-cli/

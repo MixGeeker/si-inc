@@ -20,6 +20,7 @@ npm run dev
 | 命令 | 用途 |
 | --- | --- |
 | `npm test` | 验证事件分发、共享状态、时钟、决策结算、场景转移和剧本内容。 |
+| `npm run sound:preview` | 将测试音效导出为 `output/audio/sound-check.wav`。[通过事件播放音效](docs/game-runtime.md#游戏音效) |
 | `npm run typecheck` | 用锁定版本的 tsrs 分别检查共享规则、浏览器 TSX、Cloudflare Worker 类型环境和 Vite 配置。 |
 | `npm run build` | 通过相同的检查后，生成可部署的 `apps/web/dist/`。 |
 | `npm run preview` | 在本机查看最近一次生产构建。 |
