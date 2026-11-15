@@ -13,7 +13,7 @@
 | 音效静音、音量 | `GameState.sound` | `set-sound-muted` 接受布尔值，`set-sound-volume` 接受 0–100 的整数。默认开启、音量 65%。静音保留音量；重开沿用设置，浏览器本地保存，下次打开时恢复。 |
 | 滚轮与相机插值、DOM 焦点、画布资源、表单草稿 | 对应组件、渲染器或浏览器适配器 | 在本地处理，玩家确认的操作转成游戏事件。 |
 
-周数表示已完成的整周，开局为 0。余额使用整数 Btoken，比例使用整数基点（10,000 为 100%）。未计算的普及率和依赖率用 `null`，HUD 显示「—」。菜单、决策窗与后台标签页暂停计时，恢复时沿用当前周的剩余时间。
+周数表示已完成的整周，开局为 0。余额使用整数 token，比例使用整数基点（10,000 为 100%）。未计算的普及率和依赖率用 `null`，HUD 显示「—」。菜单、决策窗与后台标签页暂停计时，恢复时沿用当前周的剩余时间。
 
 ## 发送、读取与订阅
 
@@ -34,7 +34,7 @@ const { scene } = useGameSnapshot()
 const run = visibleRunState(scene)
 if (!run) return null
 return <button onClick={() => store.dispatch({ type: "open-panel", panel: "news" })}>
-  新闻 · {run.balance} Btoken
+  新闻 · {run.balance} token
 </button>
 ```
 
