@@ -68,6 +68,18 @@ store.dispatch({ type: "play-sound", cue: "test" })
 
 ## 剧本事件和回放
 
+### 开发者面板
+
+「日期与菜单 → 设置」通过 `set-developer-enabled` 启用或关闭面板，默认关闭，启用偏好保存在本机。`GameState.developer.open` 由 `set-developer-open` 切换。展开时保留当前周的剩余计时，收起后恢复玩家原来的速度。手动完成一周后，下一周从完整时长开始。
+
+「当前对局」操作应用根的 store。「调试副本」从已提交的快照创建独立 store，使用手动时钟。可以切回当前局、重新复制或收起面板结束试跑。昼夜按钮对当前显示的地图发送 `set-layer`。
+
+`dev-step-week` 核对种子和已完成周数，复用战役的周结算、事件和到期通知。「到下个事件」逐周发送该输入。`dev-grant-token` 还核对下一条指令的 `seq`、正整数金额和余额的安全整数范围。发放与 `devGrantTokens` 指令在同一次转移中提交，随后发出 `dev-token-granted`。开启面板的有效对局可以在待决策时发放 token。
+
+时间线从规则、开局、种子和按序指令重演每次余额变化。普通对局导出 `ReplayV1`，含开发者发放的对局导出 `format: "debug-replay"` 和含发放记录的完整指令序列。[回放与时间线](../packages/game/inspection.ts)
+
+### 周制剧本
+
 标准剧本按版本化配置每 8–12 周抽一次。在一轮内按种子抽完新闻、竞争事件和突变，再补满池。每次产生独立的 `instanceId`，同一剧本条目在不同周仍可分别处理。正式突变会打开决策窗，退出后可从新闻记录继续处理。
 
 正式选择提交 `{ type: "choose", id, instanceId, choiceId }`。引擎核对待处理实例和余额，一次性提交选择、扣费和 `GameCommand`，并通知 `decision-resolved`。新闻目录的手动预览省略 `instanceId`，只更新上次预览选择。回放记录采用 `week`、递增的 `seq`、`eventInstanceId` 和 `choiceId`。[事件池](../packages/rules/v0.1/events/pool.ts) · [回放类型](../packages/game/types.ts)

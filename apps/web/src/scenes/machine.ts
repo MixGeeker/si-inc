@@ -105,18 +105,8 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
         if (speeds.includes(event.speed) && event.speed !== scene.speed) return { ...scene, speed: event.speed }
       }
       break
-    case "advance-week": {
-      if (scene.kind !== "campaign" || playbackSpeed(scene) === 0 || scene.run.seed !== event.seed
-        || scene.run.completedWeek !== event.completedWeek) return scene
-      const run = advanceWeek(scene.run)
-      if (run.completedWeek >= standardScenario.rules.maxWeeks) return { kind: "ending", outcome: "timeout", run }
-      const campaign: Campaign = { ...scene, run }
-      const entry = run.events.at(-1)
-      if (entry?.week === run.completedWeek && entry.content.kind === "decision") {
-        return { kind: "decision", id: entry.content.id, instanceId: entry.instanceId, back: campaign }
-      }
-      return campaign
-    }
+    case "advance-week":
+      return playbackSpeed(scene) === 0 ? scene : advanceCampaignWeek(scene, event.seed, event.completedWeek)
     case "open-decision":
       if (scene.kind === "campaign" && scene.panel === "news" && Object.hasOwn(decisions, event.id)
         && (event.instanceId === undefined || pendingDecision(scene.run, event.instanceId, event.id))) {
@@ -153,6 +143,18 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
       event satisfies never
   }
   return scene
+}
+
+export function advanceCampaignWeek(scene: Scene, seed: number, completedWeek: number): Scene {
+  if (scene.kind !== "campaign" || scene.run.seed !== seed || scene.run.completedWeek !== completedWeek) return scene
+  const run = advanceWeek(scene.run)
+  if (run.completedWeek >= standardScenario.rules.maxWeeks) return { kind: "ending", outcome: "timeout", run }
+  const campaign: Campaign = { ...scene, run }
+  const entry = run.events.at(-1)
+  if (entry?.week === run.completedWeek && entry.content.kind === "decision") {
+    return { kind: "decision", id: entry.content.id, instanceId: entry.instanceId, back: campaign }
+  }
+  return campaign
 }
 
 /** The map and camera stay mounted behind every overlay. */

@@ -54,19 +54,28 @@ export function MarketPanel({ setup }: { setup: RunSetup }) {
   </>
 }
 
-export function DecisionDialog({ scene, back, choose }: {
-  scene: Extract<Scene, { kind: "decision" }>; back: () => void; choose: (choiceId: string) => void
+export function DecisionDialog({ scene, back, choose, inspect }: {
+  scene: Extract<Scene, { kind: "decision" }>; back: () => void; choose: (choiceId: string) => void; inspect?: () => void
+}) {
+  const { ui, scenario } = useLanguage()
+  const story = scenario.events[scene.id]
+  return <SceneDialog title={story.title} onBack={back}>
+    <p>{story.body}</p><DecisionChoices scene={scene} choose={choose}/>
+    {inspect && <button type="button" onClick={inspect}>{ui.developer.open}</button>}
+  </SceneDialog>
+}
+
+export function DecisionChoices({ scene, choose }: {
+  scene: Extract<Scene, { kind: "decision" }>; choose: (choiceId: string) => void
 }) {
   const { ui, scenario } = useLanguage()
   const decision = decisions[scene.id]
-  const story = scenario.events[scene.id]
   const balance = scene.back.run.balance
   const live = scene.instanceId !== undefined
-  return <SceneDialog title={story.title} onBack={back}>
-    <p>{story.body}</p>
+  return <>
     <p className="source-note">{live ? ui.balance(ui.tokens(balance)) : ui.previewDecision}</p>
     <div className="window-actions">{decision.choices.map(c => <button key={c.id} disabled={live && c.cost > balance} onClick={() => choose(c.id)}>
       {scenario.choices[scene.id][c.id].label}{c.cost > 0 && ` · ${ui.tokens(c.cost)}`}
     </button>)}</div>
-  </SceneDialog>
+  </>
 }

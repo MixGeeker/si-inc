@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { localeNames, isLocale } from "../../../../../packages/rules/locales"
 import { regions } from "../../../../../packages/rules/v0.1/world/regions"
 import type { Atlas, Location } from "../../cartography/atlas"
@@ -7,10 +7,11 @@ import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
 import { EndingDialog } from "../ending/EndingDialog"
 import { useGameSnapshot, useGameStore } from "../GameContext"
-import { playbackSpeed, visibleRunState, type NewsView, type RunSetup } from "../machine"
-import { selectedPlace, type MapSelection, type PlaceFocus } from "../store"
+import { visibleRunState, type NewsView, type RunSetup } from "../machine"
+import { gamePlaybackSpeed, selectedPlace, type MapSelection, type PlaceFocus } from "../store"
 import { SetupDialog } from "../setup/SetupDialog"
 import { DecisionDialog, EvolutionPanel, MarketPanel } from "./CampaignPanels"
+import "./developer-panel.css"
 import Hud from "./Hud"
 import { NewsOverview } from "./NewsLayer"
 import { hudContent } from "./hudContent"
@@ -22,6 +23,7 @@ import { previewPopulations } from "./populationPreview"
 import type { CountryPopulations } from "../../../../../packages/game/population"
 
 const MapViewport = lazy(() => import("../../cartography/MapViewport"))
+const DeveloperPanel = lazy(() => import("./DeveloperPanel"))
 const noPopulation: CountryPopulations = {}
 
 function locationFor(atlas: Atlas, selection: MapSelection | null): Location | null {
@@ -41,13 +43,15 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   const previewMarker = useMemo(() => ({ ...mapPreview.marker, label: language.ui.previewMarker }), [language])
   const { dispatch: send } = store
   const showGlobal = useCallback(() => send({ type: "map-preset", view: "global" }), [send])
-  const { scene, selection, layers: { night, cloud, current, population }, populationPreview, sound } = useGameSnapshot()
+  const snapshot = useGameSnapshot()
+  const { scene, selection, layers: { night, cloud, current, population }, populationPreview, sound, developer } = snapshot
   const location = useMemo(() => locationFor(atlas, selection), [atlas, selection])
   const [zoom, setZoom] = useState(EUROPE.zoom)
   const [rig] = useState(() => new MapCamera(setZoom))
   const [reduced, setReduced] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches)
   const [full, setFull] = useState(Boolean(document.fullscreenElement))
   const [screenError, setScreenError] = useState(false)
+  const devLauncher = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     function goToPlace(place: PlaceFocus | null) {
       if (!place) return rig.go(GLOBAL)
@@ -99,8 +103,10 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   }, [atlas, marketId, singleCountry])
   const content = hudContent(run, location === null, language)
   const newsItems = run ? campaignNews(run, language) : previewNews(language)
-  const speed = playbackSpeed(scene)
+  const speed = gamePlaybackSpeed(snapshot)
   const panel = scene.kind === "campaign" || scene.kind === "preview" ? scene.panel : null
+  const showDeveloper = developer.open && panel === null && scene.kind !== "setup"
+  const openDeveloper = () => send({ type: "set-developer-open", open: true })
   const newsView = panel === "news" && (scene.kind === "preview" || scene.kind === "campaign") ? scene.newsView ?? "archive" : null
   const newsItemId = panel === "news" && (scene.kind === "preview" || scene.kind === "campaign") ? scene.newsItemId : undefined
   const back = () => send({ type: "back" })
@@ -136,6 +142,14 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       focusPlace={place => send({ type: "focus-place", place })}
       setSpeed={n => send({ type: "set-speed", speed: n })} setZoom={n => rig.zoom(n)}/>
     {example && panel === null && <PopulationControls preview={example}/>}
+    {developer.open && <Suspense fallback={null}><DeveloperPanel hidden={!showDeveloper} close={() => {
+      send({ type: "set-developer-open", open: false })
+      requestAnimationFrame(() => devLauncher.current?.focus({ preventScroll: true }))
+    }} openSetup={() => {
+      send({ type: "open-panel", panel: "menu" }); send({ type: "open-setup" })
+    }}/></Suspense>}
+    {developer.enabled && !developer.open && (scene.kind === "preview" || scene.kind === "campaign") && panel === null &&
+      <button type="button" className="dev-launcher" ref={devLauncher} onClick={openDeveloper} aria-expanded={false}>{ui.developer.title}</button>}
     {newsView === "archive" && (
       <NewsOverview items={newsItems} itemId={newsItemId} dated={run !== null} open={openNews} close={back}
         decide={(id, instanceId) => send({ type: "open-decision", id, instanceId })}/>
@@ -185,6 +199,11 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
           if (isLocale(value)) send({ type: "set-locale", locale: value })
         }}>{Object.entries(localeNames).map(([code, name]) => <option key={code} value={code} lang={code}>{name}</option>)}</select>
       </label>
+      <fieldset><legend>{ui.settings}</legend>
+        <label><input type="checkbox" checked={developer.enabled}
+          onChange={e => send({ type: "set-developer-enabled", enabled: e.currentTarget.checked })}/> {ui.developer.enable}</label>
+        {developer.enabled && <button type="button" onClick={openDeveloper}>{ui.developer.open}</button>}
+      </fieldset>
       <fieldset><legend>{ui.sound}</legend>
         <div className="sound-controls">
           <label className="sound-volume">{ui.volume}
@@ -206,8 +225,9 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       <div className="window-actions"><button onClick={back}>{ui.cancel}</button><button onClick={() => send({ type: "withdraw" })}>{ui.confirmEnd}</button></div>
     </SceneDialog>}
     {scene.kind === "setup" && <SetupDialog previous={scene.back.kind === "ending" ? scene.back.run.setup : undefined} start={start} back={back}/>}
-    {scene.kind === "decision" && <DecisionDialog scene={scene} back={back}
+    {scene.kind === "decision" && !showDeveloper && <DecisionDialog scene={scene} back={back} inspect={developer.enabled ? openDeveloper : undefined}
       choose={choiceId => send({ type: "choose", id: scene.id, instanceId: scene.instanceId, choiceId })}/>}
-    {scene.kind === "ending" && <EndingDialog scene={scene} restart={() => send({ type: "open-setup" })} leave={() => send({ type: "return-to-preview" })}/>}
+    {scene.kind === "ending" && !showDeveloper && <EndingDialog scene={scene} restart={() => send({ type: "open-setup" })} leave={() => send({ type: "return-to-preview" })}
+      inspect={developer.enabled ? openDeveloper : undefined}/>}
   </>
 }
