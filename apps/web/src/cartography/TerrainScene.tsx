@@ -1,8 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { useFrame, useLoader, useThree } from "@react-three/fiber"
 import { Color, MathUtils, Mesh, TextureLoader } from "three"
-import { Atlas, surfaceUrl, vaporUrl, type Country } from "./atlas"
+import { Atlas, surfaceUrl, nightLightsUrl, vaporUrl, type Country } from "./atlas"
 import humidityUrl from "./data/humidity.png"
+import type { PopulationSurface } from "./population-surface"
+import type { PopulationProfile } from "./population-field"
+import { populationMesh } from "./population-mesh"
 import { MapCamera } from "./camera"
 import { WORLD_WIDTH, WORLD_HEIGHT, Y_SCALE } from "./layout"
 import { CurrentTraces } from "./currents"
@@ -13,20 +16,22 @@ type LightTransition = CloudSweep & { lightStartedAt:number; initialNight:number
 
 export type LayerState = { cloud:boolean; current:boolean; speed:number; reduced:boolean; night:boolean }
 type Props = {atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState;
+  surfaces:readonly PopulationSurface[]; profiles:ReadonlyMap<string, PopulationProfile>;
   project:(time:number)=>void; onReady:()=>void}
-export default function TerrainScene({atlas,rig,selected,layers,project,onReady}:Props) {
+export default function TerrainScene({atlas,rig,selected,layers,surfaces,profiles,project,onReady}:Props) {
   const {gl, invalidate, set} = useThree()
-  const [surface,vapor,humidity] = useLoader(TextureLoader,[surfaceUrl,vaporUrl,humidityUrl])
+  const [surface,nightLights,vapor,humidity] = useLoader(TextureLoader,[surfaceUrl,nightLightsUrl,vaporUrl,humidityUrl])
   const geometry = useMemo(()=>reliefGeometry(atlas),[atlas])
   const wind = useMemo(()=>velocityTexture(atlas),[atlas])
   const bordersMap = useMemo(()=>borders(atlas),[atlas])
   const blank = useMemo(()=>selectionTexture(),[])
   const mark = useMemo(()=>selected.length ? selectionTexture(selected) : blank,[selected,blank])
-  const mat = useMemo(()=>materials(surface,vapor,humidity,wind,bordersMap,blank),[surface,vapor,humidity,wind,bordersMap,blank])
+  const mat = useMemo(()=>materials(surface,nightLights,vapor,humidity,wind,bordersMap,blank),[surface,nightLights,vapor,humidity,wind,bordersMap,blank])
   const backdrop = useMemo(()=>({ day:new Color(0x164458), night:new Color(0x04060f), color:new Color() }),[])
   const previousNight = useRef(layers.night)
   const sweep = useRef<LightTransition | null>(null)
   const traces = useMemo(()=>new CurrentTraces(atlas),[atlas])
+  const population = useMemo(()=>surfaces.map(field=>populationMesh(atlas,field)),[atlas,surfaces])
   const elapsed = useRef(0), seaDt = useRef(0), overlayDt = useRef(1)
   const terrainMeshes=useRef<(Mesh|null)[]>([])
   useLayoutEffect(()=>{
@@ -75,6 +80,9 @@ export default function TerrainScene({atlas,rig,selected,layers,project,onReady}
     invalidate()
   },[mat,mark,layers,gl,backdrop,invalidate])
   useEffect(()=>()=>{if(mark!==blank) mark.texture.dispose()},[mark,blank])
+  useEffect(()=>()=>{for (const p of population) {
+    p.texture.dispose(); p.material.dispose(); p.geometry.dispose()
+  }},[population])
   useEffect(()=>()=>{geometry.dispose(); wind.dispose(); bordersMap.dispose(); blank.texture.dispose()
     mat.ground.dispose(); mat.sky.dispose(); traces.geometry.dispose()
   },[geometry,wind,bordersMap,blank,mat,traces])
@@ -101,6 +109,10 @@ export default function TerrainScene({atlas,rig,selected,layers,project,onReady}
     const dt = Math.min(delta,.12)*speed
     elapsed.current += dt
     mat.uniforms.elapsed.value = elapsed.current
+    for (const p of population) {
+      p.surface.update(profiles.get(p.surface.id)!, elapsed.current)
+      if (p.uploaded !== p.surface.revision) { p.texture.needsUpdate = true; p.uploaded = p.surface.revision }
+    }
     if (layers.current && dt>0) {
       seaDt.current += dt
       if (seaDt.current >= 1/24) { traces.advance(seaDt.current); seaDt.current=0 }
@@ -116,6 +128,7 @@ export default function TerrainScene({atlas,rig,selected,layers,project,onReady}
   return <>
     {[-360,0,360].map((x,i)=><group key={x} position-x={x}>
       <mesh ref={el=>{terrainMeshes.current[i]=el}} geometry={geometry} material={mat.ground} dispose={null}/>
+      {population.map(p=><mesh key={p.surface.id} geometry={p.geometry} material={p.material} renderOrder={1} dispose={null}/>)}
       {layers.current && <lineSegments geometry={traces.geometry} frustumCulled={false} dispose={null}>
         <lineBasicMaterial vertexColors transparent opacity={.46} depthWrite={false} toneMapped={false}/>
       </lineSegments>}

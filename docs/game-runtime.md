@@ -8,6 +8,8 @@
 | --- | --- | --- |
 | 开局余额、事件间隔、速度、价格、阈值、剧本文案 | `packages/rules/v0.1/` | 按规则版本导入，结算和界面引用同一份配置。 |
 | 阵营、起点、种子、已完成周数、当前余额、研究与普及指标、事件、操作日志 | `RunState` | 界面通过 `visibleRunState(snapshot.scene)` 读。纯函数 `createRun`、`advanceWeek`、`resolveDecision` 负责初始化和结算。 |
+| 各国总人口、各阵营的普通沉浸人数和现役合成人数 | `RunState.countryPopulations` | 使用地图国家 ID。人口图层从计数求占比，旧快照缺少该字段时按空记录读取。 |
+| 东亚人口示例的两项比例 | `GameState.populationPreview` | 预览地图用 `open-population-preview`、`set-preview-population`、`close-population-preview` 操作。开局清空示例。 |
 | 场景、当前面板、选择的倍速 | `GameState.scene` | 用场景事件更新。显示和时钟都用 `playbackSpeed(scene)` 读取有效速度。 |
 | 地图选区、昼夜、云层、洋流 | `GameState.selection` 和 `layers` | 地图拾取发 `pick-location`。点中可经营的大洲时保存市场 ID，点中站点、群岛标记或经营范围以外的位置时保存地图点。市场栏和地区目录用 `focus-place` 定位，全球用 `null`。镜头预设和图层分别走 `map-preset` 和 `set-layer`。 |
 | 音效静音、音量 | `GameState.sound` | `set-sound-muted` 接受布尔值，`set-sound-volume` 接受 0–100 的整数。默认开启、音量 65%。静音保留音量；重开沿用设置，浏览器本地保存，下次打开时恢复。 |

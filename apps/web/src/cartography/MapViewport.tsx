@@ -1,12 +1,16 @@
 import { Component, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Canvas, useThree } from "@react-three/fiber"
-import { Atlas, relief, surfaceUrl, type Country, type Location } from "./atlas"
+import { Atlas, nightLightsUrl, relief, surfaceUrl, type Country, type Location } from "./atlas"
+import { populationShares, type CountryPopulations } from "../../../../packages/game/population.ts"
+import { PopulationSurface } from "./population-surface"
+import type { PopulationProfile } from "./population-field"
 import { attachNavigation, MapCamera } from "./camera"
 import { hudScale, Y_SCALE } from "./layout"
 import TerrainScene, { type LayerState } from "./TerrainScene"
 import { computePlaceLabel, computePlaces } from "./compute-markers"
 
-type Props = {atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState; pick:(pos:Location)=>void; marker?:{lon:number;lat:number;label:string}; showNews:()=>void; showGlobal:()=>void}
+type Props = {atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState; populations:CountryPopulations;
+  pick:(pos:Location)=>void; marker?:{lon:number;lat:number;label:string}; showNews:()=>void; showGlobal:()=>void}
 class GraphicsBoundary extends Component<{children:ReactNode; fail:()=>void},{failed:boolean}> {
   state={failed:false}
   static getDerivedStateFromError() { return {failed:true} }
@@ -61,37 +65,62 @@ function ScreenGrid() {
     </g>}
   </svg>
 }
-function FlatMap({atlas,selected,rig,project,reduced,night}:{atlas:Atlas;selected:readonly Country[];rig:MapCamera;project:(t:number)=>void;reduced:boolean;night:boolean}) {
+function FlatMap({atlas,selected,rig,project,layers,surfaces,profiles}:{atlas:Atlas;selected:readonly Country[];rig:MapCamera;project:(t:number)=>void;
+  layers:LayerState;surfaces:readonly PopulationSurface[];profiles:ReadonlyMap<string, PopulationProfile>}) {
+  const { night, reduced, speed } = layers
   const svg=useRef<SVGSVGElement>(null)
+  const canvas=useRef<HTMLCanvasElement>(null), elapsed=useRef(0)
   useLayoutEffect(()=>{
     rig.setFlat(true)
     let frame=0, last=performance.now()
+    let previousView = "", previousTick = -1
     const draw=(now:number)=>{
       const node=svg.current
       if (!node) return
       if (!node.clientWidth || !node.clientHeight) {frame=requestAnimationFrame(draw);return}
+      const dt = Math.min((now-last)/1000,.12); last=now
+      if (document.hidden) { frame=requestAnimationFrame(draw); return }
       rig.resize(node.clientWidth,node.clientHeight)
-      rig.step((now-last)/1000,reduced); last=now
+      rig.step(dt,reduced)
+      if (!reduced) elapsed.current += dt*speed
       const nw=rig.screen(-180,90,0)
       // Use an unwrapped span even when the antimeridian crosses the view.
       const h=Math.abs(rig.screen(0,-90,0).y-nw.y), w=h*2/Y_SCALE
       const cx=rig.width/2-(rig.current.lon/360+.5)*w
-      node.setAttribute("viewBox",`${-cx/w*360} ${-nw.y/h*180} ${rig.width/w*360} ${rig.height/h*180}`)
+      const view = `${-cx/w*360} ${-nw.y/h*180} ${rig.width/w*360} ${rig.height/h*180}`
+      node.setAttribute("viewBox",view)
+      const tick = Math.floor(elapsed.current * 15)
+      if (canvas.current && (view !== previousView || tick !== previousTick)) {
+        const layer = canvas.current, ratio = Math.min(window.devicePixelRatio || 1, 1.5)
+        const sw = Math.round(rig.width*ratio), sh = Math.round(rig.height*ratio)
+        if (layer.width !== sw || layer.height !== sh) { layer.width = sw; layer.height = sh }
+        const ctx = layer.getContext("2d")!
+        ctx.setTransform(ratio,0,0,ratio,0,0)
+        ctx.clearRect(0,0,rig.width,rig.height)
+        for (const field of surfaces) {
+          field.update(profiles.get(field.id)!,elapsed.current)
+          for (const wrap of [-1,0,1]) ctx.drawImage(field.canvas,
+            cx+(wrap+(field.west+180)/360)*w, nw.y+(90-field.north)/180*h,
+            (field.east-field.west)/360*w, (field.north-field.south)/180*h)
+        }
+        previousView = view; previousTick = tick
+      }
       project(0)
       frame=requestAnimationFrame(draw)
     }
     frame=requestAnimationFrame(draw)
     return ()=>cancelAnimationFrame(frame)
-  },[rig,project,reduced])
-  return <svg ref={svg} className="flat-map" preserveAspectRatio="none" role="img" aria-label="二维矢量世界地图">
-    <defs><g id="flat-world"><image href={surfaceUrl} width="360" height="180"/>
+  },[rig,project,reduced,speed,surfaces,profiles])
+  return <><svg ref={svg} className="flat-map" preserveAspectRatio="none" role="img" aria-label="二维矢量世界地图">
+    <defs><g id="flat-world"><image href={surfaceUrl} width="360" height="180" style={night ? {filter:"brightness(.45) saturate(.75)"} : undefined}/>
+      {night && <image href={nightLightsUrl} width="360" height="180"/>}
       {atlas.countries.map(c => {
         const active = selected.includes(c)
         return <path key={c.id} d={c.d} fill={active ? "#f8ffc12b" : "none"}
           stroke={active ? (night ? "#d7e8ea" : "#ffffe4") : (night ? "#6f9eab" : "#bdd1b7")} strokeWidth={active ? (night ? .16 : .19) : (night ? .07 : .065)} fillRule="evenodd"/>
       })}
     </g></defs>{[-360,0,360].map(x=><use key={x} x={x} href="#flat-world"/>)}
-  </svg>
+  </svg>{surfaces.length > 0 && <canvas ref={canvas} className="flat-population" aria-hidden="true"/>}</>
 }
 
 const cursorShape = "M0 0 7.2 14 0 10.2-7.2 14Z"
@@ -114,7 +143,18 @@ function ComputeGlyph() {
   </>
 }
 
-export default function MapViewport({atlas,rig,selected,layers,pick,marker,showNews,showGlobal}:Props) {
+export default function MapViewport({atlas,rig,selected,layers,populations,pick,marker,showNews,showGlobal}:Props) {
+  const profiles=useMemo(()=>{
+    const result=new Map<string, PopulationProfile>()
+    for (const [id, counts] of Object.entries(populations)) {
+      const share = populationShares(counts)
+      if (share && atlas.countryById.has(id)) result.set(id,share)
+    }
+    return result
+  },[atlas,populations])
+  const activeCountries=Array.from(profiles.keys()).sort().join(" ")
+  const surfaces=useMemo(()=>activeCountries ? activeCountries.split(" ").map(id=>
+    new PopulationSurface(atlas.countryById.get(id)!)) : [],[atlas,activeCountries])
   const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null)
   const marks=useRef<(SVGGElement|null)[]>([])
   const cursorMarks=useRef<(SVGGElement|null)[]>([])
@@ -185,9 +225,10 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
     {!failed && <GraphicsBoundary fail={onFail}><Canvas frameloop="demand" flat linear dpr={[1,1.5]} resize={{offsetSize:true}}
       gl={{antialias:true,alpha:false,powerPreference:"high-performance"}} camera={rig.camera}>
       <Wake setWake={setWake}/>
-      <Suspense fallback={null}><TerrainScene atlas={atlas} rig={rig} selected={selected} layers={layers} project={project} onReady={onReady}/></Suspense>
+      <Suspense fallback={null}><TerrainScene atlas={atlas} rig={rig} selected={selected} layers={layers}
+        surfaces={surfaces} profiles={profiles} project={project} onReady={onReady}/></Suspense>
     </Canvas></GraphicsBoundary>}
-    {(failed || lost) && <FlatMap atlas={atlas} selected={selected} rig={rig} project={project} reduced={layers.reduced} night={layers.night}/>}
+    {(failed || lost) && <FlatMap atlas={atlas} selected={selected} rig={rig} project={project} layers={layers} surfaces={surfaces} profiles={profiles}/>}
     {layers.night && <div className="map-vignette" />}
     <ScreenGrid/>
     {!ready && !failed && !rig.flat && <span className="map-loading" role="status">正在建立地形…</span>}

@@ -5,6 +5,7 @@ import type { FactionId } from "../rules/v0.1/factions/roster.ts"
 import { isFactionId, resolveStartRegionId, standardScenario } from "../rules/v0.1/scenario.ts"
 import type { RegionId } from "../rules/v0.1/world/regions.ts"
 import type { GameCommand } from "./types.ts"
+import type { CountryPopulations } from "./population.ts"
 
 export interface RunSetup {
   readonly factionId: FactionId
@@ -26,6 +27,7 @@ export interface RunState {
   readonly balance: number
   readonly adoptionBps: number | null
   readonly dependencyBps: number | null
+  readonly countryPopulations?: CountryPopulations
   readonly researchBps: number
   readonly events: readonly RunEvent[]
   readonly commands: readonly GameCommand[]
@@ -58,7 +60,7 @@ export function createRun(input: { [K in keyof RunSetup]: string }, seed: number
     || !startRegionId || difficultyId !== standardScenario.difficulty.id) return null
   return {
     setup: { factionId, startRegionId, difficultyId }, seed, completedWeek: 0, balance: rules.initialBtoken,
-    adoptionBps: null, dependencyBps: null, researchBps: 0,
+    adoptionBps: null, dependencyBps: null, countryPopulations: {}, researchBps: 0,
     events: [], commands: [], schedule: scheduleAfter(0, seed, eventPool),
   }
 }

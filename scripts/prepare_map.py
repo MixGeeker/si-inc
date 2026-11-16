@@ -26,6 +26,7 @@ def sources(cache):
     urls = {
         "ne1.zip": "https://naturalearth.s3.amazonaws.com/50m_raster/NE1_50M_SR.zip",
         "blue-marble.jpg": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-topography/november/world.topo.200411.3x5400x2700.jpg",
+        "night-lights.jpg": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144897/BlackMarble_2016_3km_gray.jpg",
         "kyiv.jpg": "https://upload.wikimedia.org/wikipedia/commons/3/30/Kiev_Opera_House.JPG",
         "boundaries.zip": "https://naturalearth.s3.amazonaws.com/50m_cultural/ne_50m_admin_0_countries.zip",
         "ne_10m_admin_0_disputed_areas.zip": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_disputed_areas.zip",
@@ -181,6 +182,17 @@ def terrain(cache, mask):
     mask.resize((1024,512),Image.Resampling.NEAREST).save(OUT / "land.png",optimize=True)
 
 
+def night_lights(cache):
+    # The grayscale Black Marble composite isolates lights from the daylight terrain.
+    with Image.open(cache / "night-lights.jpg") as source:
+        source.draft("L", (WIDTH, HEIGHT))
+        light = source.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
+    light = light.point([round(220 * (max(0, value - 5) / 250) ** 1.18) for value in range(256)])
+    emission = Image.new("RGBA", light.size, (255, 210, 150, 0))
+    emission.putalpha(light)
+    emission.save(OUT / "night-lights.webp", "WEBP", lossless=True, method=6)
+
+
 def flows(cache):
     # Cell centres are (-179.875, -89.875) + (column,row); rows grow north.
     lon, lat = np.arange(360)-179.875, np.arange(180)-89.875
@@ -232,6 +244,7 @@ if __name__ == "__main__":
     OUT.mkdir(parents=True,exist_ok=True)
     sources(cache)
     terrain(cache,boundaries(cache))
+    night_lights(cache)
     flows(cache)
     cloud_noise()
     with Image.open(cache/"kyiv.jpg") as photo:

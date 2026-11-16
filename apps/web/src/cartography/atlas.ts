@@ -3,6 +3,7 @@ import elevationUrl from "./data/height.bin?url"
 import flowUrl from "./data/november.bin?url"
 import landUrl from "./data/land.png"
 export { default as surfaceUrl } from "./data/surface.webp"
+export { default as nightLightsUrl } from "./data/night-lights.webp"
 export { default as vaporUrl } from "./data/vapor.webp"
 
 export type Country = {
