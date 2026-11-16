@@ -55,11 +55,11 @@ test("map picks select continents in preview and campaign, including all of Russ
     store.dispatch(pick("JPN", 137, 36))
     store.dispatch(pick("RUS", 100, 60))
     assert.strictEqual(store.getSnapshot(), asia)
-    for (const marker of [{ countryId: "FRA", lon: 2, lat: 47, site: "法国算力站" },
-      { countryId: "CHN", lon: 114.4, lat: 10.3, islandName: "南沙群岛" }]) {
+    for (const marker of [{ countryId: "FRA", lon: 2, lat: 47, siteId: "fr" },
+      { countryId: "CHN", lon: 114.4, lat: 10.3, islandId: "spratly-islands" }]) {
       store.dispatch({ type: "pick-location", selection: marker })
       assert.deepEqual(store.getSnapshot().selection, marker)
-      assert.deepEqual(selectedPlace(marker), market(marker.site ? "eu" : "as"))
+      assert.deepEqual(selectedPlace(marker), market(marker.siteId ? "eu" : "as"))
     }
     for (const countryId of ["ATA", null]) {
       const point = { countryId, lon: 0, lat: -80 }

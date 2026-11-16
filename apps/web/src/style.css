@@ -42,6 +42,7 @@ button,select,input { font: inherit; }
 .news-ticker,.news-sheet,.news-sheet button { pointer-events: auto; }
 .news-ticker { position: absolute; z-index: 4; overflow: hidden; margin: 0; padding: 0; border: 0; background: transparent; color: #e7fff6; font: inherit; font-weight: 650; letter-spacing: .04em; text-align: left; cursor: pointer; text-shadow: 0 0 8px #14ffc855; }
 .news-ticker-line { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 .45em; white-space: nowrap; animation: news-rise 4.8s linear forwards; }
+.news-ticker-line > span { overflow: hidden; text-overflow: ellipsis; }
 .news-ticker-line.still { animation: none; transform: none; }
 @keyframes news-rise { 0% { transform: translateY(100%); } 18% { transform: translateY(0); } 72% { transform: translateY(0); } 100% { transform: translateY(-100%); } }
 .news-ticker.fresh { animation: news-flash 1.5s ease-out; }
@@ -97,6 +98,8 @@ dialog button:hover,dialog button:focus-visible { background: #5a3014; color: #f
 .window-body legend { padding: 0; margin-bottom: .35em; }
 .window-body fieldset label { display: block; padding: .30em 0; }
 .window-body input { accent-color: #ff9a3c; }
+.language-setting { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin: 1em 0; }
+.language-setting select { min-width: 8em; }
 .sound-controls { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 1em; }
 .window-body .sound-volume { display: grid; grid-template-columns: auto minmax(0,1fr) 4ch; align-items: center; gap: .5em; }
 .sound-volume input { min-width: 0; width: 100%; margin: 0; }
@@ -111,7 +114,11 @@ dialog button:hover,dialog button:focus-visible { background: #5a3014; color: #f
 .window-content details h4 { margin: 0 0 .2em; }
 .window-content details ul { padding-left: 1.2em; }
 .setup-form { display: grid; gap: .65em; }
-.setup-form label { display: grid; grid-template-columns: 6em 1fr; align-items: center; }
+.setup-form label { display: grid; grid-template-columns: minmax(6em, auto) minmax(0, 1fr); align-items: center; gap: .6em; }
+.setup-form select { width: 100%; }
+.window-body header { gap: .6em; }
+.window-content, .news-sheet { overflow-wrap: break-word; }
+:lang(en) .window-body h2, :lang(en) .news-sheet h2 { letter-spacing: .04em; }
 .window-body button:disabled { opacity: .5; cursor: default; }
 .readings { margin: 0 0 .7em; }
 .readings div { display: flex; align-items: center; justify-content: space-between; gap: 1em; border-bottom: 1px solid rgba(216,255,242,.14); padding: .4em 0; }

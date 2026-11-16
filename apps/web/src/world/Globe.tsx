@@ -2,6 +2,7 @@ import { use, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, 
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import { DirectionalLight, InstancedMesh, MathUtils, Matrix4, Vector3 } from "three"
 import { OrbitControls } from "three/addons/controls/OrbitControls.js"
+import { useLanguage } from "../i18n/useLanguage"
 import { createAtlas } from "./atlas"
 import { loadCountries } from "../cartography/atlas"
 import { exampleRoutes, regionIds, regions, type Layer, type RegionId } from "./snapshot"
@@ -129,22 +130,23 @@ function Surface({ selected, layer, onPick }: Omit<GlobeProps, "focus">) {
 }
 
 export default function Globe({ focus, ...surface }: GlobeProps) {
+  const { ui } = useLanguage()
   const rig = useRef<Rig>(null)
   const [lost, setLost] = useState(false)
   return <>
-    <div className="scene" aria-label="可拖动、缩放和点选地区的三维地球">
+    <div className="scene" aria-label={ui.globe}>
       <Canvas camera={{ position: [0, 0, 2.85], fov: 47, near: 0.1, far: 16 }}
         dpr={[1, 1.5]} frameloop="demand" flat gl={{ antialias: true, alpha: true }}
-        fallback={<p role="status">此设备不支持 3D 显示，可从地区列表查看态势。</p>}>
+        fallback={<p role="status">{ui.globeUnavailable}</p>}>
         <ambientLight color="#d4e4ef" intensity={1.35} />
         <CameraRig focus={focus} rig={rig} onContext={setLost} />
         <Surface {...surface} /><Network />
       </Canvas>
     </div>
-    {lost && <div className="scene-message" role="status">正在恢复 3D 显示，地区列表仍可使用。</div>}
-    <div className="zoom" aria-label="地球缩放">
-      <button type="button" aria-label="拉近地球" onClick={() => rig.current?.zoom(0.88)}>＋</button>
-      <button type="button" aria-label="拉远地球" onClick={() => rig.current?.zoom(1 / 0.88)}>−</button>
+    {lost && <div className="scene-message" role="status">{ui.globeRestoring}</div>}
+    <div className="zoom" aria-label={ui.globeZoom}>
+      <button type="button" aria-label={ui.zoomIn} onClick={() => rig.current?.zoom(0.88)}>＋</button>
+      <button type="button" aria-label={ui.zoomOut} onClick={() => rig.current?.zoom(1 / 0.88)}>−</button>
     </div>
   </>
 }

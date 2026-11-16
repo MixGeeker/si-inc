@@ -3,6 +3,7 @@
   "places": [
     {
       "id": "cn-neimenggu",
+      "nameEn": "Inner Mongolia",
       "name": "内蒙古自治区",
       "country": "CN",
       "countryName": "中国",
@@ -14,6 +15,7 @@
     },
     {
       "id": "us-texas",
+      "nameEn": "Texas",
       "name": "得克萨斯",
       "country": "US",
       "countryName": "美国",
@@ -25,6 +27,7 @@
     },
     {
       "id": "us-georgia",
+      "nameEn": "Georgia",
       "name": "佐治亚",
       "country": "US",
       "countryName": "美国",
@@ -36,6 +39,7 @@
     },
     {
       "id": "cn-shanxi",
+      "nameEn": "Shanxi",
       "name": "山西省",
       "country": "CN",
       "countryName": "中国",
@@ -47,6 +51,7 @@
     },
     {
       "id": "us-tennessee",
+      "nameEn": "Tennessee",
       "name": "田纳西",
       "country": "US",
       "countryName": "美国",
@@ -58,6 +63,7 @@
     },
     {
       "id": "us-ohio",
+      "nameEn": "Ohio",
       "name": "俄亥俄",
       "country": "US",
       "countryName": "美国",
@@ -69,6 +75,7 @@
     },
     {
       "id": "us-nevada",
+      "nameEn": "Nevada",
       "name": "内华达",
       "country": "US",
       "countryName": "美国",
@@ -91,6 +98,7 @@
     },
     {
       "id": "au-new-south-wales",
+      "nameEn": "New South Wales",
       "name": "新南威尔士",
       "country": "AU",
       "countryName": "澳大利亚",
@@ -102,6 +110,7 @@
     },
     {
       "id": "us-kentucky",
+      "nameEn": "Kentucky",
       "name": "肯塔基",
       "country": "US",
       "countryName": "美国",
@@ -113,6 +122,7 @@
     },
     {
       "id": "us-virginia",
+      "nameEn": "Virginia",
       "name": "弗吉尼亚",
       "country": "US",
       "countryName": "美国",
@@ -124,6 +134,7 @@
     },
     {
       "id": "ca-british-columbia",
+      "nameEn": "British Columbia",
       "name": "不列颠哥伦比亚",
       "country": "CA",
       "countryName": "加拿大",
@@ -135,6 +146,7 @@
     },
     {
       "id": "us-new-mexico",
+      "nameEn": "New Mexico",
       "name": "新墨西哥",
       "country": "US",
       "countryName": "美国",
@@ -146,6 +158,7 @@
     },
     {
       "id": "us-north-dakota",
+      "nameEn": "North Dakota",
       "name": "北达科他",
       "country": "US",
       "countryName": "美国",
@@ -168,6 +181,7 @@
     },
     {
       "id": "in-tamil-nadu",
+      "nameEn": "Tamil Nadu",
       "name": "泰米尔纳德",
       "country": "IN",
       "countryName": "印度",
@@ -190,6 +204,7 @@
     },
     {
       "id": "in-maharashtra",
+      "nameEn": "Maharashtra",
       "name": "马哈拉施特拉",
       "country": "IN",
       "countryName": "印度",
@@ -212,6 +227,7 @@
     },
     {
       "id": "au-victoria",
+      "nameEn": "Victoria",
       "name": "维多利亚",
       "country": "AU",
       "countryName": "澳大利亚",
@@ -223,6 +239,7 @@
     },
     {
       "id": "us-north-carolina",
+      "nameEn": "North Carolina",
       "name": "北卡罗来纳",
       "country": "US",
       "countryName": "美国",
@@ -245,6 +262,7 @@
     },
     {
       "id": "in-uttar-pradesh",
+      "nameEn": "Uttar Pradesh",
       "name": "北方邦",
       "country": "IN",
       "countryName": "印度",
@@ -278,6 +296,7 @@
     },
     {
       "id": "us-new-york",
+      "nameEn": "New York",
       "name": "纽约",
       "country": "US",
       "countryName": "美国",
@@ -289,6 +308,7 @@
     },
     {
       "id": "au-australian-capital-territory",
+      "nameEn": "Australian Capital Territory",
       "name": "首都领地",
       "country": "AU",
       "countryName": "澳大利亚",

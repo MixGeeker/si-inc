@@ -1,7 +1,7 @@
 import type { RunState } from "../../../../../packages/game/run.ts"
 import { decisions, type DecisionId } from "../../../../../packages/rules/v0.1/events/decisions.ts"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario.ts"
-import { mapPreview } from "./preview.ts"
+import { languages, type Language } from "../../i18n/languages.ts"
 
 export type NewsItem = {
   id: string
@@ -15,20 +15,13 @@ export type NewsItem = {
   instanceId?: string
 }
 
-const kindLabel = { bulletin: "开局", news: "新闻", competition: "竞争", decision: "突变" } as const
-
-export function kindName(kind: NewsItem["kind"]) {
-  return kindLabel[kind]
-}
-
-export function campaignNews(run: RunState): NewsItem[] {
+export function campaignNews(run: RunState, { ui, scenario }: Language = languages["zh-CN"]): NewsItem[] {
   const faction = standardScenario.factions[run.setup.factionId]
-  const region = standardScenario.regions[run.setup.startRegionId]
+  const region = scenario.regions[run.setup.startRegionId]
   const opening: NewsItem = {
     id: "opening",
     week: 0,
-    title: `${faction.name} 进入${region.name}市场`,
-    body: `${faction.name} 已进入${region.name}市场。`,
+    ...ui.opening(faction.name, region),
     kind: "bulletin",
     pending: false,
   }
@@ -40,23 +33,22 @@ export function campaignNews(run: RunState): NewsItem[] {
     return {
       id: entry.instanceId,
       week: entry.week,
-      title: entry.content.title,
-      body: entry.content.body,
+      ...scenario.events[entry.content.id],
       kind: entry.content.kind,
       pending: decision && entry.choiceId === undefined,
-      choiceLabel: chosen?.label,
+      choiceLabel: decision && chosen ? scenario.choices[entry.content.id][chosen.id].result : undefined,
       decisionId: decision ? entry.content.id : undefined,
       instanceId: entry.instanceId,
     }
   })]
 }
 
-export function previewNews(): NewsItem[] {
+export function previewNews({ ui }: Language = languages["zh-CN"]): NewsItem[] {
   return [{
     id: "preview",
     week: 0,
-    title: mapPreview.headline,
-    body: mapPreview.report,
+    title: ui.previewHeadline,
+    body: ui.previewReport,
     kind: "bulletin",
     pending: false,
   }]
@@ -66,6 +58,6 @@ export function weekNews(items: readonly NewsItem[], week: number) {
   return items.filter(item => item.week === week)
 }
 
-export function tickerText(item: NewsItem, dated: boolean) {
-  return dated ? `第 ${item.week} 周 · ${item.title}` : item.title
+export function tickerText(item: NewsItem, dated: boolean, { ui }: Language = languages["zh-CN"]) {
+  return dated ? `${ui.week(item.week)} · ${item.title}` : item.title
 }

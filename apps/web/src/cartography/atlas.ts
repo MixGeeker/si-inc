@@ -1,3 +1,4 @@
+import { spratlyIslands } from "./place-names"
 import boundariesUrl from "./data/countries.svg?url"
 import elevationUrl from "./data/height.bin?url"
 import flowUrl from "./data/november.bin?url"
@@ -9,9 +10,9 @@ export { default as vaporUrl } from "./data/vapor.webp"
 export type Country = {
   id: string; name: string; lon: number; lat: number
   box: number[]; d: string; path: Path2D
-  islandGroup?: {name:string;lon:number;lat:number}
+  islandGroup?: { id: typeof spratlyIslands; lon: number; lat: number }
 }
-export type Location = { lon: number; lat: number; country: Country | null; site?:string; islandName?:string }
+export type Location = { lon: number; lat: number; country: Country | null; siteId?: string; islandId?: typeof spratlyIslands }
 export const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 export const wrapLon = (lon: number) => ((lon + 180) % 360 + 360) % 360 - 180
 export const relief = (metres: number) => Math.max(0, metres) * .00055
@@ -81,12 +82,12 @@ async function readCountries(): Promise<Country[]> {
   const svg = await (await fetchAsset(boundariesUrl)).text()
   const xml = new DOMParser().parseFromString(svg, "image/svg+xml")
   if (xml.querySelector("parsererror")) throw Error("国家边界 SVG 无法读取")
-  const countries = Array.from(xml.querySelectorAll("path")).map(el => {
+  const countries = Array.from(xml.querySelectorAll("path")).map((el): Country => {
     const d = el.getAttribute("d")!
-    const islandName=el.getAttribute("data-island-name")
+    const isSpratlyGroup = el.id === "CHN" && el.hasAttribute("data-island-name")
     return { id:el.id, name:el.getAttribute("data-name")!, d, path:new Path2D(d),
       lon:Number(el.getAttribute("data-lon")), lat:Number(el.getAttribute("data-lat")),
-      islandGroup:islandName ? {name:islandName,lon:Number(el.getAttribute("data-island-lon")),lat:Number(el.getAttribute("data-island-lat"))} : undefined,
+      islandGroup:isSpratlyGroup ? {id:spratlyIslands,lon:Number(el.getAttribute("data-island-lon")),lat:Number(el.getAttribute("data-island-lat"))} : undefined,
       box:el.getAttribute("data-box")!.split(",").map(Number) }
   })
   if (!countries.length) throw Error("国家边界 SVG 为空")
