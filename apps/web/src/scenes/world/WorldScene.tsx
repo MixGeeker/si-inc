@@ -7,10 +7,11 @@ import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
 import { EndingDialog } from "../ending/EndingDialog"
 import { useGameSnapshot, useGameStore } from "../GameContext"
-import { visibleRunState, type NewsView, type RunSetup } from "../machine"
+import { defaultResearchSkill, visibleRunState, type NewsView, type RunSetup } from "../machine"
 import { gamePlaybackSpeed, selectedPlace, type MapSelection, type PlaceFocus } from "../store"
 import { SetupDialog } from "../setup/SetupDialog"
-import { DecisionDialog, EvolutionPanel, MarketPanel } from "./CampaignPanels"
+import { DecisionDialog, MarketPanel } from "./CampaignPanels"
+import { ResearchDialog } from "./ResearchDialog"
 import "./developer-panel.css"
 import Hud from "./Hud"
 import { NewsOverview } from "./NewsLayer"
@@ -156,7 +157,7 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
     )}
 
     {panel === "world" && <SceneDialog title={ui.world} onBack={back}>
-      {run && <MarketPanel setup={run.setup}/>}
+      {run && <MarketPanel run={run}/>}
       <fieldset><legend>{ui.layers}</legend>
         <label><input type="checkbox" checked={cloud} onChange={e => send({ type: "set-layer", layer: "cloud", enabled: e.target.checked })}/> {ui.clouds}</label>
         <label><input type="checkbox" checked={current} onChange={e => send({ type: "set-layer", layer: "current", enabled: e.target.checked })}/> {ui.currents}</label>
@@ -173,11 +174,13 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       <RegionPanel atlas={atlas} location={location} place={place}
         chooseMarket={id => send({ type: "focus-place", place: { kind: "market", id } })}/>
     </SceneDialog>}
-    {panel === "overview" && <SceneDialog title={content.overview} onBack={back}>
-      {run ? <EvolutionPanel run={run}/> : <dl className="readings">
+    {panel === "overview" && scene.kind === "campaign" &&
+      <ResearchDialog run={scene.run} skillId={scene.researchSkillId ?? defaultResearchSkill} buildId={scene.researchBuildId} back={back}/>}
+    {panel === "overview" && scene.kind === "preview" && <SceneDialog title={content.overview} onBack={back}>
+      <dl className="readings">
         <div><dt>{ui.name}</dt><dd>{mapPreview.name}</dd></div><div><dt>{ui.dnaPoints}</dt><dd>{mapPreview.dna}</dd></div>
         <div><dt>{ui.infected}</dt><dd>{mapPreview.infected}</dd></div><div><dt>{ui.deaths}</dt><dd>{mapPreview.deaths}</dd></div>
-      </dl>}
+      </dl>
     </SceneDialog>}
     {panel === "menu" && <SceneDialog title={ui.menu} onBack={back}>
       <div className="window-actions">{run

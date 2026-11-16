@@ -1,6 +1,9 @@
-import { advanceWeek, createRun, pendingDecision, resolveDecision, type RunState, type RunSetup } from "../../../../packages/game/run.ts"
+import { advanceWeek, createRun, pendingDecision, resolveDecision, startResearch, unlockResearchSlot, weeklyOutcome, type RunState, type RunSetup } from "../../../../packages/game/run.ts"
 import { decisions, type DecisionId } from "../../../../packages/rules/v0.1/events/decisions.ts"
 import { endings, type Outcome } from "../../../../packages/rules/v0.1/endings/standard.ts"
+import { researchNode, trees, type SkillId } from "../../../../packages/rules/v0.1/evolution/trees.ts"
+import { researchBuild, type BuildId } from "../../../../packages/rules/v0.1/evolution/builds.ts"
+import { completedLevel } from "../../../../packages/game/research.ts"
 import { standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
 
 export type { RunSetup }
@@ -16,6 +19,8 @@ interface Campaign extends NewsFocus {
   run: RunState
   panel: MapPanel | "confirm-exit" | null
   speed: number
+  researchSkillId?: SkillId
+  researchBuildId?: BuildId
   lastDecision?: { id: DecisionId; choiceId: string }
 }
 
@@ -39,6 +44,10 @@ export type SceneEvent =
   | { type: "open-setup" }
   | { type: "start"; factionId: string; startRegionId: string; difficultyId: string; seed?: number }
   | { type: "advance-week"; seed: number; completedWeek: number }
+  | { type: "select-research"; skillId: SkillId }
+  | { type: "select-research-build"; buildId: BuildId | null }
+  | { type: "unlock-research-slot"; slot: number; seed: number; completedWeek: number; seq: number }
+  | { type: "start-research"; skillId: SkillId; seed: number; completedWeek: number; seq: number }
   | { type: "open-decision"; id: DecisionId; instanceId?: string }
   | { type: "choose"; id: DecisionId; instanceId?: string; choiceId: string }
   | { type: "request-exit" }
@@ -47,6 +56,7 @@ export type SceneEvent =
   | { type: "return-to-preview" }
 
 export const previewSpeeds = [0, 1, 2, 3] as const
+export const defaultResearchSkill = trees[0].skills[0].id
 export const initialScene: Preview = { kind: "preview", panel: null, speed: 1 }
 
 function isNewsView(value: string): value is NewsView {
@@ -107,6 +117,26 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
       break
     case "advance-week":
       return playbackSpeed(scene) === 0 ? scene : advanceCampaignWeek(scene, event.seed, event.completedWeek)
+    case "select-research":
+      if (scene.kind === "campaign" && scene.panel === "overview" && researchNode(event.skillId)
+        && event.skillId !== (scene.researchSkillId ?? defaultResearchSkill)) return { ...scene, researchSkillId: event.skillId }
+      break
+    case "select-research-build": {
+      if (scene.kind !== "campaign" || scene.panel !== "overview" || (scene.researchBuildId ?? null) === event.buildId) return scene
+      if (event.buildId === null) return { ...scene, researchBuildId: undefined }
+      const build = researchBuild(event.buildId)
+      if (!build) return scene
+      const next = build.path.find(id => completedLevel(scene.run, id) === 0) ?? build.path[build.path.length - 1]
+      return { ...scene, researchBuildId: build.id, researchSkillId: next }
+    }
+    case "unlock-research-slot":
+    case "start-research": {
+      if (scene.kind !== "campaign" || scene.panel !== "overview"
+        || scene.run.seed !== event.seed || scene.run.completedWeek !== event.completedWeek) return scene
+      const run = event.type === "start-research" ? startResearch(scene.run, event.skillId, event.seq)
+        : unlockResearchSlot(scene.run, event.slot, event.seq)
+      return run === scene.run ? scene : { ...scene, run }
+    }
     case "open-decision":
       if (scene.kind === "campaign" && scene.panel === "news" && Object.hasOwn(decisions, event.id)
         && (event.instanceId === undefined || pendingDecision(scene.run, event.instanceId, event.id))) {
@@ -148,7 +178,8 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
 export function advanceCampaignWeek(scene: Scene, seed: number, completedWeek: number): Scene {
   if (scene.kind !== "campaign" || scene.run.seed !== seed || scene.run.completedWeek !== completedWeek) return scene
   const run = advanceWeek(scene.run)
-  if (run.completedWeek >= standardScenario.rules.maxWeeks) return { kind: "ending", outcome: "timeout", run }
+  const outcome = weeklyOutcome(run)
+  if (outcome) return { kind: "ending", outcome, run }
   const campaign: Campaign = { ...scene, run }
   const entry = run.events.at(-1)
   if (entry?.week === run.completedWeek && entry.content.kind === "decision") {

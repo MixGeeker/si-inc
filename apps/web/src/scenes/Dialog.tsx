@@ -8,9 +8,10 @@ interface Props {
   children: ReactNode
   event?: boolean
   className?: string
+  headerDetail?: ReactNode
 }
 
-export function SceneDialog({ title, onBack, children, event, className }: Props) {
+export function SceneDialog({ title, onBack, children, event, className, headerDetail }: Props) {
   const { ui } = useLanguage()
   const ref = useRef<HTMLDialogElement>(null)
   useLayoutEffect(() => {
@@ -31,7 +32,7 @@ export function SceneDialog({ title, onBack, children, event, className }: Props
       <div className="event-copy"><h2 id="window-title">{title}</h2>{children}</div>
       <button onClick={onBack} autoFocus>{ui.ok}</button>
     </section> : <section className="window-body">
-      <header><h2 id="window-title">{title}</h2><button className="close" aria-label={ui.close} onClick={onBack} autoFocus>×</button></header>
+      <header><h2 id="window-title">{title}</h2>{headerDetail}<button className="close" aria-label={ui.close} onClick={onBack} autoFocus>×</button></header>
       <div className="window-content">{children}</div>
     </section>}
   </dialog>

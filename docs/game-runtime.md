@@ -9,6 +9,7 @@
 | 开局余额、事件间隔、速度、价格、阈值、剧本文案 | `packages/rules/v0.1/` | 按规则版本导入，结算和界面引用同一份配置。 |
 | 阵营、起点、种子、已完成周数、当前余额、研究与普及指标、事件、操作日志 | `RunState` | 界面通过 `visibleRunState(snapshot.scene)` 读。纯函数 `createRun`、`advanceWeek`、`resolveDecision` 负责初始化和结算。 |
 | 各国总人口、各阵营的普通沉浸人数和现役合成人数 | `RunState.countryPopulations` | 使用地图国家 ID。人口图层从计数求占比，旧快照缺少该字段时按空记录读取。 |
+| 玩家语料、已解锁的研究槽位、研究项目 | `RunState.research` | 项目保存科技 ID、槽号和开题周。等级、空槽、前置、每周语料和完工时间都从快照读取。旧快照按已过周数补基础语料。 |
 | 东亚人口示例的两项比例 | `GameState.populationPreview` | 预览地图用 `open-population-preview`、`set-preview-population`、`close-population-preview` 操作。开局清空示例。 |
 | 场景、当前面板、选择的倍速 | `GameState.scene` | 用场景事件更新。显示和时钟都用 `playbackSpeed(scene)` 读取有效速度。 |
 | 地图选区、昼夜、云层、洋流 | `GameState.selection` 和 `layers` | 地图拾取发 `pick-location`。点中可经营的大洲时保存市场 ID，点中站点或群岛标记时，地图点携带 `siteId` 或 `islandId`，显示名称按当前语言读取。其他经营范围以外的位置保存坐标。市场栏和地区目录用 `focus-place` 定位，全球用 `null`。镜头预设和图层分别走 `map-preset` 和 `set-layer`。 |
@@ -79,6 +80,14 @@ store.dispatch({ type: "play-sound", cue: "test" })
 时间线从规则、开局、种子和按序指令重演每次余额变化。普通对局导出 `ReplayV1`，含开发者发放的对局导出 `format: "debug-replay"` 和含发放记录的完整指令序列。[回放与时间线](../packages/game/inspection.ts)
 
 ### 周制剧本
+
+战役地图右下角的「研究」打开全屏科技树并暂停时钟。分页和节点选择发送 `select-research`，返回地图后恢复原速度。七个槽位从 1 号起按序购买，每个占用中的槽位承载一个项目。解锁和开题分别发送 `unlock-research-slot`、`start-research`，带当前种子、已完成周数和下一条指令序号。有效操作扣除语料，记录 `unlockResearchSlot` 或 `buySkill`。每周结算先发本周语料，再按到期项目结题，释放槽位。商店价格和语料基础配额在[标准剧本](../packages/rules/v0.1/standard.json)，研究周期和前置关系在[科技树](../packages/rules/v0.1/evolution/trees.ts)。
+
+循环科技每完成一级都可再次开题，按已完成等级递增标价，次周起享受新增的每周语料。危险科技每次结题按规则增加 `RunState.researchBps`（Project HUMAN 反制进度）。反制达到 100% 时以人类胜利结算，末周同样优先判定。订阅者可以接收 `research-slot-unlocked`、`research-started` 和逐项目的 `research-completed` 通知。
+
+50 项科技分布在传播、行为和能力三页，分别有 17、17 和 16 个独立节点。每个前置组完成任意一项即可，所有组都需满足。互斥路线在开题时锁定，只有一方能解锁的后续项目也会标成互斥。流派选择发送 `select-research-build`，高亮和选区归场景快照。四项模型指数由已结题项目及其等级计算，基准各为 100。旧对局保留已接受项目，回放按扩展目录启用前后的前置规则结算。
+
+自动评测集降低后续循环项目价格。版本重构从次周起，在同周完成至少两项研究时发一次额外语料。用户经营收入按盈利能力调整，按百分之一 token 跨期累计，再遵守周制收益上限。科技详情中的条件试算与经营结算使用同一个纯函数。研究预览采用明示的样本值，真实市场的迁移、召回和改造还需要相应的对局行动提供人口和预算。[市场研究效果](../packages/game/market-research.ts) · [版本化条件](../packages/rules/v0.1/evolution/market-effects.ts)
 
 标准剧本按版本化配置每 8–12 周抽一次。在一轮内按种子抽完新闻、竞争事件和突变，再补满池。每次产生独立的 `instanceId`，同一剧本条目在不同周仍可分别处理。正式突变会打开决策窗，退出后可从新闻记录继续处理。
 

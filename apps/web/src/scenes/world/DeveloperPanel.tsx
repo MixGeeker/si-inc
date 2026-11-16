@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react"
 import { replayForRun, runTimeline, type RunTraceEntry } from "../../../../../packages/game/inspection"
 import { canGrantTokens, nextCommandSeq, type RunState } from "../../../../../packages/game/run"
+import { researchNode } from "../../../../../packages/rules/v0.1/evolution/trees"
 import { decisions } from "../../../../../packages/rules/v0.1/events/decisions"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
 import type { Language } from "../../i18n/languages"
@@ -14,6 +15,11 @@ import { DecisionChoices } from "./CampaignPanels"
 function traceTitle(row: RunTraceEntry, { ui, scenario }: Language) {
   const { command, event } = row
   if (command?.kind === "devGrantTokens") return ui.developer.grantEntry
+  if (command?.kind === "unlockResearchSlot") return ui.lab.unlock(command.slot)
+  if (command?.kind === "buySkill") {
+    const node = researchNode(command.skillId)
+    if (node) return scenario.skills[node.skill.id]
+  }
   if (command?.kind === "chooseEvent" && event?.content.kind === "decision") {
     const choice = decisions[event.content.id].choices.find(c => c.id === command.choiceId)
     if (choice) return scenario.choices[event.content.id][choice.id].label
@@ -31,12 +37,14 @@ function Timeline({ run }: { run: RunState }) {
   if (!rows) return <p>{ui.developer.traceUnavailable}</p>
   return <>
     <ol className="dev-timeline">{(all ? rows : rows.slice(0, 5)).map(row => {
-      const delta = row.before === null ? 0 : row.after - row.before
+      const researchOrder = row.command?.kind === "buySkill" || row.command?.kind === "unlockResearchSlot"
+      const delta = researchOrder ? row.corpusAfter - row.corpusBefore! : row.after - (row.before ?? row.after)
       return <li key={row.command ? `command-${row.command.seq}` : `week-${row.week}`}><details>
         <summary><span>{ui.week(row.week)}</span><strong>{traceTitle(row, language)}</strong>
-          <span className={delta > 0 ? "dev-credit" : delta < 0 ? "dev-debit" : ""}>{delta ? (delta > 0 ? "+" : "") + number.format(delta) : "—"}</span></summary>
+          <span className={delta > 0 ? "dev-credit" : delta < 0 ? "dev-debit" : ""}>{researchOrder ? ui.lab.corpusCount(delta) : delta ? (delta > 0 ? "+" : "") + number.format(delta) : "—"}</span></summary>
         <div className="dev-entry-detail">
           <p>{ui.developer.funds} · {row.before !== null && `${number.format(row.before)} → `}{ui.tokens(row.after)}</p>
+          <p>{ui.lab.corpus} · {row.corpusBefore !== null && `${number.format(row.corpusBefore)} → `}{number.format(row.corpusAfter)}</p>
           {row.event && <p>{scenario.events[row.event.content.id].title}<br/>{ui.developer.instance} <code>{row.event.instanceId}</code></p>}
           {row.command && <code>#{row.command.seq} · {row.command.kind}{row.command.kind === "chooseEvent" && ` / ${row.command.choiceId}`}</code>}
         </div>
@@ -157,7 +165,7 @@ export default function DeveloperPanel({ openSetup, close, hidden }: { openSetup
         {tab === "inspect" && <dl className="dev-inspect">
           <div><dt>{text.scene}</dt><dd>{scene.kind === "campaign" || scene.kind === "decision" || scene.kind === "ending" ? text.sceneNames[scene.kind] : scene.kind}</dd></div>
           <div><dt>{text.selection}</dt><dd>{selection}</dd></div>
-          <div><dt>{ui.research}</dt><dd>{percent.format(run.researchBps / 10000)}</dd></div>
+          <div><dt>{ui.lab.countermeasure}</dt><dd>{percent.format(run.researchBps / 10000)}</dd></div>
           <div><dt>{text.adoption}</dt><dd>{run.adoptionBps === null ? text.notCalculated : percent.format(run.adoptionBps / 10000)}</dd></div>
           <div><dt>{text.dependency}</dt><dd>{run.dependencyBps === null ? text.notCalculated : percent.format(run.dependencyBps / 10000)}</dd></div>
         </dl>}

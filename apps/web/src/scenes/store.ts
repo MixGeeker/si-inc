@@ -1,4 +1,5 @@
 import { acceptWithoutChange, createEventStore } from "../../../../packages/game/event-store.ts"
+import { projectsCompleting, researchState, type ResearchProject } from "../../../../packages/game/research.ts"
 import { grantDeveloperTokens, type RunEvent, type RunSetup } from "../../../../packages/game/run.ts"
 import type { GameCommand, TokenGrant } from "../../../../packages/game/types.ts"
 import { defaultLocale, isLocale, type Locale } from "../../../../packages/rules/locales.ts"
@@ -69,6 +70,9 @@ export type GameNotice =
   | { type: "run-started"; setup: RunSetup; seed: number }
   | { type: "dev-token-granted"; command: TokenGrant }
   | { type: "event-occurred"; entry: RunEvent }
+  | { type: "research-slot-unlocked"; slot: number }
+  | { type: "research-started"; project: ResearchProject }
+  | { type: "research-completed"; project: ResearchProject }
   | { type: "decision-resolved"; command: Extract<GameCommand, { kind: "chooseEvent" }> }
   | { type: "run-ended"; outcome: Outcome | "withdrawn" }
 
@@ -200,13 +204,23 @@ function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
     return [{ type: "run-started", setup: scene.run.setup, seed: scene.run.seed }]
   }
   const stepped = event.type === "advance-week" || event.type === "dev-step-week"
-  if (scene.kind === "ending" && (event.type === "withdraw" || event.type === "finish" || stepped)) {
-    return [{ type: "run-ended", outcome: scene.outcome }]
-  }
   if (stepped) {
     const run = visibleRunState(scene)
-    const entry = run?.events.at(-1)
-    if (entry && entry.week === run?.completedWeek) return [{ type: "event-occurred", entry }]
+    if (!run) return []
+    const notices: GameNotice[] = projectsCompleting(run, run.completedWeek)
+      .map(project => ({ type: "research-completed", project }))
+    const entry = run.events.at(-1)
+    if (entry?.week === run.completedWeek) notices.push({ type: "event-occurred", entry })
+    if (scene.kind === "ending") notices.push({ type: "run-ended", outcome: scene.outcome })
+    return notices
+  }
+  if (scene.kind === "ending" && (event.type === "withdraw" || event.type === "finish")) {
+    return [{ type: "run-ended", outcome: scene.outcome }]
+  }
+  if (event.type === "unlock-research-slot") return [{ type: "research-slot-unlocked", slot: event.slot }]
+  if (event.type === "start-research" && scene.kind === "campaign") {
+    const project = researchState(scene.run).projects.at(-1)
+    if (project) return [{ type: "research-started", project }]
   }
   if (event.type === "dev-grant-token") {
     const command = visibleRunState(scene)?.commands.at(-1)

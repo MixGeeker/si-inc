@@ -1,6 +1,7 @@
 import { languages, type Language } from "../../i18n/languages"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
 import type { RunState } from "../../../../../packages/game/run"
+import { researchState, weeklyCorpus } from "../../../../../packages/game/research"
 import { previewSpeeds } from "../machine"
 import { mapPreview } from "./preview"
 
@@ -17,9 +18,9 @@ export function hudContent(run: RunState | null, globalView: boolean, language: 
       speeds: rules.speedMultipliers,
       token: number.format(run.balance),
       cards: empty,
-      corpus: empty,
-      yieldText: ui.dailyYield(empty),
-      human: ui.humanInactive,
+      corpus: number.format(researchState(run).corpus),
+      yieldText: ui.lab.weekly(weeklyCorpus(run)),
+      human: run.researchBps ? ui.lab.humanProgress(percent.format(run.researchBps / 10000)) : ui.humanInactive,
       factions: Object.entries(factions).map(([id, faction]) => ({
         name: faction.name,
         player: id === run.setup.factionId,

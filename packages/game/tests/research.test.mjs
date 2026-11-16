@@ -1,0 +1,250 @@
+import assert from "node:assert/strict"
+import test from "node:test"
+import { researchNode, trees } from "../../rules/v0.1/evolution/trees.ts"
+import { researchBuilds } from "../../rules/v0.1/evolution/builds.ts"
+import { standardScenario } from "../../rules/v0.1/scenario.ts"
+import { replayForRun, runTimeline } from "../inspection.ts"
+import { completedLevel, completionWeek, firstIdleSlot, researchAttributes, researchCost, researchState, researchStatus, slotProject, weeklyCorpus } from "../research.ts"
+import { advanceWeek, createRun, nextCommandSeq, startResearch, unlockResearchSlot } from "../run.ts"
+
+const { research: rules, maxWeeks } = standardScenario.rules
+const fresh = () => createRun({ factionId: "claude", startRegionId: "as", difficultyId: "standard" }, 42)
+const unlock = (run, slot) => unlockResearchSlot(run, slot, nextCommandSeq(run))
+const start = (run, id) => startResearch(run, id, nextCommandSeq(run))
+const status = (run, id) => researchStatus(run, researchNode(id))
+function until(run, week) {
+  assert.ok(week <= maxWeeks)
+  while (run.completedWeek < week) {
+    const next = advanceWeek(run)
+    assert.notStrictEqual(next, run)
+    run = next
+  }
+  return run
+}
+
+test("the seven research slots charge in order and reject invalid, unaffordable and repeated orders", () => {
+  let run = fresh()
+  assert.equal(rules.slotCosts.length, 7)
+  assert.ok(rules.slotCosts.every((cost, i) => Number.isSafeInteger(cost) && cost > (rules.slotCosts[i - 1] ?? 0)))
+  assert.strictEqual(start(run, "social-sharing"), run)
+  for (const slot of [2, 7, 0, -1, 1.5, NaN, "1", null]) assert.strictEqual(unlock(run, slot), run)
+  for (let slot = 1; slot <= rules.slotCosts.length; slot++) {
+    const cost = rules.slotCosts[slot - 1]
+    while (researchState(run).corpus < cost) {
+      assert.strictEqual(unlock(run, slot), run)
+      run = advanceWeek(run)
+    }
+    const before = run, seq = nextCommandSeq(run)
+    assert.strictEqual(unlockResearchSlot(run, slot, seq + 1), run)
+    run = unlock(run, slot)
+    assert.equal(run.research.unlockedSlots, slot)
+    assert.equal(run.research.corpus, before.research.corpus - cost)
+    assert.equal(run.balance, before.balance)
+    assert.deepEqual(run.commands.at(-1), { kind: "unlockResearchSlot", slot, week: run.completedWeek, seq })
+    assert.strictEqual(unlockResearchSlot(run, slot, seq), run)
+    assert.strictEqual(unlock(run, slot), run)
+  }
+  assert.strictEqual(unlock(run, 8), run)
+  assert.ok(runTimeline(run))
+  assert.equal(fresh().research.unlockedSlots, 0)
+})
+
+test("seven simultaneous projects use distinct slots, finish on game weeks and replay both balances", () => {
+  let run = until(fresh(), 45)
+  for (let i = 1; i <= 7; i++) run = unlock(run, i)
+  const roots = trees.map(t => t.skills[0].id)
+  for (const id of roots) run = start(run, id)
+  assert.strictEqual(start(run, roots[0]), run)
+  assert.strictEqual(start(run, "multilingual"), run)
+  run = advanceWeek(run)
+  assert.equal(status(run, roots[0]), "active")
+  run = advanceWeek(run)
+  assert.equal(firstIdleSlot(run), 1)
+  assert.equal(status(run, roots[0]), "completed")
+  const eligible = trees.flatMap(t => t.skills).filter(s => status(run, s.id) === "available")
+  for (const [i, skill] of eligible.slice(0, 7).entries()) {
+    run = start(run, skill.id)
+    assert.equal(slotProject(run, i + 1).skillId, skill.id)
+  }
+  assert.equal(firstIdleSlot(run), null)
+  assert.strictEqual(start(run, eligible[7].id), run)
+  const rows = runTimeline(run)
+  assert.equal(rows[0].corpusAfter, run.research.corpus)
+  assert.equal(rows[0].corpusBefore - rows[0].corpusAfter, eligible[6].cost)
+  assert.equal(rows[0].before, rows[0].after)
+  assert.deepEqual(replayForRun(run).commands, run.commands)
+  const lastWeek = Math.max(...run.research.projects.map(completionWeek))
+  run = until(run, lastWeek)
+  assert.equal(firstIdleSlot(run), 1)
+  assert.ok(eligible.slice(0, 7).every(s => completedLevel(run, s.id) === 1))
+})
+
+test("exclusive routes reserve their stage on start and either completed route unlocks the final project", () => {
+  for (const [route, other] of [["open-source", "closed-subscription"], ["closed-subscription", "open-source"]]) {
+    let run = unlock(unlock(until(fresh(), 12), 1), 2)
+    function finish(...ids) {
+      for (const id of ids) run = start(run, id)
+      run = until(run, Math.max(...run.research.projects.map(completionWeek)))
+      for (const id of ids) assert.equal(completedLevel(run, id), 1)
+    }
+    finish("social-sharing")
+    finish("api-ecosystem", "multilingual")
+    run = start(run, route)
+    assert.equal(status(run, other), "excluded")
+    assert.strictEqual(start(run, other), run)
+    assert.strictEqual(start(run, "global-default"), run)
+    finish("edge-deployment")
+    assert.strictEqual(start(run, other), run)
+    finish("global-default")
+    assert.equal(run.researchBps, researchNode("global-default").skill.dangerBps)
+    assert.strictEqual(start(run, "global-default"), run)
+    assert.ok(runTimeline(run))
+  }
+})
+
+test("repeatable levels earn corpus from the following week and require the new price and a free slot", () => {
+  const node = researchNode("multilingual")
+  let run = unlock(unlock(until(fresh(), 5), 1), 2)
+  run = start(run, "social-sharing")
+  run = until(run, completionWeek(slotProject(run, 1)))
+  for (let level = 0; level < 3; level++) {
+    const expectedPrice = node.skill.cost + level * node.skill.repeatCostStep
+    assert.equal(researchCost(run, node), expectedPrice)
+    assert.equal(status(run, node.skill.id), level ? "upgradable" : "available")
+    const poor = { ...run, research: { ...run.research, corpus: expectedPrice - 1 } }
+    assert.strictEqual(start(poor, node.skill.id), poor)
+    const before = run
+    run = start(run, node.skill.id)
+    assert.equal(run.research.corpus, before.research.corpus - expectedPrice)
+    assert.equal(firstIdleSlot(run), 2)
+    assert.strictEqual(start(run, node.skill.id), run)
+    if (level) assert.equal(status(run, "edge-deployment"), "available")
+    assert.equal(weeklyCorpus(run), rules.weeklyCorpus + level * node.skill.weeklyCorpusBonus)
+    const end = completionWeek(slotProject(run, 1))
+    run = until(run, end - 1)
+    const lastIncome = weeklyCorpus(run), lastBalance = run.research.corpus
+    run = advanceWeek(run)
+    assert.equal(run.research.corpus, lastBalance + lastIncome)
+    assert.equal(completedLevel(run, node.skill.id), level + 1)
+    assert.equal(weeklyCorpus(run), lastIncome + node.skill.weeklyCorpusBonus)
+    assert.equal(firstIdleSlot(run), 1)
+    assert.ok(runTimeline(run))
+  }
+})
+
+test("research handles old snapshots and rejects unknown skills, stale sequences, short funds and terminal weeks", () => {
+  const { research, ...older } = until(fresh(), 3)
+  assert.deepEqual(researchState(older), research)
+  assert.ok(runTimeline(older))
+  let run = unlock(older, 1)
+  assert.equal(run.research.corpus, research.corpus - rules.slotCosts[0])
+  for (const id of ["missing", "__proto__", ["social-sharing"]]) assert.strictEqual(start(run, id), run)
+  assert.strictEqual(startResearch(run, "social-sharing", nextCommandSeq(run) - 1), run)
+  const poor = { ...run, research: { ...run.research, corpus: researchNode("social-sharing").skill.cost - 1 } }
+  assert.strictEqual(start(poor, "social-sharing"), poor)
+  run = until(run, maxWeeks)
+  assert.strictEqual(start(run, "social-sharing"), run)
+  assert.strictEqual(unlock(run, 2), run)
+  assert.strictEqual(advanceWeek(run), run)
+})
+
+test("all ten build orders can be played through the two-slot opening at the designed corpus cost and week", () => {
+  const expected = { social: [80,13], open: [124,18], device: [164,28], business: [134,19], memory: [88,12],
+    supervised: [138,19], delegated: [158,24], conversion: [146,21], defense: [230,31], recursive: [146,23] }
+  for (const build of researchBuilds) {
+    let run = unlock(unlock(fresh(), 1), 2), i = 0, spent = 0
+    const goal = build.path.at(-1)
+    while (!completedLevel(run, goal)) {
+      assert.ok(run.completedWeek < 40, build.id)
+      while (i < build.path.length) {
+        const next = start(run, build.path[i])
+        if (next === run) break
+        spent += run.research.corpus - next.research.corpus
+        run = next
+        i++
+      }
+      run = advanceWeek(run)
+    }
+    assert.deepEqual([spent,run.completedWeek], expected[build.id], build.id)
+    assert.ok(runTimeline(run), build.id)
+  }
+})
+
+test("project deltas apply once on completion, stack per level, and cross-page prerequisites require each group", () => {
+  let run = unlock(unlock(until(fresh(), 15), 1), 2)
+  const baseline = { spread: 100, appeal: 100, profit: 100, danger: 100 }
+  run = start(start(run, "social-sharing"), "daily-chat")
+  assert.deepEqual(researchAttributes(run), baseline)
+  run = until(run, 17)
+  assert.deepEqual(researchAttributes(run), { ...baseline, spread: 106, appeal: 105 })
+  assert.strictEqual(start(run, "remix-templates"), run)
+  run = start(start(run, "tone-matching"), "multilingual")
+  run = until(run, 19)
+  assert.equal(status(run, "remix-templates"), "available")
+  run = until(run, 20)
+  run = start(run, "multilingual")
+  run = until(run, 23)
+  assert.deepEqual(researchAttributes(run), { ...baseline, spread: 110, appeal: 112 })
+  assert.deepEqual(researchAttributes(fresh()), baseline)
+})
+
+test("parallel completion pays once beginning after model redesign, including a three-project week", () => {
+  let run = until(fresh(), 32)
+  for (const s of [1,2,3]) run = unlock(run, s)
+  run = until(start(run, "inference-efficiency"), 34)
+  for (const id of ["multimodal","reinforcement-learning","regulatory-adaptation"]) run=start(run,id)
+  run = until(run, 38)
+  run = start(run, "version-rebuild")
+  run = until(run, 41)
+  run = start(run, "request-cache")
+  run = until(run, 42)
+  const normal = weeklyCorpus(run)
+  assert.equal(advanceWeek(run).research.corpus - run.research.corpus, normal)
+  run = advanceWeek(run)
+  for (const id of ["social-sharing","daily-chat","weekly-reports"]) run=start(run,id)
+  run = advanceWeek(run)
+  assert.equal(advanceWeek(run).research.corpus - run.research.corpus, weeklyCorpus(run) + 3)
+  assert.ok(runTimeline(advanceWeek(run)))
+})
+
+test("both exclusive policies reserve on opening and block only their dependent branches", () => {
+  for (const channel of ["open-source","closed-subscription"]) {
+    for (const policy of ["human-approval","autonomous-decisions"]) {
+      let run = until(fresh(), 30)
+      for (const slot of [1,2,3]) run = unlock(run,slot)
+      for (const id of ["daily-chat","weekly-reports","api-ecosystem"]) run=start(run,id)
+      run=until(run,33)
+      for (const id of ["long-memory","agent-tasks","enterprise-workflows"]) run=start(run,id)
+      run=until(run,37)
+      run=start(start(run,channel),policy)
+      for (const chosen of [channel,policy]) {
+        const other = researchNode(chosen).skill.excludes
+        assert.equal(status(run,other),"excluded")
+        assert.strictEqual(start(run,other),run)
+      }
+      assert.equal(status(run,policy === "human-approval" ? "full-delegation" : "live-handoff"),"excluded")
+      assert.equal(status(run,channel === "open-source" ? "metered-billing" : "community-mirrors"),"excluded")
+      const reachable = trees.flatMap(t=>t.skills).filter(s=>status(run,s.id)!=="excluded")
+      assert.equal(reachable.length,46)
+      assert.equal(status(run,"global-default"),"locked")
+      assert.ok(runTimeline(run))
+    }
+  }
+})
+
+test("an existing enterprise study replays under its earlier prerequisites, then continues with new rules", () => {
+  let old = fresh()
+  old = { ...old, research: { ...old.research, expandedAt: { week: 10, seq: 99 } } }
+  old = unlock(old,1)
+  assert.strictEqual(start(old,"weekly-reports"),old)
+  old = until(start(old,"daily-chat"),2)
+  old = until(start(old,"enterprise-workflows"),6)
+  const { expandedAt, ...legacyResearch } = old.research
+  let migrated = { ...old, research: legacyResearch }
+  assert.ok(completedLevel(migrated,"enterprise-workflows"))
+  assert.ok(runTimeline(migrated))
+  migrated = start(migrated,"team-seats")
+  assert.equal(status(migrated,"team-seats"),"active")
+  assert.deepEqual(replayForRun(migrated).researchExpandedAt, { week: 6, seq: 4 })
+  assert.ok(runTimeline(migrated))
+})
