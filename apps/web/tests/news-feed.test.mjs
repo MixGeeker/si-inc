@@ -9,7 +9,7 @@ test("campaign news starts with the opening bulletin and week lists stay inside 
   assert.equal(items.length, 1)
   assert.equal(items[0].id, "opening")
   assert.equal(items[0].week, 0)
-  assert.match(items[0].title, /东亚/)
+  assert.equal(items[0].title, "GPT 进入亚洲市场")
   assert.deepEqual(weekNews(items, 0), items)
   assert.deepEqual(weekNews(items, 1), [])
   assert.equal(tickerText(items[0], true), `第 0 周 · ${items[0].title}`)

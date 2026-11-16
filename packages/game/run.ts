@@ -2,7 +2,7 @@ import { btoken } from "../rules/v0.1/economy/btoken.ts"
 import { decisions, type DecisionId } from "../rules/v0.1/events/decisions.ts"
 import { eventPool, type EventContent } from "../rules/v0.1/events/pool.ts"
 import type { FactionId } from "../rules/v0.1/factions/roster.ts"
-import { isFactionId, isRegionId, standardScenario } from "../rules/v0.1/scenario.ts"
+import { isFactionId, resolveStartRegionId, standardScenario } from "../rules/v0.1/scenario.ts"
 import type { RegionId } from "../rules/v0.1/world/regions.ts"
 import type { GameCommand } from "./types.ts"
 
@@ -52,9 +52,10 @@ function scheduleAfter(week: number, previousRandom: number, remaining: readonly
 }
 
 export function createRun(input: { [K in keyof RunSetup]: string }, seed: number): RunState | null {
-  const { factionId, startRegionId, difficultyId } = input
+  const { factionId, difficultyId } = input
+  const startRegionId = resolveStartRegionId(input.startRegionId)
   if (!Number.isInteger(seed) || seed < 0 || seed >= uint32Range || !isFactionId(factionId)
-    || !isRegionId(startRegionId) || difficultyId !== standardScenario.difficulty.id) return null
+    || !startRegionId || difficultyId !== standardScenario.difficulty.id) return null
   return {
     setup: { factionId, startRegionId, difficultyId }, seed, completedWeek: 0, balance: rules.initialBtoken,
     adoptionBps: null, dependencyBps: null, researchBps: 0,

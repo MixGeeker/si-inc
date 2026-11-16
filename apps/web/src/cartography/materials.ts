@@ -23,19 +23,25 @@ export function borders(atlas:Atlas) {
   texture.anisotropy = 4
   return texture
 }
-export function selectionTexture(country?:Country | null) {
+export function selectionTexture(countries: readonly Country[] = []) {
   const canvas = document.createElement("canvas")
-  // Only the selected feature's bounding rectangle occupies texture memory.
-  const [west,south,east,north] = country?.box ?? [-1,-1,1,1]
+  const [west,south,east,north] = countries.length ? [
+    Math.min(...countries.map(c => c.box[0])), Math.min(...countries.map(c => c.box[1])),
+    Math.max(...countries.map(c => c.box[2])), Math.max(...countries.map(c => c.box[3])),
+  ] : [-1,-1,1,1]
   const w = east-west+.8, h = north-south+.8
   const scale = Math.min(36,2048/Math.max(w,h))
   canvas.width = Math.ceil(w*scale); canvas.height = Math.ceil(h*scale)
-  if (country) {
+  if (countries.length) {
     const ctx = canvas.getContext("2d")!
     ctx.scale(canvas.width/w,canvas.height/h)
     ctx.translate(-180-west+.4,north+.4-90)
-    ctx.fillStyle = "rgba(240,249,175,.14)"; ctx.fill(country.path,"evenodd")
-    ctx.lineWidth = .155; ctx.lineJoin = "round"; ctx.strokeStyle = "#f9ffe5"; ctx.stroke(country.path)
+    ctx.fillStyle = "rgba(240,249,175,.14)"
+    ctx.lineWidth = .155; ctx.lineJoin = "round"; ctx.strokeStyle = "#f9ffe5"
+    for (const country of countries) {
+      ctx.fill(country.path,"evenodd")
+      ctx.stroke(country.path)
+    }
   }
   const texture = new CanvasTexture(canvas)
   return { texture, rect:[(west-.4+180)/360,(south-.4+90)/180,w/360,h/180] }

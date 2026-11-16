@@ -36,7 +36,7 @@ export function EvolutionPanel({ run }: { run: RunState }) {
 
 export function MarketPanel({ setup }: { setup: RunSetup }) {
   return <>
-    <p>起始市场 · {standardScenario.regions[setup.startRegionId].name}</p>
+    <p>起始大洲 · {standardScenario.regions[setup.startRegionId].name}</p>
     <details><summary>剧本进程</summary>
       <ul>{phases.map(p => <li key={p.name}><strong>{p.name} · {p.minAdoptionBps / 100}% 起</strong>　{p.focus}</li>)}</ul>
     </details>

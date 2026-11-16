@@ -5,8 +5,19 @@ import { decisions } from "../../rules/v0.1/events/decisions.ts"
 import { eventPool } from "../../rules/v0.1/events/pool.ts"
 import { standardScenario } from "../../rules/v0.1/scenario.ts"
 
-const setup = { factionId: "claude", startRegionId: "sea", difficultyId: "standard" }
+const setup = { factionId: "claude", startRegionId: "as", difficultyId: "standard" }
 const { rules } = standardScenario
+
+test("legacy starting markets use the continent of their old starting point", () => {
+  const startIn = id => createRun({ ...setup, startRegionId: id }, 42)
+  const aliases = { eu: ["we", "nordic"], as: ["ee", "ea", "sa", "sea", "ca", "mena"], af: ["ssa"], sam: ["latam"] }
+  for (const [id, older] of Object.entries(aliases)) {
+    const expected = startIn(id)
+    assert.equal(expected.setup.startRegionId, id)
+    for (const name of older) assert.deepEqual(startIn(name), expected)
+  }
+  for (const id of ["europe", "FRA", "ATA", "__proto__", ["eu"], ["ee"]]) assert.equal(startIn(id), null)
+})
 
 test("seeded weekly draws cover the pool, use rule intervals and stop at the week limit", () => {
   function play(seed) {

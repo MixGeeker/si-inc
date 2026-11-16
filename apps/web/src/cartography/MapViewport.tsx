@@ -6,7 +6,7 @@ import { hudScale, Y_SCALE } from "./layout"
 import TerrainScene, { type LayerState } from "./TerrainScene"
 import { computePlaceLabel, computePlaces } from "./compute-markers"
 
-type Props = {atlas:Atlas; rig:MapCamera; selected?:Country|null; layers:LayerState; pick:(pos:Location)=>void; marker?:{lon:number;lat:number;label:string}; showNews:()=>void}
+type Props = {atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState; pick:(pos:Location)=>void; marker?:{lon:number;lat:number;label:string}; showNews:()=>void; showGlobal:()=>void}
 class GraphicsBoundary extends Component<{children:ReactNode; fail:()=>void},{failed:boolean}> {
   state={failed:false}
   static getDerivedStateFromError() { return {failed:true} }
@@ -61,7 +61,7 @@ function ScreenGrid() {
     </g>}
   </svg>
 }
-function FlatMap({atlas,selected,rig,project,reduced,night}:{atlas:Atlas;selected?:Country|null;rig:MapCamera;project:(t:number)=>void;reduced:boolean;night:boolean}) {
+function FlatMap({atlas,selected,rig,project,reduced,night}:{atlas:Atlas;selected:readonly Country[];rig:MapCamera;project:(t:number)=>void;reduced:boolean;night:boolean}) {
   const svg=useRef<SVGSVGElement>(null)
   useLayoutEffect(()=>{
     rig.setFlat(true)
@@ -85,8 +85,11 @@ function FlatMap({atlas,selected,rig,project,reduced,night}:{atlas:Atlas;selecte
   },[rig,project,reduced])
   return <svg ref={svg} className="flat-map" preserveAspectRatio="none" role="img" aria-label="二维矢量世界地图">
     <defs><g id="flat-world"><image href={surfaceUrl} width="360" height="180"/>
-      {atlas.countries.map(c=><path key={c.id} d={c.d} fill={selected?.id===c.id ? "#f8ffc12b" : "none"}
-        stroke={selected?.id===c.id ? (night ? "#d7e8ea" : "#ffffe4") : (night ? "#6f9eab" : "#bdd1b7")} strokeWidth={selected?.id===c.id ? (night ? .16 : .19) : (night ? .07 : .065)} fillRule="evenodd"/>)}
+      {atlas.countries.map(c => {
+        const active = selected.includes(c)
+        return <path key={c.id} d={c.d} fill={active ? "#f8ffc12b" : "none"}
+          stroke={active ? (night ? "#d7e8ea" : "#ffffe4") : (night ? "#6f9eab" : "#bdd1b7")} strokeWidth={active ? (night ? .16 : .19) : (night ? .07 : .065)} fillRule="evenodd"/>
+      })}
     </g></defs>{[-360,0,360].map(x=><use key={x} x={x} href="#flat-world"/>)}
   </svg>
 }
@@ -111,7 +114,7 @@ function ComputeGlyph() {
   </>
 }
 
-export default function MapViewport({atlas,rig,selected,layers,pick,marker,showNews}:Props) {
+export default function MapViewport({atlas,rig,selected,layers,pick,marker,showNews,showGlobal}:Props) {
   const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null)
   const marks=useRef<(SVGGElement|null)[]>([])
   const cursorMarks=useRef<(SVGGElement|null)[]>([])
@@ -166,7 +169,7 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
       if(nearest<0) {select.current(location);return}
       const site=computePlaces[nearest]
       select.current({...atlas.locate(site.lon,site.lat),site:computePlaceLabel(site)})
-    })
+    },showGlobal)
     const signal=()=>wake.current()
     const lost=(e:Event)=>{e.preventDefault();setLost(true)}
     const restored=()=>{rig.setFlat(false);setLost(false);wake.current()}
@@ -176,7 +179,7 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
     el.addEventListener("webglcontextrestored",restored,true)
     return ()=>{detach();for(const e of events) el.removeEventListener(e,signal)
       el.removeEventListener("webglcontextlost",lost,true);el.removeEventListener("webglcontextrestored",restored,true)}
-  },[atlas,rig,altitudes])
+  },[atlas,rig,altitudes,showGlobal])
   useEffect(()=>{wake.current()})
   return <div className="map-viewport" ref={host} tabIndex={0} role="region" aria-label="互动世界地图，方向键平移，加减键缩放，Home 返回全球">
     {!failed && <GraphicsBoundary fail={onFail}><Canvas frameloop="demand" flat linear dpr={[1,1.5]} resize={{offsetSize:true}}
@@ -216,7 +219,7 @@ export default function MapViewport({atlas,rig,selected,layers,pick,marker,showN
           onKeyDown={e=>{if(e.key==="Enter" || e.key===" ") {e.preventDefault();choose()}}}>
           <title>{name} · {country.name}</title>
           <circle r="13" fill="transparent"/>
-          <path d="M0-5 5 0 0 5-5 0Z" stroke="#e6eee0" strokeWidth="1.4" fill={selected?.id===country.id ? "#e8f1b7" : "#426057"}/>
+          <path d="M0-5 5 0 0 5-5 0Z" stroke="#e6eee0" strokeWidth="1.4" fill={selected.includes(country) ? "#e8f1b7" : "#426057"}/>
         </g>
       })}
       {marker && <g ref={eventPin} style={{display:"none",pointerEvents:"auto",cursor:"pointer"}} role="button" aria-label={marker.label} tabIndex={0}

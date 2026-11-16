@@ -16,15 +16,12 @@ export const layerKeys = Object.keys(layers) as Layer[]
 const values = (adoptionBps: number, dependencyBps: number, lockdownBps: number) =>
   ({ adoptionBps, dependencyBps, lockdownBps })
 export const snapshot = {
-  na: values(7100, 4400, 4800), we: values(5800, 3600, 6900),
-  nordic: values(4600, 3000, 5300), ee: values(3200, 2000, 2800),
-  ea: values(8000, 5000, 3400), sa: values(5100, 2400, 1900),
-  sea: values(6900, 4200, 1500), mena: values(2400, 1600, 2400),
-  ssa: values(1900, 1300, 1100), latam: values(5900, 2800, 1800),
-  ca: values(2900, 1900, 2300), oc: values(4100, 3200, 3100),
+  // Earlier samples are weighted by playable population, and dependency by AI users.
+  na: values(6652, 3871, 3681), sam: values(5900, 2800, 1800),
+  eu: values(5081, 3318, 5780), as: values(6003, 3801, 2414),
+  af: values(1990, 1365, 1333), oc: values(4100, 3200, 3100),
 } satisfies Record<RegionId, Pick<RegionState, Metric>>
 
 export const exampleRoutes = [
-  ["ea","sa"], ["ea","sea"], ["sa","mena"], ["sea","oc"], ["ea","ee"], ["sa","ca"],
-  ["ee","we"], ["we","na"], ["latam","na"], ["mena","ssa"], ["ca","ee"], ["we","nordic"],
+  ["as", "oc"], ["as", "eu"], ["eu", "na"], ["sam", "na"], ["as", "af"],
 ] as const satisfies ReadonlyArray<readonly [RegionId, RegionId]>

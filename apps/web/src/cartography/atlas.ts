@@ -30,8 +30,11 @@ export function imageElement(url: string): Promise<HTMLImageElement> {
 
 export class Atlas {
   private readonly context = document.createElement("canvas").getContext("2d")!
+  readonly countryById: ReadonlyMap<string, Country>
   constructor(readonly countries: Country[], readonly heights: Int16Array,
-    readonly fields: Int16Array, private readonly land: Uint8ClampedArray) {}
+    readonly fields: Int16Array, private readonly land: Uint8ClampedArray) {
+    this.countryById = new Map(countries.map(c => [c.id, c]))
+  }
 
   isLand(lon: number, lat: number) {
     const x = Math.floor((wrapLon(lon) + 180) / 360 * 1024)
@@ -73,11 +76,8 @@ export class Atlas {
   }
 }
 
-async function readAtlas() {
-  const [svg, heights, flows, mask] = await Promise.all([
-    fetchAsset(boundariesUrl).then(r => r.text()), fetchAsset(elevationUrl).then(r=>r.arrayBuffer()),
-    fetchAsset(flowUrl).then(r=>r.arrayBuffer()), imageElement(landUrl),
-  ])
+async function readCountries(): Promise<Country[]> {
+  const svg = await (await fetchAsset(boundariesUrl)).text()
   const xml = new DOMParser().parseFromString(svg, "image/svg+xml")
   if (xml.querySelector("parsererror")) throw Error("国家边界 SVG 无法读取")
   const countries = Array.from(xml.querySelectorAll("path")).map(el => {
@@ -88,7 +88,21 @@ async function readAtlas() {
       islandGroup:islandName ? {name:islandName,lon:Number(el.getAttribute("data-island-lon")),lat:Number(el.getAttribute("data-island-lat"))} : undefined,
       box:el.getAttribute("data-box")!.split(",").map(Number) }
   })
-  if (!countries.length || heights.byteLength !== 721*361*2 || flows.byteLength !== 360*180*8)
+  if (!countries.length) throw Error("国家边界 SVG 为空")
+  return countries
+}
+
+let pendingCountries: Promise<Country[]> | undefined
+export function loadCountries() {
+  return pendingCountries ??= readCountries().catch(error => { pendingCountries = undefined; throw error })
+}
+
+async function readAtlas() {
+  const [countries, heights, flows, mask] = await Promise.all([
+    loadCountries(), fetchAsset(elevationUrl).then(r=>r.arrayBuffer()),
+    fetchAsset(flowUrl).then(r=>r.arrayBuffer()), imageElement(landUrl),
+  ])
+  if (heights.byteLength !== 721*361*2 || flows.byteLength !== 360*180*8)
     throw Error("地图数据不完整")
   const canvas = document.createElement("canvas")
   canvas.width = mask.width; canvas.height = mask.height

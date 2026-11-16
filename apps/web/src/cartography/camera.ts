@@ -148,7 +148,7 @@ export class MapCamera {
   }
 }
 
-export function attachNavigation(element:HTMLElement, rig:MapCamera, atlas:Atlas, pick:(place:Location,point:Point)=>void) {
+export function attachNavigation(element:HTMLElement, rig:MapCamera, atlas:Atlas, pick:(place:Location,point:Point)=>void, showGlobal:()=>void) {
   const pointers = new Map<number,Point>()
   let start:Point | null = null, dragged = false
   const local = (e:PointerEvent | WheelEvent) => {
@@ -202,7 +202,7 @@ export function attachNavigation(element:HTMLElement, rig:MapCamera, atlas:Atlas
     if(e.target!==element) return
     const step = Math.min(rig.width,rig.height)*.12
     const moves:Record<string,Point> = {ArrowLeft:{x:step,y:0},ArrowRight:{x:-step,y:0},ArrowUp:{x:0,y:step},ArrowDown:{x:0,y:-step}}
-    if (e.key==="Home") rig.go(GLOBAL)
+    if (e.key==="Home") showGlobal()
     else if (["=","+","-","_"].includes(e.key)) rig.zoom(rig.target.zoom+("=+".includes(e.key) ? .09 : -.09))
     else if (moves[e.key]) rig.pan({x:rig.width/2,y:rig.height/2},{x:rig.width/2+moves[e.key].x,y:rig.height/2+moves[e.key].y})
     else return

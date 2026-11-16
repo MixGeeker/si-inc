@@ -12,7 +12,7 @@ import { SWEEP_MS, cloudCoverAt, hasOutgoingClouds, type CloudSweep } from "./cl
 type LightTransition = CloudSweep & { lightStartedAt:number; initialNight:number }
 
 export type LayerState = { cloud:boolean; current:boolean; speed:number; reduced:boolean; night:boolean }
-type Props = {atlas:Atlas; rig:MapCamera; selected?:Country | null; layers:LayerState;
+type Props = {atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState;
   project:(time:number)=>void; onReady:()=>void}
 export default function TerrainScene({atlas,rig,selected,layers,project,onReady}:Props) {
   const {gl, invalidate, set} = useThree()
@@ -20,8 +20,8 @@ export default function TerrainScene({atlas,rig,selected,layers,project,onReady}
   const geometry = useMemo(()=>reliefGeometry(atlas),[atlas])
   const wind = useMemo(()=>velocityTexture(atlas),[atlas])
   const bordersMap = useMemo(()=>borders(atlas),[atlas])
-  const blank = useMemo(()=>selectionTexture(null),[])
-  const mark = useMemo(()=>selected ? selectionTexture(selected) : blank,[selected,blank])
+  const blank = useMemo(()=>selectionTexture(),[])
+  const mark = useMemo(()=>selected.length ? selectionTexture(selected) : blank,[selected,blank])
   const mat = useMemo(()=>materials(surface,vapor,humidity,wind,bordersMap,blank),[surface,vapor,humidity,wind,bordersMap,blank])
   const backdrop = useMemo(()=>({ day:new Color(0x164458), night:new Color(0x04060f), color:new Color() }),[])
   const previousNight = useRef(layers.night)

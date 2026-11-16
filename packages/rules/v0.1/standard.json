@@ -1,6 +1,6 @@
 {
   "rulesVersion": "v0.1",
-  "regionCount": 12,
+  "regionCount": 6,
   "factionIds": ["gpt", "claude", "grok"],
   "weekSecondsAt1x": 4,
   "eventIntervalWeeks": { "min": 8, "max": 12 },
@@ -14,7 +14,7 @@
   "standardVictory": {
     "minAdoptionBps": 8500,
     "minDependencyBps": 6500,
-    "minCoveredRegions": 10,
+    "minCoveredRegions": 6,
     "minRegionalAdoptionBps": 6000
   }
 }
