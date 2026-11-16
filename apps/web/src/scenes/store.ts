@@ -1,6 +1,6 @@
 import { acceptWithoutChange, createEventStore } from "../../../../packages/game/event-store.ts"
-import type { RunEvent, RunSetup } from "../../../../packages/game/run.ts"
-import type { GameCommand } from "../../../../packages/game/types.ts"
+import { grantDeveloperTokens, type RunEvent, type RunSetup } from "../../../../packages/game/run.ts"
+import type { GameCommand, TokenGrant } from "../../../../packages/game/types.ts"
 import { defaultLocale, isLocale, type Locale } from "../../../../packages/rules/locales.ts"
 import type { Outcome } from "../../../../packages/rules/v0.1/endings/standard.ts"
 import { isRegionId } from "../../../../packages/rules/v0.1/scenario.ts"
@@ -9,7 +9,7 @@ import { computePlaceById, computePlaces } from "../cartography/compute-markers.
 import { spratlyIslands } from "../cartography/place-names.ts"
 import { soundBank, type SoundCue } from "../audio/cues.ts"
 import { defaultSound, validVolume, type SoundSettings } from "../audio/settings.ts"
-import { initialScene, sceneReducer, visibleRunState, type Scene, type SceneEvent } from "./machine.ts"
+import { advanceCampaignWeek, initialScene, playbackSpeed, sceneReducer, visibleRunState, type Scene, type SceneEvent } from "./machine.ts"
 import { initialPopulationPreview, type PopulationPreview } from "./world/populationPreview.ts"
 
 export interface MapPoint {
@@ -46,9 +46,14 @@ export interface GameState {
   readonly populationPreview: PopulationPreview | null
   readonly sound: SoundSettings
   readonly locale: Locale
+  readonly developer: { readonly enabled: boolean; readonly open: boolean }
 }
 
 export type GameEvent = SceneEvent
+  | { type: "set-developer-enabled"; enabled: boolean }
+  | { type: "set-developer-open"; open: boolean }
+  | { type: "dev-step-week"; seed: number; completedWeek: number }
+  | { type: "dev-grant-token"; seed: number; completedWeek: number; seq: number; amount: number }
   | { type: "set-locale"; locale: Locale }
   | { type: "play-sound"; cue: SoundCue }
   | { type: "set-sound-muted"; muted: boolean }
@@ -62,6 +67,7 @@ export type GameEvent = SceneEvent
 
 export type GameNotice =
   | { type: "run-started"; setup: RunSetup; seed: number }
+  | { type: "dev-token-granted"; command: TokenGrant }
   | { type: "event-occurred"; entry: RunEvent }
   | { type: "decision-resolved"; command: Extract<GameCommand, { kind: "chooseEvent" }> }
   | { type: "run-ended"; outcome: Outcome | "withdrawn" }
@@ -101,6 +107,30 @@ function sameSelection(current: MapSelection | null, next: MapSelection | null) 
 function reduceGame(state: GameState, event: GameEvent): GameState | typeof acceptWithoutChange {
   const { scene } = state
   switch (event.type) {
+    case "set-developer-enabled":
+      if (typeof event.enabled !== "boolean" || event.enabled === state.developer.enabled) return state
+      return { ...state, developer: { enabled: event.enabled, open: false } }
+    case "set-developer-open": {
+      if (!state.developer.enabled || typeof event.open !== "boolean") return state
+      const fromMenu = (scene.kind === "preview" || scene.kind === "campaign") && scene.panel === "menu"
+      if (event.open && (scene.kind === "setup" || ((scene.kind === "preview" || scene.kind === "campaign") && scene.panel && !fromMenu))) return state
+      if (state.developer.open === event.open && !(event.open && fromMenu)) return state
+      return { ...state, developer: { enabled: true, open: event.open },
+        scene: event.open && fromMenu ? sceneReducer(scene, { type: "back" }) : scene }
+    }
+    case "dev-step-week": {
+      if (!state.developer.open || scene.kind !== "campaign" || scene.panel !== null) return state
+      const next = advanceCampaignWeek(scene, event.seed, event.completedWeek)
+      return next === scene ? state : { ...state, scene: next }
+    }
+    case "dev-grant-token": {
+      const campaign = scene.kind === "decision" ? scene.back : scene.kind === "campaign" && scene.panel === null ? scene : null
+      if (!state.developer.open || !campaign || campaign.run.seed !== event.seed || campaign.run.completedWeek !== event.completedWeek) return state
+      const run = grantDeveloperTokens(campaign.run, event.amount, event.seq)
+      if (run === campaign.run) return state
+      const next = { ...campaign, run }
+      return { ...state, scene: scene.kind === "decision" ? { ...scene, back: next } : next }
+    }
     case "play-sound":
       if (typeof event.cue !== "string" || !Object.hasOwn(soundBank, event.cue)
         || state.sound.muted || state.sound.volume === 0) return state
@@ -152,12 +182,14 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
       return { ...state, selection: event.view === "global" ? null : scene.kind === "campaign" ? marketFocus("eu") : previewSelection,
         scene: sceneReducer(scene, { type: "back" }) }
     default: {
+      if (event.type === "advance-week" && state.developer.open) return state
       const next = sceneReducer(scene, event)
       if (next === scene) return state
       if (event.type === "start" && next.kind === "campaign") {
-        return { ...state, scene: next, populationPreview: null, selection: marketFocus(next.run.setup.startRegionId) }
+        return { ...state, scene: next, developer: { ...state.developer, open: false }, populationPreview: null, selection: marketFocus(next.run.setup.startRegionId) }
       }
-      if (event.type === "return-to-preview") return { ...state, scene: next, selection: previewSelection }
+      if (event.type === "return-to-preview") return { ...state, scene: next, developer: { ...state.developer, open: false }, selection: previewSelection }
+      if (event.type === "open-setup" && state.developer.open) return { ...state, scene: next, developer: { ...state.developer, open: false } }
       return { ...state, scene: next }
     }
   }
@@ -167,13 +199,18 @@ function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
   if (event.type === "start" && scene.kind === "campaign") {
     return [{ type: "run-started", setup: scene.run.setup, seed: scene.run.seed }]
   }
-  if (scene.kind === "ending" && (event.type === "withdraw" || event.type === "finish" || event.type === "advance-week")) {
+  const stepped = event.type === "advance-week" || event.type === "dev-step-week"
+  if (scene.kind === "ending" && (event.type === "withdraw" || event.type === "finish" || stepped)) {
     return [{ type: "run-ended", outcome: scene.outcome }]
   }
-  if (event.type === "advance-week") {
+  if (stepped) {
     const run = visibleRunState(scene)
     const entry = run?.events.at(-1)
     if (entry && entry.week === run?.completedWeek) return [{ type: "event-occurred", entry }]
+  }
+  if (event.type === "dev-grant-token") {
+    const command = visibleRunState(scene)?.commands.at(-1)
+    if (command?.kind === "devGrantTokens") return [{ type: "dev-token-granted", command }]
   }
   if (event.type === "choose" && event.instanceId !== undefined && scene.kind === "campaign") {
     const command = scene.run.commands.at(-1)
@@ -182,9 +219,28 @@ function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
   return []
 }
 
-export function createGameStore(sound: SoundSettings = defaultSound, locale: Locale = defaultLocale) {
-  const initial = { scene: initialScene, layers: initialLayers, selection: previewSelection, populationPreview: null, sound, locale }
+function storeFromSnapshot(initial: GameState) {
   return createEventStore<GameState, GameEvent, GameNotice>(initial, reduceGame, gameNotices)
+}
+
+export function createGameStore(sound: SoundSettings = defaultSound, locale: Locale = defaultLocale, developerEnabled = false) {
+  return storeFromSnapshot({ scene: initialScene, layers: initialLayers, selection: previewSelection, populationPreview: null,
+    sound, locale, developer: { enabled: developerEnabled, open: false } })
+}
+
+/** A manual trial owns its subscriptions and queue. The browser clock stays attached to the live store. */
+export function forkDeveloperStore(snapshot: GameState) {
+  let scene = snapshot.scene
+  // The trial has its own controls. A decision opened from the live news archive returns to its trial map.
+  if (scene.kind === "decision" && scene.back.panel === "news") {
+    const back = sceneReducer(scene.back, { type: "back" })
+    if (back.kind === "campaign") scene = { ...scene, back }
+  }
+  return storeFromSnapshot({ ...snapshot, scene, developer: { enabled: true, open: true } })
+}
+
+export function gamePlaybackSpeed(state: GameState) {
+  return state.developer.open ? 0 : playbackSpeed(state.scene)
 }
 
 export type GameStore = ReturnType<typeof createGameStore>

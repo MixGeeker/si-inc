@@ -1,6 +1,6 @@
 import { standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
-import { playbackSpeed, visibleRunState, type RunSetup } from "./machine.ts"
-import type { GameStore } from "./store.ts"
+import { visibleRunState, type RunSetup } from "./machine.ts"
+import { gamePlaybackSpeed, type GameStore } from "./store.ts"
 
 interface ClockHost {
   now(): number
@@ -34,11 +34,12 @@ export function attachWeekClock(store: GameStore, host: ClockHost = browserClock
   let timerVersion = 0
 
   function sync() {
-    const { scene } = store.getSnapshot()
+    const state = store.getSnapshot()
+    const { scene } = state
     const run = visibleRunState(scene)
     const nextSetup = run?.setup ?? null
     const nextWeek = run?.completedWeek ?? 0
-    const nextSpeed = scene.kind === "campaign" && host.visible() ? playbackSpeed(scene) : 0
+    const nextSpeed = scene.kind === "campaign" && host.visible() ? gamePlaybackSpeed(state) : 0
     const newWeek = nextSetup !== setup || nextWeek !== completedWeek
     if (!newWeek && nextSpeed === speed) return
     const now = host.now()

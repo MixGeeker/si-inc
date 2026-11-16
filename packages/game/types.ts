@@ -14,6 +14,8 @@ type Action =
 
 /** A decision made after `week` completed weeks. Sequence numbers increase across the run. */
 export type GameCommand = Readonly<{ week: number; seq: number } & Action>
+export type TokenGrant = Readonly<{ week: number; seq: number; kind: "devGrantTokens"; amount: number }>
+export type RunCommand = GameCommand | TokenGrant
 
 /** Persist the rules, seed and inputs together. The engine derives balances and results. */
 export interface ReplayV1 {
@@ -25,4 +27,10 @@ export interface ReplayV1 {
   readonly difficultyId: string
   readonly completedWeek: number
   readonly commands: readonly GameCommand[]
+}
+
+export interface DeveloperReplay extends Omit<ReplayV1, "saveVersion" | "commands"> {
+  readonly format: "debug-replay"
+  readonly version: 1
+  readonly commands: readonly RunCommand[]
 }

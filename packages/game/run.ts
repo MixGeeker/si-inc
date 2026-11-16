@@ -4,7 +4,7 @@ import { eventPool, type EventContent } from "../rules/v0.1/events/pool.ts"
 import type { FactionId } from "../rules/v0.1/factions/roster.ts"
 import { isFactionId, resolveStartRegionId, standardScenario } from "../rules/v0.1/scenario.ts"
 import type { RegionId } from "../rules/v0.1/world/regions.ts"
-import type { GameCommand } from "./types.ts"
+import type { GameCommand, RunCommand, TokenGrant } from "./types.ts"
 import type { CountryPopulations } from "./population.ts"
 
 export interface RunSetup {
@@ -30,7 +30,7 @@ export interface RunState {
   readonly countryPopulations?: CountryPopulations
   readonly researchBps: number
   readonly events: readonly RunEvent[]
-  readonly commands: readonly GameCommand[]
+  readonly commands: readonly RunCommand[]
   readonly schedule: {
     readonly nextWeek: number
     readonly randomState: number
@@ -91,6 +91,23 @@ export function pendingDecision(run: RunState, instanceId: string, id: DecisionI
     && entry.content.id === id && entry.choiceId === undefined)
 }
 
+export function nextCommandSeq(run: RunState) {
+  return (run.commands.at(-1)?.seq ?? 0) + 1
+}
+
+export function canGrantTokens(run: RunState, amount: number) {
+  const { everyWeeks, maximum } = btoken.income
+  const paymentsLeft = Math.floor(rules.maxWeeks / everyWeeks) - Math.floor(run.completedWeek / everyWeeks)
+  return run.completedWeek < rules.maxWeeks && Number.isSafeInteger(amount) && amount > 0
+    && amount <= Number.MAX_SAFE_INTEGER - run.balance - paymentsLeft * maximum
+}
+
+export function grantDeveloperTokens(run: RunState, amount: number, seq: number): RunState {
+  if (!canGrantTokens(run, amount) || seq !== nextCommandSeq(run)) return run
+  const command: TokenGrant = { kind: "devGrantTokens", week: run.completedWeek, seq, amount }
+  return { ...run, balance: run.balance + amount, commands: [...run.commands, command] }
+}
+
 export function resolveDecision(run: RunState, instanceId: string, id: DecisionId, choiceId: string): RunState {
   if (run.completedWeek >= rules.maxWeeks) return run
   const entry = pendingDecision(run, instanceId, id)
@@ -98,7 +115,7 @@ export function resolveDecision(run: RunState, instanceId: string, id: DecisionI
   const choice = decisions[id].choices.find(option => option.id === choiceId)
   if (!choice || run.balance < choice.cost) return run
   const command: GameCommand = {
-    kind: "chooseEvent", week: run.completedWeek, seq: (run.commands.at(-1)?.seq ?? 0) + 1,
+    kind: "chooseEvent", week: run.completedWeek, seq: nextCommandSeq(run),
     eventInstanceId: instanceId, choiceId,
   }
   return {
