@@ -5,15 +5,33 @@ import { HUD, hudScale } from "../../cartography/layout"
 import kyiv from "../../cartography/data/kyiv.webp"
 import type { MapPanel, NewsView } from "../machine"
 import type { DecisionId } from "../../../../../packages/rules/v0.1/events/decisions"
-import type { HudContent, PreviewHud } from "./hudContent"
+import type { CampaignHud, HudContent, PreviewHud } from "./hudContent"
 import { NewsLayer } from "./NewsLayer"
 import type { NewsItem } from "./newsFeed"
-import type { CountryChip, MarketChip } from "./placeFixture"
-export type PlaceLevel =
-  | { kind: "world"; markets: MarketChip[] }
-  | { kind: "market"; name: string; reward: string; countries: CountryChip[]; note: string }
-  | { kind: "country"; name: string; lines: [string, string][]; footer: string; backLabel: string }
-type Props = {location:Location|null; place:PlaceLevel|null; placeThumb:Location|null; content:HudContent; newsItems:readonly NewsItem[]; newsView:NewsView|null; newsItemId?:string; newsWeek:number|null; openNews:(view:NewsView, itemId?:string)=>void; closeNews:()=>void; decide:(id:DecisionId, instanceId:string)=>void; zoom:number; speed:number; night:boolean; toggleNight:()=>void; open:(p:MapPanel)=>void; chooseMarket:(id:MarketChip["id"])=>void; chooseCountry:(id:string)=>void; placeBack:()=>void; setSpeed:(n:number)=>void; setZoom:(n:number)=>void}
+import { regionCapacity, regionIds, regions } from "../../../../../packages/rules/v0.1/world/regions"
+import { btoken } from "../../../../../packages/rules/v0.1/economy/btoken"
+import type { PlaceFocus } from "../store"
+
+interface Props {
+  location: Location | null
+  place: PlaceFocus | null
+  content: HudContent
+  newsItems: readonly NewsItem[]
+  newsView: NewsView | null
+  newsItemId?: string
+  newsWeek: number | null
+  openNews: (view: NewsView, itemId?: string) => void
+  closeNews: () => void
+  decide: (id: DecisionId, instanceId: string) => void
+  zoom: number
+  speed: number
+  night: boolean
+  toggleNight: () => void
+  open: (panel: MapPanel) => void
+  focusPlace: (place: PlaceFocus | null) => void
+  setSpeed: (speed: number) => void
+  setZoom: (zoom: number) => void
+}
 
 function Control({label,run,children,pressed,description,news}:{label:string;run:()=>void;children:ReactNode;pressed?:boolean;description?:string;news?:boolean}) {
   return <g className="svg-button" data-news={news ? "" : undefined} role="button" tabIndex={0} aria-label={label} aria-pressed={pressed} aria-description={description} onClick={run}
@@ -149,51 +167,51 @@ function StripBar({footer, human}:{footer?:string; human:string}) {
   </>
 }
 
-function CampaignStrip({x,y,level,human,thumb,onMarket,onCountry,onBack}:{
-  x:number; y:number; level:PlaceLevel; human:string; thumb:Location|null
-  onMarket:(id:MarketChip["id"])=>void; onCountry:(id:string)=>void; onBack:()=>void
+function CampaignStrip({x,y,place,location,content,focusPlace,openDetails}:{
+  x:number; y:number; place:PlaceFocus|null; location:Location|null; content:CampaignHud
+  focusPlace:Props["focusPlace"]; openDetails:()=>void
 }) {
-  const name = level.kind === "world" ? "全球" : level.name
+  const market = place ? regions[place.id] : null
+  const name = market?.name ?? "全球市场"
+  const footer = place ? `市场奖励 · ${btoken.adoptionMilestones.map(m => `${m.adoptionBps / 100}% +${m.reward}`).join(" / ")} token` : undefined
   const outline = "M0 0H956l30 31v180H31L0 178Z"
-  return <g transform={`translate(${x} ${y})`}>
+  const detailName = market?.name ?? (location ? location.country?.name ?? "海域" : null)
+  return <g transform={`translate(${x} ${y})`} role="group" aria-label={name}>
     <path d="M-54 220V82l31-32H1038v170Z" fill="url(#hud-glass)"/>
     <path d="M-54 220V82l31-32H1038v170Z" fill="none" stroke="#f7fffc" strokeOpacity=".2" strokeWidth="1" filter="url(#edge-glow)"/>
     <g aria-hidden="true" pointerEvents="none">
       <Glass d={outline}/>
-      <PlaceThumb location={thumb}/>
-      {level.kind !== "world" && <path d="M360 28h80l12-12" fill="none" stroke="#f4fffb" strokeOpacity=".28" strokeWidth="1"/>}
-      {level.kind === "country" && level.lines.map(([label, value], i) => <g key={label} transform={`translate(${212 + i * 185} 58)`}>
-        <text fontSize="22" fill="#9ddecb">{label}</text>
-        <text y="40" fontSize="28" fontFamily="Arial,sans-serif">{value}</text>
-      </g>)}
-      {level.kind === "market" && level.countries.length === 0 && <text x="212" y="92" fontSize="24" fill="#9ddecb">{level.note}</text>}
-      <StripBar footer={level.kind === "world" ? undefined : level.kind === "market" ? level.reward : level.footer} human={human}/>
+      <PlaceThumb location={location}/>
     </g>
-    {level.kind !== "world" && <Control label={level.kind === "market" ? "返回全球" : level.backLabel} description={`返回上一层，当前是${name}`} run={onBack}>
-      <rect x="206" y="6" width="220" height="34" fill="transparent"/>
-      <text x="212" y="30" fontSize="26">{`‹ ${name}`}</text>
+    <StripBar footer={footer} human={content.human}/>
+    <text x={place ? 316 : 218} y="32" fontSize="26" fontWeight="600">{name}</text>
+    {place && <Control label="返回全球" run={() => focusPlace(null)}>
+      <rect x="212" y="3" width="87" height="36" fill="transparent"/>
+      <text x="218" y="30" fontSize="21" fill="#9ddecb">‹ 全球</text>
     </Control>}
-    {level.kind === "world" && level.markets.map((market, i) => <g key={market.id} transform={`translate(${212 + (i % 4) * 186} ${58 + Math.floor(i / 4) * 34})`}>
-      <Control label={market.name} description={market.share === "—" ? `我方 —，${market.reward}` : `我方 ${market.share}，来自日本试玩，${market.reward}`} run={() => onMarket(market.id)}>
-        <rect width="180" height="30" fill="transparent"/>
-        <text fontSize="16">{market.name}</text>
-        <text x="172" y="0" textAnchor="end" fontSize="15" fill="#9ddecb">{market.share}</text>
-      </Control>
-    </g>)}
-    {level.kind === "market" && level.countries.map((country, i) => <g key={country.id} transform={`translate(${212 + (i % 5) * 148} 62)`}>
-      <Control label={country.name} description={`我方 ${country.share}，${country.detail}`} run={() => onCountry(country.id)}>
-        <rect width="140" height="78" fill="transparent"/>
-        <text fontSize="22">{country.name}</text>
-        <text y="28" fontSize="16" fill="#9ddecb">我方 {country.share}</text>
-        <text y="50" fontSize="15" fill="#9ddecb">{country.detail}</text>
-      </Control>
-    </g>)}
+    {!place && regionIds.map((id, i) => {
+      const capacity = regionCapacity(id)
+      return <g key={id} transform={`translate(${215 + (i % 3) * 254} ${46 + Math.floor(i / 3) * 56})`}>
+        <Control label={regions[id].name} description={`${capacity} 个参考槽位`} run={() => focusPlace({ kind: "market", id })}>
+          <rect className="place-cell" width="246" height="49"/>
+          <text x="10" y="32" fontSize="25">{regions[id].name}</text>
+          <text x="235" y="32" textAnchor="end" fontSize="19" fill="#9ddecb">{capacity} 槽</text>
+        </Control>
+      </g>
+    })}
+    {place && <g transform="translate(220 76)">
+      <text fontSize="22" fill="#9ddecb">地理选区</text><text y="42" fontSize="36">{Object.keys(regions[place.id].slots).length}</text>
+      <text x="360" fontSize="22" fill="#9ddecb">参考总槽位</text><text x="360" y="42" fontSize="36">{regionCapacity(place.id)}</text>
+    </g>}
+    <Control label={detailName ? `地区资料 · ${detailName}` : "定位大洲"} run={openDetails}>
+      <rect x="743" y="3" width="223" height="36" fill="transparent"/>
+      <text x="958" y="30" textAnchor="end" fontSize="21" fill="#9ddecb">{place ? "地区资料" : detailName ?? "定位大洲"} ›</text>
+    </Control>
   </g>
 }
 
-function RegionStrip({location,open,x,y,content}:{location:Location|null;open:(p:MapPanel)=>void;x:number;y:number;content:PreviewHud}) {
-  const country=location?.country
-  const name=country?.name ?? (location ? "海域" : "世界概况")
+function RegionStrip({location,place,open,x,y,content}:{location:Location|null;place:PlaceFocus|null;open:(p:MapPanel)=>void;x:number;y:number;content:PreviewHud}) {
+  const name = place ? regions[place.id].name : location?.country?.name ?? (location ? "海域" : "世界概况")
   const outline = "M0 0H956l30 31v180H31L0 178Z"
   return <g transform={`translate(${x} ${y})`}>
     <path d="M-54 220V82l31-32H1038v170Z" fill="url(#hud-glass)"/>
@@ -223,7 +241,7 @@ function RegionStrip({location,open,x,y,content}:{location:Location|null;open:(p
     </Control>
   </g>
 }
-export default function Hud({location,place,placeThumb,content,newsItems,newsView,newsItemId,newsWeek,openNews,closeNews,decide,zoom,speed,night,toggleNight,open,chooseMarket,chooseCountry,placeBack,setSpeed,setZoom}:Props) {
+export default function Hud({location,place,content,newsItems,newsView,newsItemId,newsWeek,openNews,closeNews,decide,zoom,speed,night,toggleNight,open,focusPlace,setSpeed,setZoom}:Props) {
   const host=useRef<HTMLDivElement>(null)
   const [size,setSize]=useState({width:HUD.width,height:HUD.height})
   useLayoutEffect(()=>{
@@ -297,11 +315,11 @@ export default function Hud({location,place,placeThumb,content,newsItems,newsVie
       </g>
       {content.kind === "preview" ? <>
         <SideMeter x={20} y={h-130} open={open} content={content}/>
-        <RegionStrip x={w/2-503} y={h-HUD.regionHeight} location={location} open={open} content={content}/>
+        <RegionStrip x={w/2-503} y={h-HUD.regionHeight} location={location} place={place} open={open} content={content}/>
         <SideMeter world x={w-362} y={h-130} open={open} content={content}/>
       </> : <>
         <ResourceMeter x={20} y={h-130} title="行动" value={content.token} detail={`建设卡 ${content.cards}`} icon="token"/>
-        {place && <CampaignStrip x={w/2-503} y={h-HUD.regionHeight} level={place} human={content.human} thumb={placeThumb} onMarket={chooseMarket} onCountry={chooseCountry} onBack={placeBack}/>}
+        <CampaignStrip x={w/2-503} y={h-HUD.regionHeight} place={place} location={location} content={content} focusPlace={focusPlace} openDetails={() => open("region")}/>
         <ResourceMeter x={w-362} y={h-130} title="研究" value={content.corpus} detail={content.yieldText} icon="flask" research onOpen={() => open("overview")}/>
       </>}
       <ScreenBezel w={w} h={h}/>

@@ -1,8 +1,9 @@
-import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type Ref } from "react"
+import { use, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type Ref } from "react"
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import { DirectionalLight, InstancedMesh, MathUtils, Matrix4, Vector3 } from "three"
 import { OrbitControls } from "three/addons/controls/OrbitControls.js"
 import { createAtlas } from "./atlas"
+import { loadCountries } from "../cartography/atlas"
 import { exampleRoutes, regionIds, regions, type Layer, type RegionId } from "./snapshot"
 
 interface GlobeProps {
@@ -108,7 +109,8 @@ function Network() {
 }
 
 function Surface({ selected, layer, onPick }: Omit<GlobeProps, "focus">) {
-  const atlas = useMemo(createAtlas, [])
+  const countries = use(loadCountries())
+  const atlas = useMemo(() => createAtlas(countries), [countries])
   const invalidate = useThree(state => state.invalidate)
   useLayoutEffect(() => {
     atlas.paint(layer, selected)

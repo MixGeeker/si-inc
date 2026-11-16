@@ -1,6 +1,6 @@
 # Singularity Inc. 后端与 Cloudflare 托管规划
 
-首版建议只启用 **Workers Static Assets**。玩家加载游戏后，浏览器负责推进 12 个地区的模拟，用 IndexedDB 存进度。一局从选择阵营到结算可以产生 **0 次动态 API 请求、0 次云端写入**。按 2026 年 11 月 12 日的价格，在免费托管限制内使用 `workers.dev` 试玩，预计 Cloudflare 运行费为 **0 美元/月**。公开挑战有了可比较的成绩后，再给同一站点加一个 Worker 和一个 D1 数据库。[游戏设计稿 V0.1（第十三节为首版范围）](https://chatgpt.com/s/t_6af5e2ee6e948191beaf56068a35d645) · [静态资源计费](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) · [workers.dev 的适用范围](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
+首版建议只启用 **Workers Static Assets**。玩家加载游戏后，浏览器负责推进 6 个市场的模拟，用 IndexedDB 存进度。一局从选择阵营到结算可以产生 **0 次动态 API 请求、0 次云端写入**。按 2026 年 11 月 12 日的价格，在免费托管限制内使用 `workers.dev` 试玩，预计 Cloudflare 运行费为 **0 美元/月**。公开挑战有了可比较的成绩后，再给同一站点加一个 Worker 和一个 D1 数据库。[游戏设计稿 V0.1（第十三节为首版范围）](https://chatgpt.com/s/t_6af5e2ee6e948191beaf56068a35d645) · [静态资源计费](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) · [workers.dev 的适用范围](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
 
 ## Cloudflare 服务怎么选
 
@@ -21,12 +21,12 @@ Pages 也能托管静态游戏。选 Workers Static Assets 是为了让以后增
 
 | 玩法 | 数据和执行方式 |
 | --- | --- |
-| 12 地区与五种传播渠道 | 规则表存人口权重、邻接关系、数字化、算力、监管及语言壁垒。每周用上周的地区快照同时计算各区增量。社交、API 集成、开源、终端预装、Agent 工作流分别修改本地或跨区系数。 |
+| 6 个市场与五种传播渠道 | 规则表存人口权重、邻接关系、数字化、算力、监管及语言壁垒。每周用上周的地区快照同时计算各区增量。社交、API 集成、开源、终端预装、Agent 工作流分别修改本地或跨区系数。 |
 | 普及与依赖 | 设 `w` 为归一化人口权重，`p` 为当地普及率，`d` 为当地用户的依赖度。全球普及率为 `Σ(w × p)`，全球依赖率为 `Σ(w × p × d)`。两项都以世界人口为分母。地区有 80% 的人使用 AI、其中一半依赖它，该区只有 40% 的人口计入全球依赖。 |
 | token 与三棵技能树 | 初始 18 token，每两周发周期收益，上限为 4。每个地区记录首次进入及首次达到 30%、70% 的奖励标记。购买时按顺序核验余额、前置、互斥、进度门槛和主动能力冷却。开源扩散与闭源订阅共用互斥组。 |
 | 新闻、突变与竞争 | 用可复现的伪随机序列，从当前版本的事件表抽取。新闻间隔建议 8–12 周，效果带有起止周。竞争厂商降价也是一条事件。玩家的应对选择记录事件实例 ID，同一事件只结算一次。 |
 | 暴露度与 Project HUMAN | 暴露度达到 25/100 启动研究，按难度、暴露度和技能修正每周进展。地区封锁单独计算。协议重构增加研究需求，已完成研究量保留。 |
-| 周推进与结局 | 常速每 4 秒一周，支持暂停和 2 倍速。每周结算时，Project HUMAN 到 100% 则人类胜利。研究尚未完成时，全球普及 ≥85%、全球依赖 ≥65%，且至少 10 个地区的当地普及 ≥60%，则玩家胜利。第 120 周先判胜负，此后仍未获胜才判超时。 |
+| 周推进与结局 | 常速每 4 秒一周，支持暂停和 2 倍速。每周结算时，Project HUMAN 到 100% 则人类胜利。研究尚未完成时，全球普及 ≥85%、全球依赖 ≥65%，且六个大洲的当地普及率均 ≥60%，则玩家胜利。第 120 周先判胜负，此后仍未获胜才判超时。 |
 
 规则引擎选用纯 TypeScript，浏览器用 React 呈现，用 IndexedDB 保存对局。共享引擎只接收上周状态、玩家指令和版本化规则，未来的挑战 Worker 直接调用这个引擎。前端、规则和 Worker 统一使用 tsrs 严格检查，各自只加载所在环境的类型。比例用整数基点表示，10,000 基点等于 100%。乘法和求和保留中间精度，显示时才四舍五入。规则 ID、技能和事件遍历顺序、伪随机算法也随版本固定。相同的初始条件和操作必须产生相同结局。[前端技术决策](./frontend-3d.md)
 
@@ -49,7 +49,7 @@ Pages 也能托管静态游戏。选 Workers Static Assets 是为了让以后增
 
 `verified_runs.run_id` 是唯一键。用 `INSERT … ON CONFLICT(run_id) DO NOTHING` 竞争写入。首次成功返回 201，发生冲突时读回已有记录，与服务端计算的哈希一致则返回原回执和 200，有差异则返回 409。并发提交与响应丢失重试都遵守这条规则。D1 存储结论与哈希，普通局及完整回放留在本地。详情见[挑战成绩迁移](../apps/api/migrations/0001_verified_runs.sql)。
 
-服务端重放可以验证操作合法性，公开种子允许玩家反复优化路线。上线前用最长合法对局（120 周、12 地区、密集操作）测 Worker CPU。Free 每次调用只有 10 ms CPU，网络和 D1 等待时间与 CPU 分开看。若完整验证超限，先优化模拟或基于实测选择 Paid。[Workers 限制](https://developers.cloudflare.com/workers/platform/limits/) · [Worker CPU 指标](https://developers.cloudflare.com/workers/observability/metrics-and-analytics/)
+服务端重放可以验证操作合法性，公开种子允许玩家反复优化路线。上线前用最长合法对局（120 周、6 个市场、密集操作）测 Worker CPU。Free 每次调用只有 10 ms CPU，网络和 D1 等待时间与 CPU 分开看。若完整验证超限，先优化模拟或基于实测选择 Paid。[Workers 限制](https://developers.cloudflare.com/workers/platform/limits/) · [Worker CPU 指标](https://developers.cloudflare.com/workers/observability/metrics-and-analytics/)
 
 网络中断、配额耗尽或服务暂时不可用时，本地保留操作日志并显示“待提交”，在凭证有效期内用同一 `runId` 重试。凭证过期、回放含非法操作或内容冲突时，返回具体原因，结束该次成绩提交。
 
@@ -113,5 +113,5 @@ Vite 从 `apps/web/index.html` 构建到 `apps/web/dist/`。它将哈希脚本�
 ## 落地与验收
 
 1. **静态试玩。** 根目录执行 `npm ci`，然后用 `npm run dev` 开发，或用 `npx wrangler@4.161.0 deploy --dry-run` 验证发布。Wrangler 的自定义构建会调用 `npm run build`；任一 tsrs 检查失败便停止。实际发布命令为 `npx wrangler@4.161.0 deploy`。[Wrangler 部署命令](https://developers.cloudflare.com/workers/wrangler/commands/workers/)
-2. **首版玩法。** 用同一种子和操作分别跑常速、2 倍速、暂停恢复和重开页面，要求同周状态与结果一致。测试 85%/65% 刚好达标、仅 9 区达标、反制与胜利同周、第 120 周首次获胜、重复领取里程碑。批量跑潜伏扩张、病毒营销、技术爆炸三类策略，查看胜率与通关周数。浏览器加载资源后断网打一局，验证逐周模拟和本机结算都能完成。
+2. **首版玩法。** 用同一种子和操作分别跑常速、2 倍速、暂停恢复和重开页面，要求同周状态与结果一致。测试 85%/65% 刚好达标、仅 5 个大洲达标、反制与胜利同周、第 120 周首次获胜、重复领取里程碑。批量跑潜伏扩张、病毒营销、技术爆炸三类策略，查看胜率与通关周数。浏览器加载资源后断网打一局，验证逐周模拟和本机结算都能完成。
 3. **挑战上线。** 绑定独立的测试 D1 后先运行 `npx wrangler@4.161.0 d1 migrations apply DB --local`。验证篡改余额或非法技能顺序无法上榜、重复交卷只有一行、榜单查询命中索引、最坏回放满足 CPU 预算。用独立预发布数据库演练迁移，再将同一迁移应用到生产。数据库迁移与 Worker 版本分别管理。[D1 迁移](https://developers.cloudflare.com/d1/reference/migrations/) · [D1 恢复窗口](https://developers.cloudflare.com/d1/platform/limits/)

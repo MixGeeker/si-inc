@@ -1,9 +1,9 @@
 import { CanvasTexture, SRGBColorSpace } from "three"
-import footprints from "./region-paths.json"
+import { regionOfCountry } from "../../../../packages/rules/v0.1/world/regions"
+import type { Country } from "../cartography/atlas"
 import { layers, regionIds, snapshot, type Layer, type RegionId } from "./snapshot"
 
 const width = 1024, height = 512
-const outlines: Record<RegionId, string> = footprints
 
 function surface(readOften = false) {
   const canvas = document.createElement("canvas")
@@ -14,9 +14,14 @@ function surface(readOften = false) {
   return ctx
 }
 
-export function createAtlas() {
+export function createAtlas(countries: readonly Country[]) {
   const ink = surface(), mask = surface(true)
-  const paths = regionIds.map(id => new Path2D(outlines[id]))
+  const paths = regionIds.map(() => new Path2D())
+  const projection = new DOMMatrix().scale(width / 360, height / 180)
+  for (const country of countries) {
+    const id = regionOfCountry(country.id)
+    if (id) paths[regionIds.indexOf(id)].addPath(country.path, projection)
+  }
   paths.forEach((path, i) => {
     mask.fillStyle = `rgb(${(i + 1) * 16} 0 0)`
     mask.fill(path, "evenodd")

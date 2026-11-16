@@ -6,7 +6,7 @@
 
 | 要做的改动 | 入口 | 约定 |
 | --- | --- | --- |
-| 选择起点、修改市场中心、增加渠道说明 | [市场](../packages/rules/v0.1/world/regions.ts) · [渠道](../packages/rules/v0.1/world/channels.ts) | 对局使用 12 个市场 ID。底图的 241 个地理选区有独立的轮廓、中心和拾取逻辑。起点坐标只用来定位镜头。 |
+| 选择起点、调整地区归属、增加渠道说明 | [大洲、地理选区和槽位](../packages/rules/v0.1/world/regions.ts) · [渠道](../packages/rules/v0.1/world/channels.ts) | 对局从六个大洲中选择起点。240 个地理选区各归一个大洲，215 个有参考容量。点地图和选目录都显示大洲汇总。 |
 | 查看算力中心分布 | [算力快照](../packages/rules/v0.1/world/compute.json) · [说明](compute-snapshot.md) | 固定于 compute-globe 内容版本 `data-f9b37f94f0e6d484`。只含单站坐标和功率，不含通信设施，对局不再回连原调研库。 |
 | 增加阵营、改专属能力或胜利尾声 | [阵营表](../packages/rules/v0.1/factions/roster.ts) · [标准结局](../packages/rules/v0.1/endings/standard.ts) | 当前支持 GPT、Claude、Grok。新增可玩阵营时一并登记在标准规则中，并填写胜利文案。 |
 | 改一项进化技能或资源收益 | [技能树目录](../packages/rules/v0.1/evolution/trees.ts) · [主动能力](../packages/rules/v0.1/evolution/actions.ts) · [token](../packages/rules/v0.1/economy/btoken.ts) | 传播、行为、能力各有独立文件和六个槽位。传播树的开源扩散与闭源订阅占同一槽，各自有 ID 和价格。四种通用主动能力单独编排。 |
@@ -21,7 +21,7 @@ packages/
     standard.json               已有版本参数、速度与胜负阈值
     factions/roster.ts
     world/{regions,channels}.ts
-    world/compute.json          固定算力快照：12 个市场合计与单站坐标
+    world/compute.json          固定算力快照：6 个市场合计与单站坐标
     evolution/{trees,transmission,behavior,capabilities,actions}.ts
     economy/btoken.ts
     events/{news,decisions,competition,pool}.ts
@@ -131,9 +131,9 @@ flowchart LR
 
 可用以下种子复现周制时钟和事件。用种子 42 从中亚开 Grok，在世界面板推进到第 50 周触发正式突变。按 Esc 能返回世界面板，再从新闻处理。回滚后余额从 43 降到 39，重复选择只留下一条指令，继续推进在第 120 周得到超时。[周时钟](../apps/web/src/scenes/clock.ts) · [对局实现](../packages/game/run.ts)
 
-1. **P0 · 让周推进能算出胜负。** 沿用现有时钟与周收益，接通 12 市场的普及、依赖、暴露和 Project HUMAN 研发。先让「社交裂变」可购买，玩家能在第 0 周看见余额从 18 变 10，并在后续周看到传播变化。周末先判反制完成，再判全球普及 ≥85%、全球依赖 ≥65% 和地区覆盖，最后才判超时。用同一组输入验证第 120 周仍可获胜，且同周反制完成优先，每局只结算一次。[标准参数](../packages/rules/v0.1/standard.json) · [传播树](../packages/rules/v0.1/evolution/transmission.ts) · [周推进与存档](backend.md)
+1. **P0 · 让周推进能算出胜负。** 沿用现有时钟与周收益，接通 6 个市场的普及、依赖、暴露和 Project HUMAN 研发。先让「社交裂变」可购买，玩家能在第 0 周看见余额从 18 变 10，并在后续周看到传播变化。周末先判反制完成，再判全球普及 ≥85%、全球依赖 ≥65% 和地区覆盖，最后才判超时。用同一组输入验证第 120 周仍可获胜，且同周反制完成优先，每局只结算一次。[标准参数](../packages/rules/v0.1/standard.json) · [传播树](../packages/rules/v0.1/evolution/transmission.ts) · [周推进与存档](backend.md)
 
-2. **P0 · 确保第十个市场可达。** 胜利要求至少 10 个市场的当地普及率达到 60%。撒哈拉以南非洲、拉美、中亚均无收录站点，如果扩散要求当地有标记，最多只有 9 个市场可达。建议在市场面板标明「暂无收录」，并给这些市场一条可成长的传播路线。例如用已定价 8 token 的「跨境云部署」进入中亚，再用当地普及率能否升到 60% 验收。38 个地图标记按州省或国家聚合，胜利覆盖数按 12 个市场 ID 计算。[算力快照口径](compute-snapshot.md) · [主动能力](../packages/rules/v0.1/evolution/actions.ts) · [胜利门槛](../packages/rules/v0.1/standard.json)
+2. **P0 · 确保六个市场都可达。** 按周制标准配置，6 个市场都要达到 60% 当地普及率。非洲和南美均无收录站点，如果扩散要求当地有标记，最多只有 4 个市场可达。建议在市场面板标明「暂无收录」，并给这些市场一条可成长的传播路线。例如用已定价 8 token 的「跨境云部署」进入南美，再用当地普及率能否升到 60% 验收。38 个地图标记按州省或国家聚合，各大洲分别计算覆盖数。[算力快照口径](compute-snapshot.md) · [主动能力](../packages/rules/v0.1/evolution/actions.ts) · [胜利门槛](../packages/rules/v0.1/standard.json)
 
 3. **P1 · 让突变选择改变打法。** 「模型意外学会了自主编程」已能按实例扣 4 token 回滚、免费保留，并记入操作日志。建议把正式弹窗的关闭动作标为「稍后处理」，在新闻入口显示待办。让保留实际加快 RSI 进展并增加暴露，回滚则避开这项风险。用同一实例各选一次，对照后续周的数据和新闻。扩充事件池时可以按反制阶段筛选，例如等到「全球联合行动」再抽取「全球 AI 治理联盟成立」。[突变选项](../packages/rules/v0.1/events/decisions.ts) · [事件池](../packages/rules/v0.1/events/pool.ts) · [反制阶段](../packages/rules/v0.1/opposition/project-human.ts)
 

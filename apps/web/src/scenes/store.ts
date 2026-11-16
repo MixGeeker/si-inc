@@ -2,12 +2,13 @@ import { acceptWithoutChange, createEventStore } from "../../../../packages/game
 import type { RunEvent, RunSetup } from "../../../../packages/game/run.ts"
 import type { GameCommand } from "../../../../packages/game/types.ts"
 import type { Outcome } from "../../../../packages/rules/v0.1/endings/standard.ts"
-import { standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
+import { isRegionId } from "../../../../packages/rules/v0.1/scenario.ts"
+import { regionOfCountry, type RegionId } from "../../../../packages/rules/v0.1/world/regions.ts"
 import { soundBank, type SoundCue } from "../audio/cues.ts"
 import { defaultSound, validVolume, type SoundSettings } from "../audio/settings.ts"
 import { initialScene, sceneReducer, visibleRunState, type Scene, type SceneEvent } from "./machine.ts"
 
-export interface MapSelection {
+export interface MapPoint {
   readonly lon: number
   readonly lat: number
   readonly countryId?: string | null
@@ -15,8 +16,22 @@ export interface MapSelection {
   readonly site?: string
 }
 
+export type PlaceFocus = { readonly kind: "market"; readonly id: RegionId }
+export type MapSelection = MapPoint | PlaceFocus
+
+function marketFocus(id: RegionId): PlaceFocus {
+  return { kind: "market", id }
+}
+
+export function selectedPlace(selection: MapSelection | null, locatedCountryId?: string): PlaceFocus | null {
+  if (!selection || "kind" in selection) return selection
+  const countryId = selection.countryId === undefined ? locatedCountryId : selection.countryId
+  const id = countryId && regionOfCountry(countryId)
+  return id ? marketFocus(id) : null
+}
+
 const initialLayers = { night: true, cloud: true, current: true }
-const previewSelection: MapSelection = { lon: 31.2, lat: 49.1 }
+const previewSelection: MapPoint = { lon: 31.2, lat: 49.1 }
 export interface GameState {
   readonly scene: Scene
   readonly selection: MapSelection | null
@@ -29,8 +44,8 @@ export type GameEvent = SceneEvent
   | { type: "set-sound-muted"; muted: boolean }
   | { type: "set-sound-volume"; volume: number }
   | { type: "set-layer"; layer: keyof typeof initialLayers; enabled: boolean }
-  | { type: "pick-location"; selection: MapSelection }
-  | { type: "focus-country"; selection: MapSelection }
+  | { type: "pick-location"; selection: MapPoint }
+  | { type: "focus-place"; place: PlaceFocus | null }
   | { type: "map-preset"; view: "global" | "europe" }
 
 export type GameNotice =
@@ -39,16 +54,22 @@ export type GameNotice =
   | { type: "decision-resolved"; command: Extract<GameCommand, { kind: "chooseEvent" }> }
   | { type: "run-ended"; outcome: Outcome | "withdrawn" }
 
-function validSelection(point: MapSelection | null | undefined) {
-  return point != null && Number.isFinite(point.lon) && Math.abs(point.lon) <= 180
+function validSelection(point: MapPoint | null | undefined) {
+  return point != null && typeof point === "object" && !("kind" in point) && Number.isFinite(point.lon) && Math.abs(point.lon) <= 180
     && Number.isFinite(point.lat) && Math.abs(point.lat) <= 90
     && (point.countryId == null || typeof point.countryId === "string")
     && (point.site === undefined || typeof point.site === "string")
     && (point.islandName === undefined || typeof point.islandName === "string")
 }
 
-function sameSelection(current: MapSelection | null, next: MapSelection) {
-  return current !== null && current.lon === next.lon && current.lat === next.lat
+function validPlace(place: PlaceFocus | null | undefined) {
+  return place === null || (place?.kind === "market" && isRegionId(place.id))
+}
+
+function sameSelection(current: MapSelection | null, next: MapSelection | null) {
+  if (!current || !next) return current === next
+  if ("kind" in current) return "kind" in next && current.kind === next.kind && current.id === next.id
+  return !("kind" in next) && current.lon === next.lon && current.lat === next.lat
     && current.countryId === next.countryId && current.site === next.site && current.islandName === next.islandName
 }
 
@@ -69,24 +90,33 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
       if (!Object.hasOwn(initialLayers, event.layer) || typeof event.enabled !== "boolean"
         || state.layers[event.layer] === event.enabled) return state
       return { ...state, layers: { ...state.layers, [event.layer]: event.enabled } }
-    case "pick-location":
+    case "pick-location": {
+      const point = event.selection
       if ((scene.kind !== "campaign" && scene.kind !== "preview") || scene.panel !== null
-        || !validSelection(event.selection) || sameSelection(state.selection, event.selection)) return state
-      return { ...state, selection: event.selection }
-    case "focus-country":
-      if ((scene.kind !== "campaign" && scene.kind !== "preview") || scene.panel !== "region"
-        || !validSelection(event.selection) || !event.selection.countryId) return state
-      return { ...state, selection: event.selection, scene: sceneReducer(scene, { type: "back" }) }
+        || !validSelection(point)) return state
+      const selection = point.site || point.islandName ? point : selectedPlace(point) ?? point
+      return sameSelection(state.selection, selection) ? state : { ...state, selection }
+    }
+    case "focus-place": {
+      const place = event.place
+      if (!validPlace(place)) return state
+      const fromMap = scene.kind === "campaign" && scene.panel === null
+      const fromDirectory = (scene.kind === "preview" || scene.kind === "campaign") && scene.panel === "region" && place !== null
+      if (!fromMap && !fromDirectory) return state
+      if (fromMap && sameSelection(state.selection, place)) return state
+      return { ...state, selection: place, scene: fromDirectory ? sceneReducer(scene, { type: "back" }) : scene }
+    }
     case "map-preset":
-      if ((scene.kind !== "campaign" && scene.kind !== "preview") || (scene.panel !== "world" && scene.panel !== "menu")
-        || (event.view !== "europe" && event.view !== "global")) return state
-      return { ...state, selection: event.view === "europe" ? previewSelection : null, scene: sceneReducer(scene, { type: "back" }) }
+      if ((scene.kind !== "campaign" && scene.kind !== "preview") || (event.view !== "europe" && event.view !== "global")) return state
+      if (scene.panel === null && event.view === "global") return state.selection === null ? acceptWithoutChange : { ...state, selection: null }
+      if (scene.panel !== "world" && scene.panel !== "menu") return state
+      return { ...state, selection: event.view === "global" ? null : scene.kind === "campaign" ? marketFocus("eu") : previewSelection,
+        scene: sceneReducer(scene, { type: "back" }) }
     default: {
       const next = sceneReducer(scene, event)
       if (next === scene) return state
       if (event.type === "start" && next.kind === "campaign") {
-        const [lon, lat] = standardScenario.regions[next.run.setup.startRegionId].center
-        return { ...state, scene: next, selection: { lon, lat } }
+        return { ...state, scene: next, selection: marketFocus(next.run.setup.startRegionId) }
       }
       if (event.type === "return-to-preview") return { ...state, scene: next, selection: previewSelection }
       return { ...state, scene: next }

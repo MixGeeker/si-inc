@@ -9,11 +9,13 @@
 | 开局余额、事件间隔、速度、价格、阈值、剧本文案 | `packages/rules/v0.1/` | 按规则版本导入，结算和界面引用同一份配置。 |
 | 阵营、起点、种子、已完成周数、当前余额、研究与普及指标、事件、操作日志 | `RunState` | 界面通过 `visibleRunState(snapshot.scene)` 读。纯函数 `createRun`、`advanceWeek`、`resolveDecision` 负责初始化和结算。 |
 | 场景、当前面板、选择的倍速 | `GameState.scene` | 用场景事件更新。显示和时钟都用 `playbackSpeed(scene)` 读取有效速度。 |
-| 地图选区、昼夜、云层、洋流 | `GameState.selection` 和 `layers` | 发送 `pick-location`、`focus-country`、`map-preset` 或 `set-layer`。选区传坐标和国家 ID，地图按 ID 取轮廓。 |
+| 地图选区、昼夜、云层、洋流 | `GameState.selection` 和 `layers` | 地图拾取发 `pick-location`。点中可经营的大洲时保存市场 ID，点中站点、群岛标记或经营范围以外的位置时保存地图点。市场栏和地区目录用 `focus-place` 定位，全球用 `null`。镜头预设和图层分别走 `map-preset` 和 `set-layer`。 |
 | 音效静音、音量 | `GameState.sound` | `set-sound-muted` 接受布尔值，`set-sound-volume` 接受 0–100 的整数。默认开启、音量 65%。静音保留音量；重开沿用设置，浏览器本地保存，下次打开时恢复。 |
 | 滚轮与相机插值、DOM 焦点、画布资源、表单草稿 | 对应组件、渲染器或浏览器适配器 | 在本地处理，玩家确认的操作转成游戏事件。 |
 
 周数表示已完成的整周，开局为 0。余额使用整数 token，比例使用整数基点（10,000 为 100%）。未计算的普及率和依赖率用 `null`，HUD 显示「—」。菜单、决策窗与后台标签页暂停计时，恢复时沿用当前周的剩余时间。
+
+每个大洲共用一个市场 ID。开局、点选市场、地区目录和地图高亮都使用该 ID，同洲内重复点选普通地块沿用当前快照。俄罗斯整块使用亚洲的 `as`。旧开局指令按原起始镜头的所在大洲转换，`ee` 和 `mena` 归亚洲，`latam` 归南美，旧南亚 `sa` 归亚洲。南美的新 ID 是 `sam`。选区由每个应用根的 store 持有，回放记录经营指令。[大洲与地理选区](../packages/rules/v0.1/world/regions.ts)
 
 ## 发送、读取与订阅
 

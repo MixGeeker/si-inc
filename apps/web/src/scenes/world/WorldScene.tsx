@@ -1,51 +1,64 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { regions } from "../../../../../packages/rules/v0.1/world/regions"
 import type { Atlas, Location } from "../../cartography/atlas"
 import { EUROPE, GLOBAL, MapCamera } from "../../cartography/camera"
 import { SceneDialog } from "../Dialog"
 import { EndingDialog } from "../ending/EndingDialog"
 import { useGameSnapshot, useGameStore } from "../GameContext"
 import { playbackSpeed, visibleRunState, type NewsView, type RunSetup } from "../machine"
+import { selectedPlace, type MapSelection, type PlaceFocus } from "../store"
 import { SetupDialog } from "../setup/SetupDialog"
 import { DecisionDialog, EvolutionPanel, MarketPanel } from "./CampaignPanels"
-import Hud, { type PlaceLevel } from "./Hud"
+import Hud from "./Hud"
 import { NewsOverview } from "./NewsLayer"
 import { hudContent } from "./hudContent"
 import { campaignNews, previewNews } from "./newsFeed"
-import { countryLines, fixtureCountry, marketCenter, marketCountries, marketOfCountry, worldMarkets, type PlaceNav } from "./placeFixture"
-import type { RegionId } from "../../../../../packages/rules/v0.1/world/regions"
 import { mapPreview } from "./preview"
 import { RegionPanel } from "./RegionPanel"
 
 const MapViewport = lazy(() => import("../../cartography/MapViewport"))
 
+function locationFor(atlas: Atlas, selection: MapSelection | null): Location | null {
+  if (!selection) return null
+  if ("kind" in selection) {
+    const [lon, lat] = regions[selection.id].center
+    return atlas.locate(lon, lat)
+  }
+  if (selection.countryId === undefined) return { ...selection, ...atlas.locate(selection.lon, selection.lat) }
+  return { ...selection, country: selection.countryId ? atlas.countryById.get(selection.countryId) ?? null : null }
+}
+
 export function WorldScene({ atlas }: { atlas: Atlas }) {
   const store = useGameStore()
   const { dispatch: send } = store
+  const showGlobal = useCallback(() => send({ type: "map-preset", view: "global" }), [send])
   const { scene, selection, layers: { night, cloud, current }, sound } = useGameSnapshot()
-  const location: Location | null = useMemo(() => {
-    if (!selection) return null
-    if (selection.countryId === undefined) return atlas.locate(selection.lon, selection.lat)
-    return { ...selection, country: atlas.countries.find(c => c.id === selection.countryId) ?? null }
-  }, [atlas, selection])
+  const location = useMemo(() => locationFor(atlas, selection), [atlas, selection])
   const [zoom, setZoom] = useState(EUROPE.zoom)
   const [rig] = useState(() => new MapCamera(setZoom))
   const [reduced, setReduced] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches)
   const [full, setFull] = useState(Boolean(document.fullscreenElement))
   const [screenError, setScreenError] = useState("")
-  const [placeNav, setPlaceNav] = useState<PlaceNav>({})
   useEffect(() => {
+    function goToPlace(place: PlaceFocus | null) {
+      if (!place) return rig.go(GLOBAL)
+      const [lon, lat] = regions[place.id].center
+      rig.go({ lon, lat, zoom: place.id === "eu" ? .42 : .29 })
+    }
     const off = [
-      store.on("run-started", (_, state) => {
-        setPlaceNav({})
-        if (state.selection) rig.go({ lon: state.selection.lon, lat: state.selection.lat, zoom: EUROPE.zoom })
+      store.on("run-started", ({ setup }) => {
+        goToPlace({ kind: "market", id: setup.startRegionId })
         store.dispatch({ type: "set-layer", layer: "night", enabled: false })
       }),
       store.on("return-to-preview", () => {
         rig.go(EUROPE)
         store.dispatch({ type: "set-layer", layer: "night", enabled: true })
       }),
-      store.on("map-preset", event => rig.go(event.view === "global" ? GLOBAL : EUROPE)),
-      store.on("focus-country", ({ selection }) => rig.go({ lon: selection.lon, lat: selection.lat, zoom: .65 })),
+      store.on("map-preset", (event, state) => {
+        if (state.scene.kind === "campaign") goToPlace(selectedPlace(state.selection))
+        else rig.go(event.view === "global" ? GLOBAL : EUROPE)
+      }),
+      store.on("focus-place", (_, state) => goToPlace(selectedPlace(state.selection))),
     ]
     return () => off.forEach(stop => stop())
   }, [store, rig])
@@ -62,50 +75,13 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   }, [])
 
   const run = visibleRunState(scene)
-  const focusedCountry = selection?.countryId ? location?.country ?? null : null
-  const factionId = run?.setup.factionId
-  const place: PlaceLevel | null = useMemo(() => {
-    if (!factionId) return null
-    if (placeNav.countryId) {
-      const known = fixtureCountry(placeNav.countryId)
-      const { lines, footer } = countryLines(placeNav.countryId, factionId)
-      return {
-        kind: "country",
-        name: known?.name ?? focusedCountry?.name ?? "地区",
-        lines, footer,
-        backLabel: placeNav.marketId ? `返回${marketCenter(placeNav.marketId).name}` : "返回全球",
-      }
-    }
-    if (placeNav.marketId) {
-      const center = marketCenter(placeNav.marketId)
-      return {
-        kind: "market",
-        name: center.name,
-        reward: placeNav.marketId === "ea" ? "30% 未领 · 70% 未领" : "30% 未记 · 70% 未记",
-        countries: marketCountries(placeNav.marketId, factionId),
-        note: "这一市场还没有试玩人口",
-      }
-    }
-    return { kind: "world", markets: worldMarkets(factionId) }
-  }, [factionId, focusedCountry, placeNav])
-  const placeThumb: Location | null = useMemo(() => {
-    if (place?.kind === "country" && placeNav.countryId) {
-      const known = fixtureCountry(placeNav.countryId)
-      const country = focusedCountry?.id === placeNav.countryId ? focusedCountry : null
-      if (known) return { lon: known.lon, lat: known.lat, country }
-      if (focusedCountry) return { lon: focusedCountry.lon, lat: focusedCountry.lat, country: focusedCountry }
-    }
-    if (place?.kind === "market" && placeNav.marketId) {
-      const center = marketCenter(placeNav.marketId)
-      return { lon: center.lon, lat: center.lat, country: null }
-    }
-    return null
-  }, [focusedCountry, place, placeNav])
-  useEffect(() => {
-    if (!selection?.countryId) return
-    const marketId = marketOfCountry(selection.countryId)
-    setPlaceNav(marketId ? { marketId, countryId: selection.countryId } : { countryId: selection.countryId })
-  }, [selection?.countryId])
+  const place = selectedPlace(selection, location?.country?.id)
+  const marketId = place?.id
+  const singleCountry = marketId ? null : location?.country
+  const selected = useMemo(() => {
+    if (!marketId) return singleCountry ? [singleCountry] : []
+    return Object.keys(regions[marketId].slots).flatMap(id => atlas.countryById.get(id) ?? [])
+  }, [atlas, marketId, singleCountry])
   const content = hudContent(run, location === null)
   const newsItems = run ? campaignNews(run) : previewNews()
   const speed = playbackSpeed(scene)
@@ -134,27 +110,15 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
 
   return <>
     <Suspense fallback={<span className="map-loading" role="status">正在载入地图…</span>}>
-      <MapViewport atlas={atlas} rig={rig} selected={location?.country} layers={{ cloud, current, reduced, speed, night }}
+      <MapViewport atlas={atlas} rig={rig} selected={selected} layers={{ cloud, current, reduced, speed, night }}
         pick={({ country, ...point }) => send({ type: "pick-location", selection: { ...point, countryId: country?.id ?? null } })}
-        marker={run ? undefined : mapPreview.marker} showNews={() => openNews("current", "preview")}/>
+        marker={run ? undefined : mapPreview.marker} showNews={() => openNews("current", "preview")} showGlobal={showGlobal}/>
     </Suspense>
-    <Hud location={location} place={place} placeThumb={placeThumb} content={content} zoom={zoom} speed={speed} night={night} toggleNight={() => send({ type: "set-layer", layer: "night", enabled: !night })}
+    <Hud location={location} place={place} content={content} zoom={zoom} speed={speed} night={night} toggleNight={() => send({ type: "set-layer", layer: "night", enabled: !night })}
       newsItems={newsItems} newsView={newsView} newsItemId={newsItemId} newsWeek={run ? run.completedWeek : null}
       openNews={openNews} closeNews={back} decide={(id, instanceId) => send({ type: "open-decision", id, instanceId })}
       open={panelName => { if (newsView) send({ type: "back" }); send({ type: "open-panel", panel: panelName }) }}
-      chooseMarket={(id: RegionId) => {
-        setPlaceNav({ marketId: id })
-        const center = marketCenter(id)
-        rig.go({ lon: center.lon, lat: center.lat, zoom: .42 })
-      }}
-      chooseCountry={id => {
-        const country = fixtureCountry(id)
-        if (!country) return
-        setPlaceNav({ marketId: "ea", countryId: id })
-        rig.go({ lon: country.lon, lat: country.lat, zoom: .65 })
-        send({ type: "pick-location", selection: { lon: country.lon, lat: country.lat, countryId: id } })
-      }}
-      placeBack={() => setPlaceNav(nav => nav.countryId && nav.marketId ? { marketId: nav.marketId } : {})}
+      focusPlace={place => send({ type: "focus-place", place })}
       setSpeed={n => send({ type: "set-speed", speed: n })} setZoom={n => rig.zoom(n)}/>
     {newsView === "archive" && (
       <NewsOverview items={newsItems} itemId={newsItemId} dated={run !== null} open={openNews} close={back}
@@ -172,8 +136,8 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       <a href="/map-credits.html" target="_blank" rel="noreferrer">地图数据与署名 ↗</a>
     </SceneDialog>}
     {panel === "region" && <SceneDialog title="地区资料" onBack={back}>
-      <RegionPanel atlas={atlas} location={location} locate={c =>
-        send({ type: "focus-country", selection: { countryId: c.id, lon: c.lon, lat: c.lat } })}/>
+      <RegionPanel atlas={atlas} location={location} place={place}
+        chooseMarket={id => send({ type: "focus-place", place: { kind: "market", id } })}/>
     </SceneDialog>}
     {panel === "overview" && <SceneDialog title={content.overview} onBack={back}>
       {run ? <EvolutionPanel run={run}/> : <dl className="readings">

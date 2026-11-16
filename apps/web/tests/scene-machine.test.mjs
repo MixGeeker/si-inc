@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import { initialScene, playbackSpeed, sceneReducer, visibleRun } from "../src/scenes/machine.ts"
 
-const setup = { factionId: "claude", startRegionId: "sea", difficultyId: "standard" }
+const setup = { factionId: "claude", startRegionId: "as", difficultyId: "standard" }
 const open = panel => ({ type: "open-panel", panel })
 const start = { type: "start", ...setup }
 const back = { type: "back" }
