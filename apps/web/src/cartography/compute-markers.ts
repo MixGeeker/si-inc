@@ -1,4 +1,5 @@
 import placesFile from "../../../../packages/rules/v0.1/world/compute-places.json" with { type: "json" }
+import type { Language } from "../i18n/languages.ts"
 
 export type ComputeKind = "current" | "planned" | "unknown"
 
@@ -9,21 +10,17 @@ export const computeColors = {
   unknown: "#6f96ae",
 } as const
 
-export const computeKindLabel = {
-  current: "建成",
-  planned: "宣称",
-  unknown: "未知",
-} as const
+export const computeLegendKinds = ["current"] as const
+export const computePlaces = placesFile.places
+const sites = new Map(computePlaces.map(p => [p.id, p]))
 
-function megawatts(value: number) {
-  return String(Math.round(value * 100) / 100)
+export function computePlaceById(id: string) {
+  return sites.get(id)
 }
 
-export const computeLegendKinds = ["current"] as const
-
-export const computePlaces = placesFile.places
-
-export function computePlaceLabel(place: (typeof computePlaces)[number]) {
-  const where = place.name === place.countryName ? place.name : `${place.countryName} · ${place.name}`
-  return `${computeKindLabel.current} · ${where} · ${place.sites} 座 · ${megawatts(place.realMw)} MW`
+export function computePlaceLabel(place: (typeof computePlaces)[number], { locale, ui, country, number }: Language) {
+  const nation = locale === "en" ? country.of(place.country) ?? place.country : place.countryName
+  const subdivision = locale === "en" ? place.nameEn : place.name === place.countryName ? undefined : place.name
+  const where = subdivision ? `${nation} · ${subdivision}` : nation
+  return `${ui.built} · ${where} · ${ui.siteCount(place.sites)} · ${number.format(place.realMw)} MW`
 }

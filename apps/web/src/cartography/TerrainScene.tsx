@@ -15,10 +15,10 @@ import { SWEEP_MS, cloudCoverAt, hasOutgoingClouds, type CloudSweep } from "./cl
 type LightTransition = CloudSweep & { lightStartedAt:number; initialNight:number }
 
 export type LayerState = { cloud:boolean; current:boolean; speed:number; reduced:boolean; night:boolean }
-type Props = {atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState;
+type Props = {terrainLabel:string; atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState;
   surfaces:readonly PopulationSurface[]; profiles:ReadonlyMap<string, PopulationProfile>;
   project:(time:number)=>void; onReady:()=>void}
-export default function TerrainScene({atlas,rig,selected,layers,surfaces,profiles,project,onReady}:Props) {
+export default function TerrainScene({terrainLabel,atlas,rig,selected,layers,surfaces,profiles,project,onReady}:Props) {
   const {gl, invalidate, set} = useThree()
   const [surface,nightLights,vapor,humidity] = useLoader(TextureLoader,[surfaceUrl,nightLightsUrl,vaporUrl,humidityUrl])
   const geometry = useMemo(()=>reliefGeometry(atlas),[atlas])
@@ -42,11 +42,11 @@ export default function TerrainScene({atlas,rig,selected,layers,surfaces,profile
     }
     return ()=>{rig.surfaceHit=undefined}
   },[rig])
+  useLayoutEffect(() => { gl.domElement.setAttribute("aria-label", terrainLabel) }, [gl, terrainLabel])
   useLayoutEffect(()=>{
     set({camera:rig.camera})
     rig.setFlat(false)
     const node = gl.domElement
-    node.setAttribute("aria-label","三维世界地形")
     node.dataset.renderer = "terrain"
     const wake = ()=>invalidate()
     document.addEventListener("visibilitychange",wake)

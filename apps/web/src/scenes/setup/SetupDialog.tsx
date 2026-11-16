@@ -1,27 +1,30 @@
 import { useState } from "react"
 import { isFactionId, isRegionId, standardScenario } from "../../../../../packages/rules/v0.1/scenario"
+import { regionIds } from "../../../../../packages/rules/v0.1/world/regions"
+import { useLanguage } from "../../i18n/useLanguage"
 import type { RunSetup } from "../machine"
 import { SceneDialog } from "../Dialog"
 
 export function SetupDialog({ previous, start, back }: { previous?: RunSetup; start: (setup: RunSetup) => void; back: () => void }) {
-  const { difficulty, factions, regions, rules } = standardScenario
+  const { ui, scenario } = useLanguage()
+  const { difficulty, factions, rules } = standardScenario
   const [factionId, setFaction] = useState<string>(previous?.factionId ?? "")
   const [startRegionId, setRegion] = useState<string>(previous?.startRegionId ?? "")
-  const faction = isFactionId(factionId) ? factions[factionId] : null
-  return <SceneDialog title="新建对局" onBack={back}>
+  const faction = isFactionId(factionId) ? scenario.factions[factionId] : null
+  return <SceneDialog title={ui.newRun} onBack={back}>
     <form className="setup-form" onSubmit={e => {
       e.preventDefault()
       if (isFactionId(factionId) && isRegionId(startRegionId)) start({ factionId, startRegionId, difficultyId: difficulty.id })
     }}>
-      <label>AI 阵营<select required value={factionId} onChange={e => setFaction(e.target.value)}>
-        <option value="">选择阵营</option>{Object.entries(factions).map(([id, f]) => <option key={id} value={id}>{f.name}</option>)}
+      <label>{ui.faction}<select required value={factionId} onChange={e => setFaction(e.target.value)}>
+        <option value="">{ui.chooseFaction}</option>{Object.entries(factions).map(([id, f]) => <option key={id} value={id}>{f.name}</option>)}
       </select></label>
-      {faction && <p className="source-note">{faction.strength}。{faction.risk}。专属能力为「{faction.ability.name}」。</p>}
-      <label>起始大洲<select required value={startRegionId} onChange={e => setRegion(e.target.value)}>
-        <option value="">选择大洲</option>{Object.entries(regions).map(([id, r]) => <option key={id} value={id}>{r.name}</option>)}
+      {faction && <p className="source-note">{ui.factionProfile(faction.strength, faction.risk, faction.ability.name)}</p>}
+      <label>{ui.startMarket}<select required value={startRegionId} onChange={e => setRegion(e.target.value)}>
+        <option value="">{ui.selectContinent}</option>{regionIds.map(id => <option key={id} value={id}>{scenario.regions[id]}</option>)}
       </select></label>
-      <p>{difficulty.name}难度 · {rules.initialBtoken} token · {rules.maxWeeks} 周上限</p>
-      <div className="window-actions"><button type="submit" disabled={!faction || !isRegionId(startRegionId)}>进入地图</button></div>
+      <p>{ui.setupSummary(scenario.difficulty, ui.tokens(rules.initialBtoken), rules.maxWeeks)}</p>
+      <div className="window-actions"><button type="submit" disabled={!faction || !isRegionId(startRegionId)}>{ui.enterMap}</button></div>
     </form>
   </SceneDialog>
 }

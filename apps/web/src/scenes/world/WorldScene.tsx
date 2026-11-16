@@ -1,7 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { localeNames, isLocale } from "../../../../../packages/rules/locales"
 import { regions } from "../../../../../packages/rules/v0.1/world/regions"
 import type { Atlas, Location } from "../../cartography/atlas"
 import { EUROPE, GLOBAL, MapCamera } from "../../cartography/camera"
+import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
 import { EndingDialog } from "../ending/EndingDialog"
 import { useGameSnapshot, useGameStore } from "../GameContext"
@@ -34,6 +36,9 @@ function locationFor(atlas: Atlas, selection: MapSelection | null): Location | n
 
 export function WorldScene({ atlas }: { atlas: Atlas }) {
   const store = useGameStore()
+  const language = useLanguage()
+  const { ui, locale, percent } = language
+  const previewMarker = useMemo(() => ({ ...mapPreview.marker, label: language.ui.previewMarker }), [language])
   const { dispatch: send } = store
   const showGlobal = useCallback(() => send({ type: "map-preset", view: "global" }), [send])
   const { scene, selection, layers: { night, cloud, current, population }, populationPreview, sound } = useGameSnapshot()
@@ -42,7 +47,7 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   const [rig] = useState(() => new MapCamera(setZoom))
   const [reduced, setReduced] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches)
   const [full, setFull] = useState(Boolean(document.fullscreenElement))
-  const [screenError, setScreenError] = useState("")
+  const [screenError, setScreenError] = useState(false)
   useEffect(() => {
     function goToPlace(place: PlaceFocus | null) {
       if (!place) return rig.go(GLOBAL)
@@ -92,8 +97,8 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
     if (!marketId) return singleCountry ? [singleCountry] : []
     return Object.keys(regions[marketId].slots).flatMap(id => atlas.countryById.get(id) ?? [])
   }, [atlas, marketId, singleCountry])
-  const content = hudContent(run, location === null)
-  const newsItems = run ? campaignNews(run) : previewNews()
+  const content = hudContent(run, location === null, language)
+  const newsItems = run ? campaignNews(run, language) : previewNews(language)
   const speed = playbackSpeed(scene)
   const panel = scene.kind === "campaign" || scene.kind === "preview" ? scene.panel : null
   const newsView = panel === "news" && (scene.kind === "preview" || scene.kind === "campaign") ? scene.newsView ?? "archive" : null
@@ -110,19 +115,19 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
     try {
       if (document.fullscreenElement) await document.exitFullscreen()
       else await document.documentElement.requestFullscreen()
-      setScreenError("")
-    } catch { setScreenError("此窗口无法进入全屏。") }
+      setScreenError(false)
+    } catch { setScreenError(true) }
   }
   function presets() {
-    return <><button onClick={() => send({ type: "map-preset", view: "global" })}>全球总览</button>
-      <button onClick={() => send({ type: "map-preset", view: "europe" })}>欧洲近景</button></>
+    return <><button onClick={() => send({ type: "map-preset", view: "global" })}>{ui.globalView}</button>
+      <button onClick={() => send({ type: "map-preset", view: "europe" })}>{ui.europeView}</button></>
   }
 
   return <>
-    <Suspense fallback={<span className="map-loading" role="status">正在载入地图…</span>}>
+    <Suspense fallback={<span className="map-loading" role="status">{ui.mapLoading}</span>}>
       <MapViewport atlas={atlas} rig={rig} selected={selected} populations={populations} layers={{ cloud, current, reduced, speed, night }}
         pick={({ country, ...point }) => send({ type: "pick-location", selection: { ...point, countryId: country?.id ?? null } })}
-        marker={run ? undefined : mapPreview.marker} showNews={() => openNews("current", "preview")} showGlobal={showGlobal}/>
+        marker={run ? undefined : previewMarker} showNews={() => openNews("current", "preview")} showGlobal={showGlobal}/>
     </Suspense>
     <Hud location={location} place={place} content={content} zoom={zoom} speed={speed} night={night} toggleNight={() => send({ type: "set-layer", layer: "night", enabled: !night })}
       newsItems={newsItems} newsView={newsView} newsItemId={newsItemId} newsWeek={run ? run.completedWeek : null}
@@ -136,63 +141,69 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
         decide={(id, instanceId) => send({ type: "open-decision", id, instanceId })}/>
     )}
 
-    {panel === "world" && <SceneDialog title="世界" onBack={back}>
+    {panel === "world" && <SceneDialog title={ui.world} onBack={back}>
       {run && <MarketPanel setup={run.setup}/>}
-      <fieldset><legend>环境图层</legend>
-        <label><input type="checkbox" checked={cloud} onChange={e => send({ type: "set-layer", layer: "cloud", enabled: e.target.checked })}/> 白天显示云层</label>
-        <label><input type="checkbox" checked={current} onChange={e => send({ type: "set-layer", layer: "current", enabled: e.target.checked })}/> 表层洋流</label>
-        <label><input type="checkbox" checked={population} onChange={e => send({ type: "set-layer", layer: "population", enabled: e.target.checked })}/> 人口分布</label>
+      <fieldset><legend>{ui.layers}</legend>
+        <label><input type="checkbox" checked={cloud} onChange={e => send({ type: "set-layer", layer: "cloud", enabled: e.target.checked })}/> {ui.clouds}</label>
+        <label><input type="checkbox" checked={current} onChange={e => send({ type: "set-layer", layer: "current", enabled: e.target.checked })}/> {ui.currents}</label>
+        <label><input type="checkbox" checked={population} onChange={e => send({ type: "set-layer", layer: "population", enabled: e.target.checked })}/> {ui.populationLayer}</label>
       </fieldset>
-      <p className="source-note">十一月气候态 · NOAA 风场与全球漂流浮标</p>
+      <p className="source-note">{ui.climate}</p>
       {run && population && livePopulation && Object.keys(livePopulation).length > 0 && <PopulationLegend/>}
       <div className="window-actions">{presets()}
-        {scene.kind === "preview" && <button type="button" onClick={()=>send({type:"open-population-preview"})}>东亚人口分布示例</button>}
+        {scene.kind === "preview" && <button type="button" onClick={()=>send({type:"open-population-preview"})}>{ui.populationPreview}</button>}
       </div>
-      <a href="/map-credits.html" target="_blank" rel="noreferrer">地图数据与署名 ↗</a>
+      <a href={locale === "en" ? "/map-credits.en.html" : "/map-credits.html"} target="_blank" rel="noreferrer">{ui.credits} ↗</a>
     </SceneDialog>}
-    {panel === "region" && <SceneDialog title="地区资料" onBack={back}>
+    {panel === "region" && <SceneDialog title={ui.regionProfile} onBack={back}>
       <RegionPanel atlas={atlas} location={location} place={place}
         chooseMarket={id => send({ type: "focus-place", place: { kind: "market", id } })}/>
     </SceneDialog>}
     {panel === "overview" && <SceneDialog title={content.overview} onBack={back}>
       {run ? <EvolutionPanel run={run}/> : <dl className="readings">
-        <div><dt>名称</dt><dd>{mapPreview.name}</dd></div><div><dt>DNA 点数</dt><dd>{mapPreview.dna}</dd></div>
-        <div><dt>受感染</dt><dd>{mapPreview.infected}</dd></div><div><dt>死亡</dt><dd>{mapPreview.deaths}</dd></div>
+        <div><dt>{ui.name}</dt><dd>{mapPreview.name}</dd></div><div><dt>{ui.dnaPoints}</dt><dd>{mapPreview.dna}</dd></div>
+        <div><dt>{ui.infected}</dt><dd>{mapPreview.infected}</dd></div><div><dt>{ui.deaths}</dt><dd>{mapPreview.deaths}</dd></div>
       </dl>}
     </SceneDialog>}
-    {panel === "menu" && <SceneDialog title="菜单" onBack={back}>
+    {panel === "menu" && <SceneDialog title={ui.menu} onBack={back}>
       <div className="window-actions">{run
-        ? <><button onClick={back}>返回对局</button>
-          <button onClick={() => { send({ type: "back" }); send({ type: "open-panel", panel: "world" }) }}>地图与市场</button>
-          <button onClick={() => send({ type: "request-exit" })}>结束本局</button></>
-        : <button onClick={() => send({ type: "open-setup" })}>新建对局</button>}
+        ? <><button onClick={back}>{ui.resume}</button>
+          <button onClick={() => { send({ type: "back" }); send({ type: "open-panel", panel: "world" }) }}>{ui.mapMarkets}</button>
+          <button onClick={() => send({ type: "request-exit" })}>{ui.endRun}</button></>
+        : <button onClick={() => send({ type: "open-setup" })}>{ui.newRun}</button>}
       </div>
-      {run && <fieldset><legend>光照</legend>
-        <p className="source-note">主界面按当前光照显示第一幕或第二幕。新对局从永昼开始，正式切换以后由合成人计划决定。</p>
-        <button type="button" onClick={() => send({ type: "set-layer", layer: "night", enabled: !night })}>{night ? "查看永昼" : "查看永夜"}</button>
+      {run && <fieldset><legend>{ui.lighting}</legend>
+        <p className="source-note">{ui.lightingNote}</p>
+        <button type="button" onClick={() => send({ type: "set-layer", layer: "night", enabled: !night })}>{night ? ui.showDay : ui.showNight}</button>
       </fieldset>}
       <div className="window-actions">{presets()}
-        {document.fullscreenEnabled && <button onClick={fullscreen}>{full ? "退出全屏" : "进入全屏"}</button>}
+        {document.fullscreenEnabled && <button onClick={fullscreen}>{full ? ui.fullOff : ui.fullOn}</button>}
       </div>
-      <fieldset><legend>音效</legend>
+      <label className="language-setting"><span><span lang="zh-CN">语言</span> / <span lang="en">Language</span></span>
+        <select value={locale} onChange={e => {
+          const value = e.currentTarget.value
+          if (isLocale(value)) send({ type: "set-locale", locale: value })
+        }}>{Object.entries(localeNames).map(([code, name]) => <option key={code} value={code} lang={code}>{name}</option>)}</select>
+      </label>
+      <fieldset><legend>{ui.sound}</legend>
         <div className="sound-controls">
-          <label className="sound-volume">音量
-            <input type="range" min="0" max="100" step="1" value={sound.volume} aria-valuetext={`${sound.volume}%`}
+          <label className="sound-volume">{ui.volume}
+            <input type="range" min="0" max="100" step="1" value={sound.volume} aria-valuetext={percent.format(sound.volume / 100)}
               onChange={e => send({ type: "set-sound-volume", volume: e.currentTarget.valueAsNumber })}/>
-            <span aria-hidden="true">{sound.volume}%</span>
+            <span aria-hidden="true">{percent.format(sound.volume / 100)}</span>
           </label>
           <label><input type="checkbox" checked={sound.muted}
-            onChange={e => send({ type: "set-sound-muted", muted: e.currentTarget.checked })}/> 静音</label>
+            onChange={e => send({ type: "set-sound-muted", muted: e.currentTarget.checked })}/> {ui.mute}</label>
         </div>
         <button type="button" disabled={sound.muted || sound.volume === 0}
-          onClick={() => send({ type: "play-sound", cue: "test" })}>测试音效</button>
+          onClick={() => send({ type: "play-sound", cue: "test" })}>{ui.testSound}</button>
       </fieldset>
-      <p className="source-note">拖动平移 · 滚轮或双指缩放 · Home 返回全球</p>
-      {screenError && <p role="status">{screenError}</p>}
+      <p className="source-note">{ui.navigation}</p>
+      {screenError && <p role="status">{ui.fullError}</p>}
     </SceneDialog>}
-    {panel === "confirm-exit" && <SceneDialog title="结束这局游戏？" onBack={back}>
-      <p>本局将停止推进，进入结算。</p>
-      <div className="window-actions"><button onClick={back}>取消</button><button onClick={() => send({ type: "withdraw" })}>确认结束</button></div>
+    {panel === "confirm-exit" && <SceneDialog title={ui.confirmEndTitle} onBack={back}>
+      <p>{ui.confirmEndBody}</p>
+      <div className="window-actions"><button onClick={back}>{ui.cancel}</button><button onClick={() => send({ type: "withdraw" })}>{ui.confirmEnd}</button></div>
     </SceneDialog>}
     {scene.kind === "setup" && <SetupDialog previous={scene.back.kind === "ending" ? scene.back.run.setup : undefined} start={start} back={back}/>}
     {scene.kind === "decision" && <DecisionDialog scene={scene} back={back}

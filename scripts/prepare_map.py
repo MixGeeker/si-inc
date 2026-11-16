@@ -1,6 +1,7 @@
 """Build the browser map from public geographic data. Run with Python, Pillow and NumPy."""
 import argparse
 import csv
+import json
 import math
 import re
 import shutil
@@ -116,6 +117,9 @@ def boundaries(cache):
             attrs.update({"data-island-name": "南沙群岛", "data-island-lon": spratly["LABEL_X"],
                           "data-island-lat": spratly["LABEL_Y"]})
         svg.append("<path " + " ".join(k + "=" + quoteattr(v) for k, v in attrs.items()) + "/>")
+    names = {key: row["NAME_EN"] or row["NAME_LONG"] for key, (row, _) in features.items()}
+    (OUT / "country-names.en.json").write_text(json.dumps(names, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                                               encoding="utf-8", newline="\n")
     document = "\n".join(svg + ["</svg>"])
     assert len(ElementTree.fromstring(document)) > 235
     (OUT / "countries.svg").write_text(document, encoding="utf-8", newline="\n")

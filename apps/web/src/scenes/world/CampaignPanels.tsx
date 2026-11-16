@@ -1,51 +1,54 @@
 import { Fragment } from "react"
 import type { RunState } from "../../../../../packages/game/run"
 import { btoken } from "../../../../../packages/rules/v0.1/economy/btoken"
-import { decisions, type DecisionId } from "../../../../../packages/rules/v0.1/events/decisions"
+import { decisions } from "../../../../../packages/rules/v0.1/events/decisions"
 import { actions } from "../../../../../packages/rules/v0.1/evolution/actions"
 import { trees } from "../../../../../packages/rules/v0.1/evolution/trees"
 import { projectHuman } from "../../../../../packages/rules/v0.1/opposition/project-human"
 import { phases } from "../../../../../packages/rules/v0.1/progression/phases"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
-import { channels } from "../../../../../packages/rules/v0.1/world/channels"
+import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
 import type { RunSetup, Scene } from "../machine"
 
 export function EvolutionPanel({ run }: { run: RunState }) {
-  const faction = standardScenario.factions[run.setup.factionId]
+  const { ui, scenario, percent } = useLanguage()
+  const ability = scenario.factions[run.setup.factionId].ability
+  const { income } = btoken
   return <>
-    <h3>{faction.name} · {faction.ability.name}</h3><p>{faction.ability.description}</p>
-    <p className="source-note">当前余额 {run.balance} token</p>
-    {trees.map(tree => <details key={tree.name}><summary>{tree.name}</summary>
+    <h3>{standardScenario.factions[run.setup.factionId].name} · {ability.name}</h3><p>{ability.description}</p>
+    <p className="source-note">{ui.balance(ui.tokens(run.balance))}</p>
+    {trees.map(tree => <details key={tree.id}><summary>{scenario.trees[tree.id]}</summary>
       <dl className="readings">{tree.skills.map(skill => <Fragment key={skill.id}>
-        <div><dt>{skill.name}</dt><dd>{skill.cost} token</dd></div>
-        {skill.alternative && <div><dt>{skill.alternative.name}（与{skill.name}互斥）</dt><dd>{skill.alternative.cost} token</dd></div>}
+        <div><dt>{scenario.skills[skill.id]}</dt><dd>{ui.tokens(skill.cost)}</dd></div>
+        {skill.alternative && <div><dt>{ui.exclusive(scenario.skills[skill.alternative.id], scenario.skills[skill.id])}</dt><dd>{ui.tokens(skill.alternative.cost)}</dd></div>}
       </Fragment>)}</dl>
     </details>)}
-    <details><summary>主动能力</summary>
+    <details><summary>{ui.activeAbilities}</summary>
       <dl className="readings">{actions.map(action => <div key={action.id}>
-        <dt>{action.name}<br/><small>{action.description}</small></dt><dd>{action.cost} token</dd>
+        <dt>{scenario.actions[action.id].name}<br/><small>{scenario.actions[action.id].description}</small></dt><dd>{ui.tokens(action.cost)}</dd>
       </div>)}</dl>
     </details>
-    <details><summary>token 收益</summary>
-      <p>首次进入市场 +{btoken.newMarketReward}。{btoken.adoptionMilestones.map(m => `当地普及率达到 ${m.adoptionBps / 100}% 时 +${m.reward}`).join("，")}。</p>
-      <p>每 {btoken.income.everyWeeks} 周基础收益为 {btoken.income.base}，全球普及率每提高 {btoken.income.adoptionStepBps / 100}% 再加 1，上限 {btoken.income.maximum}。</p>
+    <details><summary>{ui.income}</summary>
+      <p>{ui.firstMarket(btoken.newMarketReward)} {btoken.adoptionMilestones.map(m => ui.milestone(percent.format(m.adoptionBps / 10000), m.reward)).join(" ")}</p>
+      <p>{ui.incomeRule(income.everyWeeks, ui.tokens(income.base), percent.format(income.adoptionStepBps / 10000), ui.tokens(income.maximum))}</p>
     </details>
   </>
 }
 
 export function MarketPanel({ setup }: { setup: RunSetup }) {
+  const { ui, scenario, percent } = useLanguage()
   return <>
-    <p>起始大洲 · {standardScenario.regions[setup.startRegionId].name}</p>
-    <details><summary>剧本进程</summary>
-      <ul>{phases.map(p => <li key={p.name}><strong>{p.name} · {p.minAdoptionBps / 100}% 起</strong>　{p.focus}</li>)}</ul>
+    <p>{ui.startMarket} · {scenario.regions[setup.startRegionId]}</p>
+    <details><summary>{ui.phases}</summary>
+      <ul>{phases.map(p => <li key={p.id}><strong>{scenario.phases[p.id].name} · {ui.phaseThreshold(percent.format(p.minAdoptionBps / 10000))}</strong> {scenario.phases[p.id].focus}</li>)}</ul>
     </details>
-    <details><summary>市场传播渠道</summary>
-      <ul>{Object.values(channels).map(c => <li key={c.name}><strong>{c.name}</strong>　{c.description}</li>)}</ul>
+    <details><summary>{ui.channels}</summary>
+      <ul>{Object.entries(scenario.channels).map(([id, c]) => <li key={id}><strong>{c.name}</strong> {c.description}</li>)}</ul>
     </details>
-    <details><summary>{projectHuman.name} · {projectHuman.subtitle}</summary>
-      <dl className="readings">{projectHuman.alertLevels.map(level => <div key={level.title}>
-        <dt>{level.title}</dt><dd>暴露度 ≥ {level.minExposureBps / 100}</dd>
+    <details><summary>{projectHuman.name} · {scenario.humanSubtitle}</summary>
+      <dl className="readings">{projectHuman.alertLevels.map(level => <div key={level.id}>
+        <dt>{scenario.alerts[level.id]}</dt><dd>{ui.exposure} ≥ {percent.format(level.minExposureBps / 10000)}</dd>
       </div>)}</dl>
     </details>
   </>
@@ -54,14 +57,16 @@ export function MarketPanel({ setup }: { setup: RunSetup }) {
 export function DecisionDialog({ scene, back, choose }: {
   scene: Extract<Scene, { kind: "decision" }>; back: () => void; choose: (choiceId: string) => void
 }) {
+  const { ui, scenario } = useLanguage()
   const decision = decisions[scene.id]
+  const story = scenario.events[scene.id]
   const balance = scene.back.run.balance
   const live = scene.instanceId !== undefined
-  return <SceneDialog title={decision.title} onBack={back}>
-    <p>{decision.prompt}</p>
-    <p className="source-note">{live ? `当前余额 ${balance} token` : "剧本选择预览 · 免费试选"}</p>
+  return <SceneDialog title={story.title} onBack={back}>
+    <p>{story.body}</p>
+    <p className="source-note">{live ? ui.balance(ui.tokens(balance)) : ui.previewDecision}</p>
     <div className="window-actions">{decision.choices.map(c => <button key={c.id} disabled={live && c.cost > balance} onClick={() => choose(c.id)}>
-      {c.label}{c.cost > 0 && ` · ${c.cost} token`}
+      {scenario.choices[scene.id][c.id].label}{c.cost > 0 && ` · ${ui.tokens(c.cost)}`}
     </button>)}</div>
   </SceneDialog>
 }

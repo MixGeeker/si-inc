@@ -9,12 +9,13 @@ interface Skill {
 }
 
 export interface SkillTree {
+  id: "transmission" | "behavior" | "capabilities"
   name: string
   skills: readonly (Skill & { alternative?: Skill })[]
 }
 
 export const trees: readonly SkillTree[] = [
-  { name: "传播", skills: transmission },
-  { name: "行为", skills: behavior },
-  { name: "能力", skills: capabilities },
+  { id: "transmission", name: "传播", skills: transmission },
+  { id: "behavior", name: "行为", skills: behavior },
+  { id: "capabilities", name: "能力", skills: capabilities },
 ]

@@ -7,6 +7,8 @@ import type { PopulationProfile } from "./population-field"
 import { attachNavigation, MapCamera } from "./camera"
 import { hudScale, Y_SCALE } from "./layout"
 import TerrainScene, { type LayerState } from "./TerrainScene"
+import { countryName } from "./place-names"
+import { useLanguage } from "../i18n/useLanguage"
 import { computePlaceLabel, computePlaces } from "./compute-markers"
 
 type Props = {atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState; populations:CountryPopulations;
@@ -67,6 +69,7 @@ function ScreenGrid() {
 }
 function FlatMap({atlas,selected,rig,project,layers,surfaces,profiles}:{atlas:Atlas;selected:readonly Country[];rig:MapCamera;project:(t:number)=>void;
   layers:LayerState;surfaces:readonly PopulationSurface[];profiles:ReadonlyMap<string, PopulationProfile>}) {
+  const { ui } = useLanguage()
   const { night, reduced, speed } = layers
   const svg=useRef<SVGSVGElement>(null)
   const canvas=useRef<HTMLCanvasElement>(null), elapsed=useRef(0)
@@ -111,7 +114,7 @@ function FlatMap({atlas,selected,rig,project,layers,surfaces,profiles}:{atlas:At
     frame=requestAnimationFrame(draw)
     return ()=>cancelAnimationFrame(frame)
   },[rig,project,reduced,speed,surfaces,profiles])
-  return <><svg ref={svg} className="flat-map" preserveAspectRatio="none" role="img" aria-label="二维矢量世界地图">
+  return <><svg ref={svg} className="flat-map" preserveAspectRatio="none" role="img" aria-label={ui.flatMap}>
     <defs><g id="flat-world"><image href={surfaceUrl} width="360" height="180" style={night ? {filter:"brightness(.45) saturate(.75)"} : undefined}/>
       {night && <image href={nightLightsUrl} width="360" height="180"/>}
       {atlas.countries.map(c => {
@@ -155,6 +158,8 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
   const activeCountries=Array.from(profiles.keys()).sort().join(" ")
   const surfaces=useMemo(()=>activeCountries ? activeCountries.split(" ").map(id=>
     new PopulationSurface(atlas.countryById.get(id)!)) : [],[atlas,activeCountries])
+  const language = useLanguage()
+  const { ui, locale } = language
   const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null)
   const marks=useRef<(SVGGElement|null)[]>([])
   const cursorMarks=useRef<(SVGGElement|null)[]>([])
@@ -208,7 +213,7 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
       })
       if(nearest<0) {select.current(location);return}
       const site=computePlaces[nearest]
-      select.current({...atlas.locate(site.lon,site.lat),site:computePlaceLabel(site)})
+      select.current({...atlas.locate(site.lon,site.lat),siteId:site.id})
     },showGlobal)
     const signal=()=>wake.current()
     const lost=(e:Event)=>{e.preventDefault();setLost(true)}
@@ -221,25 +226,25 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
       el.removeEventListener("webglcontextlost",lost,true);el.removeEventListener("webglcontextrestored",restored,true)}
   },[atlas,rig,altitudes,showGlobal])
   useEffect(()=>{wake.current()})
-  return <div className="map-viewport" ref={host} tabIndex={0} role="region" aria-label="互动世界地图，方向键平移，加减键缩放，Home 返回全球">
+  return <div className="map-viewport" ref={host} tabIndex={0} role="region" aria-label={ui.interactiveMap}>
     {!failed && <GraphicsBoundary fail={onFail}><Canvas frameloop="demand" flat linear dpr={[1,1.5]} resize={{offsetSize:true}}
       gl={{antialias:true,alpha:false,powerPreference:"high-performance"}} camera={rig.camera}>
       <Wake setWake={setWake}/>
-      <Suspense fallback={null}><TerrainScene atlas={atlas} rig={rig} selected={selected} layers={layers}
+      <Suspense fallback={null}><TerrainScene terrainLabel={ui.terrain} atlas={atlas} rig={rig} selected={selected} layers={layers}
         surfaces={surfaces} profiles={profiles} project={project} onReady={onReady}/></Suspense>
     </Canvas></GraphicsBoundary>}
     {(failed || lost) && <FlatMap atlas={atlas} selected={selected} rig={rig} project={project} layers={layers} surfaces={surfaces} profiles={profiles}/>}
     {layers.night && <div className="map-vignette" />}
     <ScreenGrid/>
-    {!ready && !failed && !rig.flat && <span className="map-loading" role="status">正在建立地形…</span>}
-    <svg ref={overlay} className="geo-marks" aria-label="算力站点">
+    {!ready && !failed && !rig.flat && <span className="map-loading" role="status">{ui.buildingTerrain}</span>}
+    <svg ref={overlay} className="geo-marks" aria-label={ui.computeSites}>
       <defs>
         <radialGradient id="event-red" cx=".38" cy=".30" r=".78"><stop stopColor="#dd3045"/><stop offset=".43" stopColor="#92172a"/><stop offset="1" stopColor="#290510"/></radialGradient>
         <filter id="cursor-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.7"/></filter>
       </defs>
       {computePlaces.map((p,i)=><g key={p.id} ref={el=>{marks.current[i]=el}}>
         <ComputeGlyph/>
-        <title>{computePlaceLabel(p)}</title>
+        <title>{computePlaceLabel(p, language)}</title>
       </g>)}
       {cursors.map((_,i)=><g key={i} ref={el=>{cursorMarks.current[i]=el}}>
         <g filter="url(#cursor-glow)">
@@ -253,12 +258,13 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
           <rect x="1" y="23.7" width="1.45" height="3.1" rx=".7" fill="#f7fbff"/>
         </g>
       </g>)}
-      {islands.map(({country,name,lon,lat},i)=>{
-        const choose=()=>pick({country,lon,lat,islandName:name})
-        return <g key={name} ref={el=>{islandMarks.current[i]=el}} className="island-mark" style={{display:"none"}}
-          role="button" aria-label={`${name} · ${country.name}`} tabIndex={0} onClick={choose}
+      {islands.map(({country,id,lon,lat},i)=>{
+        const label = `${ui.spratly} · ${countryName(country, locale)}`
+        const choose=()=>pick({country,lon,lat,islandId:id})
+        return <g key={id} ref={el=>{islandMarks.current[i]=el}} className="island-mark" style={{display:"none"}}
+          role="button" aria-label={label} tabIndex={0} onClick={choose}
           onKeyDown={e=>{if(e.key==="Enter" || e.key===" ") {e.preventDefault();choose()}}}>
-          <title>{name} · {country.name}</title>
+          <title>{label}</title>
           <circle r="13" fill="transparent"/>
           <path d="M0-5 5 0 0 5-5 0Z" stroke="#e6eee0" strokeWidth="1.4" fill={selected.includes(country) ? "#e8f1b7" : "#426057"}/>
         </g>

@@ -1,6 +1,8 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { Glyph, Symbols } from "./Symbols"
 import { surfaceUrl, type Location } from "../../cartography/atlas"
+import { useLanguage } from "../../i18n/useLanguage"
+import { countryName } from "../../cartography/place-names"
 import { HUD, hudScale } from "../../cartography/layout"
 import kyiv from "../../cartography/data/kyiv.webp"
 import type { MapPanel, NewsView } from "../machine"
@@ -100,7 +102,8 @@ function ScreenBezel({w,h}:{w:number;h:number}) {
   </g>
 }
 function SideMeter({world,x,y,open,content}:{world?:boolean;x:number;y:number;open:(p:MapPanel)=>void;content:PreviewHud}) {
-  const label=world ? "世界" : content.overview
+  const { ui } = useLanguage()
+  const label = world ? ui.world : content.overview
   return <g transform={`translate(${x} ${y})`}>
     <Control label={label} run={()=>open(world ? "world" : "overview")}>
       <Glass d="M0 1H312L345 33V120H0Z"/>
@@ -109,7 +112,7 @@ function SideMeter({world,x,y,open,content}:{world?:boolean;x:number;y:number;op
       <path d="M245 6h64l30 28v13h-64l-30-29Z" fill="none" stroke="#f7fffc" strokeOpacity=".32" strokeWidth="1" filter="url(#edge-glow)"/>
       <path d="M250 9h59l26 25v8h-56l-29-27Z" fill="none" stroke="#ffffff" strokeOpacity=".28"/>
       <Glyph name={world ? "flask" : "hexes"} x={world ? 270 : 260} y={8} width={world ? 40 : 76} height={38}/>
-      <text x="8" y="49" fontSize="32">{label}</text>
+      <text x="8" y="49" fontSize="32">{world ? ui.world : ui.diseaseShort}</text>
       <rect x="13" y="78" width="321" height="35" fill={world ? "#06241ca8" : "#2a140890"}/>
       <path d="M16 79.5h316" stroke="#ffffff" strokeOpacity=".4"/>
       <Glyph name={world ? "flask" : content.currencyIcon} x={21} y={78} size={34}/>
@@ -134,8 +137,8 @@ function ResourceMeter({x,y,title,value,detail,icon,research,onOpen}:{x:number;y
     <text x="75" y="108" fontSize="35" fontFamily="Arial,sans-serif">{value}</text>
   </>
   return <g transform={`translate(${x} ${y})`}>
-    {onOpen ? <Control label={title} description={`${value}，${detail}`} run={onOpen}>{face}</Control>
-      : <g role="group" aria-label={`${title}，${value}，${detail}`}>{face}</g>}
+    {onOpen ? <Control label={title} description={`${value} · ${detail}`} run={onOpen}>{face}</Control>
+      : <g role="group" aria-label={`${title} · ${value} · ${detail}`}>{face}</g>}
   </g>
 }
 
@@ -171,11 +174,12 @@ function CampaignStrip({x,y,place,location,content,focusPlace,openDetails}:{
   x:number; y:number; place:PlaceFocus|null; location:Location|null; content:CampaignHud
   focusPlace:Props["focusPlace"]; openDetails:()=>void
 }) {
-  const market = place ? regions[place.id] : null
-  const name = market?.name ?? "全球市场"
-  const footer = place ? `市场奖励 · ${btoken.adoptionMilestones.map(m => `${m.adoptionBps / 100}% +${m.reward}`).join(" / ")} token` : undefined
+  const { ui, locale, scenario, percent } = useLanguage()
+  const marketName = place ? scenario.regions[place.id] : null
+  const name = marketName ?? ui.globalMarket
+  const footer = place ? ui.marketRewards(btoken.adoptionMilestones.map(m => `${percent.format(m.adoptionBps / 10000)} +${m.reward}`).join(" / ")) : undefined
   const outline = "M0 0H956l30 31v180H31L0 178Z"
-  const detailName = market?.name ?? (location ? location.country?.name ?? "海域" : null)
+  const detailName = marketName ?? (location ? countryName(location.country, locale) ?? ui.ocean : null)
   return <g transform={`translate(${x} ${y})`} role="group" aria-label={name}>
     <path d="M-54 220V82l31-32H1038v170Z" fill="url(#hud-glass)"/>
     <path d="M-54 220V82l31-32H1038v170Z" fill="none" stroke="#f7fffc" strokeOpacity=".2" strokeWidth="1" filter="url(#edge-glow)"/>
@@ -185,33 +189,34 @@ function CampaignStrip({x,y,place,location,content,focusPlace,openDetails}:{
     </g>
     <StripBar footer={footer} human={content.human}/>
     <text x={place ? 316 : 218} y="32" fontSize="26" fontWeight="600">{name}</text>
-    {place && <Control label="返回全球" run={() => focusPlace(null)}>
+    {place && <Control label={ui.backGlobal} run={() => focusPlace(null)}>
       <rect x="212" y="3" width="87" height="36" fill="transparent"/>
-      <text x="218" y="30" fontSize="21" fill="#9ddecb">‹ 全球</text>
+      <text x="218" y="30" fontSize="21" fill="#9ddecb">‹ {ui.globalShort}</text>
     </Control>}
     {!place && regionIds.map((id, i) => {
       const capacity = regionCapacity(id)
       return <g key={id} transform={`translate(${215 + (i % 3) * 254} ${46 + Math.floor(i / 3) * 56})`}>
-        <Control label={regions[id].name} description={`${capacity} 个参考槽位`} run={() => focusPlace({ kind: "market", id })}>
+        <Control label={scenario.regions[id]} description={ui.slotsFull(capacity)} run={() => focusPlace({ kind: "market", id })}>
           <rect className="place-cell" width="246" height="49"/>
-          <text x="10" y="32" fontSize="25">{regions[id].name}</text>
-          <text x="235" y="32" textAnchor="end" fontSize="19" fill="#9ddecb">{capacity} 槽</text>
+          <text x="10" y="32" fontSize="25">{scenario.regions[id]}</text>
+          <text x="235" y="32" textAnchor="end" fontSize="19" fill="#9ddecb">{ui.slots(capacity)}</text>
         </Control>
       </g>
     })}
     {place && <g transform="translate(220 76)">
-      <text fontSize="22" fill="#9ddecb">地理选区</text><text y="42" fontSize="36">{Object.keys(regions[place.id].slots).length}</text>
-      <text x="360" fontSize="22" fill="#9ddecb">参考总槽位</text><text x="360" y="42" fontSize="36">{regionCapacity(place.id)}</text>
+      <text fontSize="22" fill="#9ddecb">{ui.regions}</text><text y="42" fontSize="36">{Object.keys(regions[place.id].slots).length}</text>
+      <text x="360" fontSize="22" fill="#9ddecb">{ui.capacity}</text><text x="360" y="42" fontSize="36">{regionCapacity(place.id)}</text>
     </g>}
-    <Control label={detailName ? `地区资料 · ${detailName}` : "定位大洲"} run={openDetails}>
+    <Control label={detailName ? `${ui.regionProfile} · ${detailName}` : ui.locate} run={openDetails}>
       <rect x="743" y="3" width="223" height="36" fill="transparent"/>
-      <text x="958" y="30" textAnchor="end" fontSize="21" fill="#9ddecb">{place ? "地区资料" : detailName ?? "定位大洲"} ›</text>
+      <text x="958" y="30" textAnchor="end" fontSize="21" fill="#9ddecb">{place ? ui.regionProfile : detailName ?? ui.locate} ›</text>
     </Control>
   </g>
 }
 
 function RegionStrip({location,place,open,x,y,content}:{location:Location|null;place:PlaceFocus|null;open:(p:MapPanel)=>void;x:number;y:number;content:PreviewHud}) {
-  const name = place ? regions[place.id].name : location?.country?.name ?? (location ? "海域" : "世界概况")
+  const { ui, locale, scenario } = useLanguage()
+  const name = place ? scenario.regions[place.id] : countryName(location?.country, locale) ?? (location ? ui.ocean : ui.worldOverview)
   const outline = "M0 0H956l30 31v180H31L0 178Z"
   return <g transform={`translate(${x} ${y})`}>
     <path d="M-54 220V82l31-32H1038v170Z" fill="url(#hud-glass)"/>
@@ -236,12 +241,13 @@ function RegionStrip({location,place,open,x,y,content}:{location:Location|null;p
       <path d="M995 208v-114m8 114v-89" stroke="#f7fffc" strokeOpacity=".45" strokeWidth="1.2" filter="url(#edge-glow)"/><path d="M1012 208v-102" stroke="#ffe1bf" strokeOpacity=".7" strokeWidth="1.2" filter="url(#edge-glow)"/>
     </g>
     {/* The thumbnail projects a whole-world image. Its unclipped bounds must not capture neighboring buttons. */}
-    <Control label={`地区详情 · ${name}`} description={content.metrics.map(m => `${m.label} ${m.value}`).join("，")} run={()=>open("region")}>
+    <Control label={ui.regionDetails(name)} description={content.metrics.map(m => `${m.label} ${m.value}`).join(" · ")} run={()=>open("region")}>
       <path d={outline} fill="transparent"/>
     </Control>
   </g>
 }
 export default function Hud({location,place,content,newsItems,newsView,newsItemId,newsWeek,openNews,closeNews,decide,zoom,speed,night,toggleNight,open,focusPlace,setSpeed,setZoom}:Props) {
+  const { ui, percent } = useLanguage()
   const host=useRef<HTMLDivElement>(null)
   const [size,setSize]=useState({width:HUD.width,height:HUD.height})
   useLayoutEffect(()=>{
@@ -257,54 +263,65 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
   },[])
   const unit=hudScale(size.width,size.height)
   const w=size.width/unit, h=size.height/unit
+  // Keep the news and menu legible when the full map frame scales down.
+  const newsUnit = Math.max(unit, Math.min(.52, size.width / 1030))
+  const menuUnit = Math.max(unit, Math.min(.60, size.width / 600))
+  const menuWidth = content.kind === "preview" ? 430 : 586
+  const stacked = 1010 * newsUnit + menuWidth * menuUnit > size.width
+  const menuTop = stacked ? 88 * newsUnit : 0
+  const sheetTop = stacked ? menuTop + 115 * menuUnit + 4 : 118 * newsUnit
   const railX=w-HUD.railRight, railY=h/2-HUD.railAboveMiddle
   const progress=Math.log1p(68*zoom)/Math.log(69)
   const thumb=HUD.railTrackTop+(1-progress)*HUD.railTravel
   return <div className="hud-layer" ref={host}>
     <FrameFrost width={size.width} height={size.height} unit={unit}/>
-    <svg className="hud" viewBox={`0 0 ${w} ${h}`} aria-label="地图控制台">
+    <svg className="hud" viewBox={`0 0 ${w} ${h}`} aria-label={ui.mapControls}>
       <Symbols/>
       <defs><pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse"><path d="M0 1h4" stroke="#6f8f9c" strokeWidth=".6" opacity=".28"/></pattern>
         <clipPath id="news-clip"><path d="M16 26h92v58l-36 34H16z"/></clipPath>
       </defs>
       <path d={`M0 ${h-182}h21l32 32v105H${w-53}v-105l32-32h21V${h}H0Z`} fill="#040c0a99"/>
       <path d={`M0 ${h-182}h21l32 32`} fill="none" stroke="#ffffff" strokeOpacity=".28" filter="url(#edge-glow)"/>
-      <Glass d="M16 26h959l34 33v17H109l-36 42H16Z"/>
-      <path d="M17 26h91v59l-36 33H16Z" fill="#071612"/>
-      <path d="M17 26h91v59l-36 33H16Z" fill="none" stroke="#f7fffc" strokeOpacity=".34" strokeWidth="1" filter="url(#edge-glow)"/>
-      <g clipPath="url(#news-clip)"><image href={surfaceUrl} x="-63" y="24" width="230" height="114" opacity=".45"/>
-        <path d="M17 34h90v40H17z" fill="#04110fcc"/><text x="22" y="62" fontSize="26" fontFamily="Arial,sans-serif" fontWeight="bold" fill="#ffb15a">NEWS</text></g>
-      <path d="M167 31h185v6H167zm537 12h90v6h-90z" fill="url(#vents)" opacity=".8"/>
-      <path d="M914 29h59l33 31v13h-62l-30-29Z" fill="#1a0e08"/>
-      <path d="M914 29h59l33 31v13h-62l-30-29Z" fill="none" stroke="#ffe1bf" strokeOpacity=".55" strokeWidth="1" filter="url(#edge-glow)"/>
-      <path d="m944 42 15 14 16-14" fill="none" stroke="#ffe7c8" strokeWidth="2.4" filter="url(#edge-glow)"/>
-      <Control label="新闻总览" description="全部新闻" pressed={newsView==="archive"} news run={()=>openNews("archive")}>
-        <path d="M16 26h96v92H16Z" fill="transparent"/>
-      </Control>
-      <Control label="本周新闻" pressed={newsView==="week"} news run={()=>openNews("week")}>
-        <path d="M910 26h100v52H910Z" fill="transparent"/>
-      </Control>
-      {content.kind === "preview" ? <g transform={`translate(${w-430} 26)`}>
-        <Control label={night ? "切换到白天" : "切换到黑夜"} pressed={night} run={toggleNight}>
-          <Glass d="M0 0h92v51H0Z"/>
-          <text x="46" y="35" textAnchor="middle" fontSize="28">{night ? "黑夜" : "白天"}</text>
+      <g transform={`scale(${newsUnit / unit})`}>
+        <Glass d="M16 26h959l34 33v17H109l-36 42H16Z"/>
+        <path d="M17 26h91v59l-36 33H16Z" fill="#071612"/>
+        <path d="M17 26h91v59l-36 33H16Z" fill="none" stroke="#f7fffc" strokeOpacity=".34" strokeWidth="1" filter="url(#edge-glow)"/>
+        <g clipPath="url(#news-clip)"><image href={surfaceUrl} x="-63" y="24" width="230" height="114" opacity=".45"/>
+          <path d="M17 34h90v40H17z" fill="#04110fcc"/><text x="22" y="62" fontSize="26" fontFamily="Arial,sans-serif" fontWeight="bold" fill="#ffb15a">{ui.newsBadge}</text></g>
+        <path d="M167 31h185v6H167zm537 12h90v6h-90z" fill="url(#vents)" opacity=".8"/>
+        <path d="M914 29h59l33 31v13h-62l-30-29Z" fill="#1a0e08"/>
+        <path d="M914 29h59l33 31v13h-62l-30-29Z" fill="none" stroke="#ffe1bf" strokeOpacity=".55" strokeWidth="1" filter="url(#edge-glow)"/>
+        <path d="m944 42 15 14 16-14" fill="none" stroke="#ffe7c8" strokeWidth="2.4" filter="url(#edge-glow)"/>
+        <Control label={ui.archive} description={ui.allNews} pressed={newsView==="archive"} news run={()=>openNews("archive")}>
+          <path d="M16 26h96v92H16Z" fill="transparent"/>
         </Control>
-      </g> : <g transform={`translate(${w-586} 26)`} role="group" aria-label={night ? "第二幕，永夜" : "第一幕，永昼"}>
-        <Glass d="M0 0h248v51H0Z"/>
-        <text x="124" y="35" textAnchor="middle" fontSize="26">{night ? "第二幕 · 永夜" : "第一幕 · 永昼"}</text>
-      </g>}
-      <g transform={`translate(${w-326} 26)`}>
-        <Control label="日期与菜单" run={()=>open("menu")}>
-          <Glass d="M0 0h306v51H32L0 18Z"/><text x="30" y="38" fontSize="38" fontFamily="Arial,sans-serif">{content.date}</text>
-          <path d="M260 4h42v42h-42z M265 9l32 32m0-32-32 32" fill="none" stroke="#ffe1bf" strokeOpacity=".55" strokeWidth="1.1" filter="url(#edge-glow)"/>
+        <Control label={ui.thisWeek} pressed={newsView==="week"} news run={()=>openNews("week")}>
+          <path d="M910 26h100v52H910Z" fill="transparent"/>
         </Control>
-        <Glass d="M90 51h216v38H126Z"/>
-        {content.speeds.map((n)=><Control key={n} label={n===0 ? "暂停" : `${n} 倍速`} pressed={speed===n} run={()=>setSpeed(n)}>
-          <rect x={120+n*40} y="53" width={n===3 ? 63 : 40} height="35" fill="transparent"/>
-          <g transform={`translate(${131+n*39} 60)`} fill={speed===n ? "#ffb15a" : "#6f8f86"} opacity={speed===n ? 1 : .7}>
-            {n===0 ? <path d="M1 0h6v20H1zm11 0h6v20h-6z"/> : Array.from({length:n},(_,j)=><path key={j} d={`M${j*14} 0l17 10-17 10Z`}/>)}
-          </g>
-        </Control>)}
+      </g>
+      <g transform={`translate(${w} ${menuTop / unit}) scale(${menuUnit / unit})`}>
+        {content.kind === "preview" ? <g transform="translate(-430 26)">
+          <Control label={night ? ui.switchDay : ui.switchNight} pressed={night} run={toggleNight}>
+            <Glass d="M0 0h92v51H0Z"/>
+            <text x="46" y="35" textAnchor="middle" fontSize="28">{night ? ui.night : ui.day}</text>
+          </Control>
+        </g> : <g transform="translate(-586 26)" role="group" aria-label={night ? ui.secondActFull : ui.firstActFull}>
+          <Glass d="M0 0h248v51H0Z"/>
+          <text x="124" y="35" textAnchor="middle" fontSize="26">{night ? ui.secondAct : ui.firstAct}</text>
+        </g>}
+        <g transform="translate(-326 26)">
+          <Control label={ui.dateMenu} run={()=>open("menu")}>
+            <Glass d="M0 0h306v51H32L0 18Z"/><text x="30" y="38" fontSize="38" fontFamily="Arial,sans-serif">{content.date}</text>
+            <path d="M260 4h42v42h-42z M265 9l32 32m0-32-32 32" fill="none" stroke="#ffe1bf" strokeOpacity=".55" strokeWidth="1.1" filter="url(#edge-glow)"/>
+          </Control>
+          <Glass d="M90 51h216v38H126Z"/>
+          {content.speeds.map((n)=><Control key={n} label={n===0 ? ui.pause : ui.speed(n)} pressed={speed===n} run={()=>setSpeed(n)}>
+            <rect x={120+n*40} y="53" width={n===3 ? 63 : 40} height="35" fill="transparent"/>
+            <g transform={`translate(${131+n*39} 60)`} fill={speed===n ? "#ffb15a" : "#6f8f86"} opacity={speed===n ? 1 : .7}>
+              {n===0 ? <path d="M1 0h6v20H1zm11 0h6v20h-6z"/> : Array.from({length:n},(_,j)=><path key={j} d={`M${j*14} 0l17 10-17 10Z`}/>)}
+            </g>
+          </Control>)}
+        </g>
       </g>
       <g transform={`translate(${railX} ${railY})`}>
         <Glass d="M0 0h33l35 34v568H34L0 568Z"/>
@@ -318,15 +335,15 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
         <RegionStrip x={w/2-503} y={h-HUD.regionHeight} location={location} place={place} open={open} content={content}/>
         <SideMeter world x={w-362} y={h-130} open={open} content={content}/>
       </> : <>
-        <ResourceMeter x={20} y={h-130} title="行动" value={content.token} detail={`建设卡 ${content.cards}`} icon="token"/>
+        <ResourceMeter x={20} y={h-130} title={ui.action} value={content.token} detail={ui.cards(content.cards)} icon="token"/>
         <CampaignStrip x={w/2-503} y={h-HUD.regionHeight} place={place} location={location} content={content} focusPlace={focusPlace} openDetails={() => open("region")}/>
-        <ResourceMeter x={w-362} y={h-130} title="研究" value={content.corpus} detail={content.yieldText} icon="flask" research onOpen={() => open("overview")}/>
+        <ResourceMeter x={w-362} y={h-130} title={ui.research} value={content.corpus} detail={content.yieldText} icon="flask" research onOpen={() => open("overview")}/>
       </>}
       <ScreenBezel w={w} h={h}/>
     </svg>
     <input className="zoom-rail" type="range" min="0" max="1000" step="1" value={Math.round(progress*1000)}
       style={{left:railX*unit,top:(railY+HUD.railTrackTop)*unit,width:68*unit,height:HUD.railTravel*unit}}
-      aria-label="地图缩放" aria-valuetext={`${Math.round(zoom*100)}%`} onChange={e=>setZoom(Math.expm1(Number(e.target.value)/1000*Math.log(69))/68)}/>
-    <NewsLayer unit={unit} items={newsItems} view={newsView} itemId={newsItemId} week={newsWeek} dated={content.kind==="campaign"} open={openNews} close={closeNews} decide={decide}/>
+      aria-label={ui.mapZoom} aria-valuetext={percent.format(Math.round(zoom * 100) / 100)} onChange={e=>setZoom(Math.expm1(Number(e.target.value)/1000*Math.log(69))/68)}/>
+    <NewsLayer unit={newsUnit} sheetTop={sheetTop} items={newsItems} view={newsView} itemId={newsItemId} week={newsWeek} dated={content.kind==="campaign"} open={openNews} close={closeNews} decide={decide}/>
   </div>
 }

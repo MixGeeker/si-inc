@@ -1,28 +1,25 @@
+import { languages, type Language } from "../../i18n/languages"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
 import type { RunState } from "../../../../../packages/game/run"
 import { previewSpeeds } from "../machine"
 import { mapPreview } from "./preview"
 
-function percent(bps: number | null) {
-  return bps === null ? "—" : `${bps / 100}%`
-}
-
 const empty = "—"
 
-export function hudContent(run: RunState | null, globalView: boolean) {
+export function hudContent(run: RunState | null, globalView: boolean, language: Language = languages["zh-CN"]) {
+  const { ui, number, percent, date } = language
   if (run) {
-    const { factions, regions, rules } = standardScenario
+    const { factions, rules } = standardScenario
     return {
       kind: "campaign" as const,
-      headline: run.events.at(-1)?.content.title ?? `${factions[run.setup.factionId].name} 进入${regions[run.setup.startRegionId].name}市场`,
-      date: `第 ${run.completedWeek} 周`,
-      overview: "研究",
+      date: ui.week(run.completedWeek),
+      overview: ui.research,
       speeds: rules.speedMultipliers,
-      token: String(run.balance),
+      token: number.format(run.balance),
       cards: empty,
       corpus: empty,
-      yieldText: `日产 ${empty}`,
-      human: "Project HUMAN 未启动",
+      yieldText: ui.dailyYield(empty),
+      human: ui.humanInactive,
       factions: Object.entries(factions).map(([id, faction]) => ({
         name: faction.name,
         player: id === run.setup.factionId,
@@ -33,11 +30,11 @@ export function hudContent(run: RunState | null, globalView: boolean) {
   }
   return {
     kind: "preview" as const,
-    headline: mapPreview.headline, date: mapPreview.date, overview: "疾病概况",
-    currencyIcon: "dna", balance: mapPreview.dna, research: mapPreview.research, speeds: previewSpeeds,
+    date: date.format(new Date(mapPreview.date)), overview: ui.disease,
+    currencyIcon: "dna", balance: mapPreview.dna, research: percent.format(mapPreview.research), speeds: previewSpeeds,
     metrics: [
-      { icon: "bio", label: "受感染", value: String(globalView ? mapPreview.infected : 0) },
-      { icon: "skull", label: "死亡", value: String(mapPreview.deaths) },
+      { icon: "bio", label: ui.infected, value: number.format(globalView ? mapPreview.infected : 0) },
+      { icon: "skull", label: ui.deaths, value: number.format(mapPreview.deaths) },
     ],
   }
 }

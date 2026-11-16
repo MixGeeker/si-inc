@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react"
 import { loadAtlas, type Atlas } from "./cartography/atlas"
 import { useGameSnapshot } from "./scenes/GameContext"
+import { useLanguage } from "./i18n/useLanguage"
 import { WorldScene } from "./scenes/world/WorldScene"
 
 type MapLoad = { kind: "loading" } | { kind: "failed" } | { kind: "ready"; atlas: Atlas }
 
 export default function App() {
+  const { ui, locale } = useLanguage()
   const night = useGameSnapshot(state => state.layers.night)
   const [load, setLoad] = useState<MapLoad>({ kind: "loading" })
   const [attempt, setAttempt] = useState(0)
@@ -17,11 +19,11 @@ export default function App() {
     )
     return () => { active = false }
   }, [attempt])
-  return <main className={night ? "game" : "game day"} aria-label="世界地图">
+  return <main lang={locale} className={night ? "game" : "game day"} aria-label={ui.worldMap}>
     {load.kind === "ready" ? <WorldScene atlas={load.atlas}/> : <div className="map-loading" role="status">
-      {load.kind === "loading" ? "正在读取地形与海气数据…" : <>地图读取失败 <button onClick={() => {
+      {load.kind === "loading" ? ui.dataLoading : <>{ui.mapFailed} <button onClick={() => {
         setLoad({ kind: "loading" }); setAttempt(n => n + 1)
-      }}>重试</button></>}
+      }}>{ui.retry}</button></>}
     </div>}
   </main>
 }
