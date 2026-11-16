@@ -15,8 +15,12 @@ import { hudContent } from "./hudContent"
 import { campaignNews, previewNews } from "./newsFeed"
 import { mapPreview } from "./preview"
 import { RegionPanel } from "./RegionPanel"
+import { PopulationControls, PopulationLegend } from "./PopulationControls"
+import { previewPopulations } from "./populationPreview"
+import type { CountryPopulations } from "../../../../../packages/game/population"
 
 const MapViewport = lazy(() => import("../../cartography/MapViewport"))
+const noPopulation: CountryPopulations = {}
 
 function locationFor(atlas: Atlas, selection: MapSelection | null): Location | null {
   if (!selection) return null
@@ -32,7 +36,7 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   const store = useGameStore()
   const { dispatch: send } = store
   const showGlobal = useCallback(() => send({ type: "map-preset", view: "global" }), [send])
-  const { scene, selection, layers: { night, cloud, current }, sound } = useGameSnapshot()
+  const { scene, selection, layers: { night, cloud, current, population }, populationPreview, sound } = useGameSnapshot()
   const location = useMemo(() => locationFor(atlas, selection), [atlas, selection])
   const [zoom, setZoom] = useState(EUROPE.zoom)
   const [rig] = useState(() => new MapCamera(setZoom))
@@ -59,6 +63,7 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
         else rig.go(event.view === "global" ? GLOBAL : EUROPE)
       }),
       store.on("focus-place", (_, state) => goToPlace(selectedPlace(state.selection))),
+      store.on("open-population-preview", () => rig.go({ lon: 133.5, lat: 37.2, zoom: .92 })),
     ]
     return () => off.forEach(stop => stop())
   }, [store, rig])
@@ -75,6 +80,11 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   }, [])
 
   const run = visibleRunState(scene)
+  const livePopulation = run?.countryPopulations
+  const example = scene.kind === "preview" ? populationPreview : null
+  const populations = useMemo(() => population
+    ? (example ? previewPopulations(example) : livePopulation ?? noPopulation)
+    : noPopulation, [population, example, livePopulation])
   const place = selectedPlace(selection, location?.country?.id)
   const marketId = place?.id
   const singleCountry = marketId ? null : location?.country
@@ -110,7 +120,7 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
 
   return <>
     <Suspense fallback={<span className="map-loading" role="status">正在载入地图…</span>}>
-      <MapViewport atlas={atlas} rig={rig} selected={selected} layers={{ cloud, current, reduced, speed, night }}
+      <MapViewport atlas={atlas} rig={rig} selected={selected} populations={populations} layers={{ cloud, current, reduced, speed, night }}
         pick={({ country, ...point }) => send({ type: "pick-location", selection: { ...point, countryId: country?.id ?? null } })}
         marker={run ? undefined : mapPreview.marker} showNews={() => openNews("current", "preview")} showGlobal={showGlobal}/>
     </Suspense>
@@ -120,6 +130,7 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       open={panelName => { if (newsView) send({ type: "back" }); send({ type: "open-panel", panel: panelName }) }}
       focusPlace={place => send({ type: "focus-place", place })}
       setSpeed={n => send({ type: "set-speed", speed: n })} setZoom={n => rig.zoom(n)}/>
+    {example && panel === null && <PopulationControls preview={example}/>}
     {newsView === "archive" && (
       <NewsOverview items={newsItems} itemId={newsItemId} dated={run !== null} open={openNews} close={back}
         decide={(id, instanceId) => send({ type: "open-decision", id, instanceId })}/>
@@ -130,9 +141,13 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       <fieldset><legend>环境图层</legend>
         <label><input type="checkbox" checked={cloud} onChange={e => send({ type: "set-layer", layer: "cloud", enabled: e.target.checked })}/> 白天显示云层</label>
         <label><input type="checkbox" checked={current} onChange={e => send({ type: "set-layer", layer: "current", enabled: e.target.checked })}/> 表层洋流</label>
+        <label><input type="checkbox" checked={population} onChange={e => send({ type: "set-layer", layer: "population", enabled: e.target.checked })}/> 人口分布</label>
       </fieldset>
       <p className="source-note">十一月气候态 · NOAA 风场与全球漂流浮标</p>
-      <div className="window-actions">{presets()}</div>
+      {run && population && livePopulation && Object.keys(livePopulation).length > 0 && <PopulationLegend/>}
+      <div className="window-actions">{presets()}
+        {scene.kind === "preview" && <button type="button" onClick={()=>send({type:"open-population-preview"})}>东亚人口分布示例</button>}
+      </div>
       <a href="/map-credits.html" target="_blank" rel="noreferrer">地图数据与署名 ↗</a>
     </SceneDialog>}
     {panel === "region" && <SceneDialog title="地区资料" onBack={back}>

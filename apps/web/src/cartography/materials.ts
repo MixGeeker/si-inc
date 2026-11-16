@@ -130,19 +130,19 @@ const weather = `
     return smoothstep(.30,.79,mix(a,b,abs(phase*2.-1.))+(moist-.61)*.28);
   }`
 
-export function materials(surface:Texture, vapor:Texture, humidity:Texture, wind:Texture,
+export function materials(surface:Texture, nightLights:Texture, vapor:Texture, humidity:Texture, wind:Texture,
   boundaries:Texture, selected:ReturnType<typeof selectionTexture>) {
   vapor.wrapS = vapor.wrapT = RepeatWrapping
-  surface.anisotropy = 8; humidity.wrapS = RepeatWrapping
+  surface.anisotropy = 8; nightLights.anisotropy = 8; humidity.wrapS = RepeatWrapping
   const uniforms = {
     windField:{value:wind}, vapor:{value:vapor}, humidity:{value:humidity}, elapsed:{value:0},
     cloudSweep:{value:0}, cloudCover:{value:0}, viewportPixels:{value:new Vector2(1,1)},
-    ground:{value:surface}, boundaries:{value:boundaries}, selected:{value:selected.texture},
+    ground:{value:surface}, nightLights:{value:nightLights}, boundaries:{value:boundaries}, selected:{value:selected.texture},
     selectionRect:{value:selected.rect}, currentsOn:{value:1}, night:{value:1},
     sun:{value:new Vector3(-.50,.46,.77).normalize()},
   }
   const ground = new ShaderMaterial({ uniforms,vertexShader:vertex, fragmentShader:weather+`
-    uniform sampler2D ground, boundaries, selected;
+    uniform sampler2D ground, nightLights, boundaries, selected;
     uniform vec4 selectionRect; uniform vec3 sun; uniform float currentsOn, night;
     varying vec3 terrainNormal;
     void main() {
@@ -178,6 +178,8 @@ export function materials(surface:Texture, vapor:Texture, humidity:Texture, wind
         float shadow = cloudShadow(gust.uv + vec2(-.002,.004)) * gust.cover * (1. + .45 * gust.ridge);
         col *= 1. - mix(.12,.22,night) * shadow;
       }
+      vec4 lamps = texture2D(nightLights, coord);
+      col = mix(col, vec3(1., .824, .588), night * lamps.a);
       vec4 line = texture2D(boundaries,coord);
       vec3 dayLine = mix(col, line.rgb, line.a*.85);
       vec2 edge = vec2(4.5/4096.,4.5/2048.);

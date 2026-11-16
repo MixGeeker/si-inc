@@ -7,6 +7,7 @@ import { regionOfCountry, type RegionId } from "../../../../packages/rules/v0.1/
 import { soundBank, type SoundCue } from "../audio/cues.ts"
 import { defaultSound, validVolume, type SoundSettings } from "../audio/settings.ts"
 import { initialScene, sceneReducer, visibleRunState, type Scene, type SceneEvent } from "./machine.ts"
+import { initialPopulationPreview, type PopulationPreview } from "./world/populationPreview.ts"
 
 export interface MapPoint {
   readonly lon: number
@@ -30,12 +31,13 @@ export function selectedPlace(selection: MapSelection | null, locatedCountryId?:
   return id ? marketFocus(id) : null
 }
 
-const initialLayers = { night: true, cloud: true, current: true }
+const initialLayers = { night: true, cloud: true, current: true, population: true }
 const previewSelection: MapPoint = { lon: 31.2, lat: 49.1 }
 export interface GameState {
   readonly scene: Scene
   readonly selection: MapSelection | null
   readonly layers: Readonly<typeof initialLayers>
+  readonly populationPreview: PopulationPreview | null
   readonly sound: SoundSettings
 }
 
@@ -44,6 +46,8 @@ export type GameEvent = SceneEvent
   | { type: "set-sound-muted"; muted: boolean }
   | { type: "set-sound-volume"; volume: number }
   | { type: "set-layer"; layer: keyof typeof initialLayers; enabled: boolean }
+  | { type: "open-population-preview" } | { type: "close-population-preview" }
+  | { type: "set-preview-population"; field: keyof PopulationPreview; percent: number }
   | { type: "pick-location"; selection: MapPoint }
   | { type: "focus-place"; place: PlaceFocus | null }
   | { type: "map-preset"; view: "global" | "europe" }
@@ -89,7 +93,19 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
     case "set-layer":
       if (!Object.hasOwn(initialLayers, event.layer) || typeof event.enabled !== "boolean"
         || state.layers[event.layer] === event.enabled) return state
-      return { ...state, layers: { ...state.layers, [event.layer]: event.enabled } }
+      return { ...state, layers: { ...state.layers, [event.layer]: event.enabled },
+        populationPreview: event.layer === "population" && !event.enabled ? null : state.populationPreview }
+    case "open-population-preview":
+      if (scene.kind !== "preview" || scene.panel !== "world") return state
+      return { ...state, scene: sceneReducer(scene, { type: "back" }), selection: null,
+        populationPreview: state.populationPreview ?? initialPopulationPreview, layers: { ...state.layers, population: true } }
+    case "close-population-preview":
+      return scene.kind === "preview" && scene.panel === null && state.populationPreview ? { ...state, populationPreview: null } : state
+    case "set-preview-population":
+      if (scene.kind !== "preview" || scene.panel !== null || !state.populationPreview
+        || !Object.hasOwn(initialPopulationPreview, event.field) || !Number.isInteger(event.percent)
+        || event.percent < 0 || event.percent > 100 || state.populationPreview[event.field] === event.percent) return state
+      return { ...state, populationPreview: { ...state.populationPreview, [event.field]: event.percent } }
     case "pick-location": {
       const point = event.selection
       if ((scene.kind !== "campaign" && scene.kind !== "preview") || scene.panel !== null
@@ -116,7 +132,7 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
       const next = sceneReducer(scene, event)
       if (next === scene) return state
       if (event.type === "start" && next.kind === "campaign") {
-        return { ...state, scene: next, selection: marketFocus(next.run.setup.startRegionId) }
+        return { ...state, scene: next, populationPreview: null, selection: marketFocus(next.run.setup.startRegionId) }
       }
       if (event.type === "return-to-preview") return { ...state, scene: next, selection: previewSelection }
       return { ...state, scene: next }
@@ -144,7 +160,7 @@ function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
 }
 
 export function createGameStore(sound: SoundSettings = defaultSound) {
-  const initial = { scene: initialScene, layers: initialLayers, selection: previewSelection, sound }
+  const initial = { scene: initialScene, layers: initialLayers, selection: previewSelection, populationPreview: null, sound }
   return createEventStore<GameState, GameEvent, GameNotice>(initial, reduceGame, gameNotices)
 }
 
