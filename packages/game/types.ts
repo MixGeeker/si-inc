@@ -9,6 +9,7 @@ export interface RegionState {
 
 type Action =
   | { kind: "buySkill"; skillId: string }
+  | { kind: "unlockResearchSlot"; slot: number }
   | { kind: "useAbility"; abilityId: string; targetRegionId?: string }
   | { kind: "chooseEvent"; eventInstanceId: string; choiceId: string }
 
@@ -19,6 +20,8 @@ export type RunCommand = GameCommand | TokenGrant
 
 /** Persist the rules, seed and inputs together. The engine derives balances and results. */
 export interface ReplayV1 {
+  /** Absent in exports from the original research catalog. */
+  readonly researchExpandedAt?: { readonly week: number; readonly seq: number }
   readonly saveVersion: 1
   readonly rulesVersion: string
   readonly seed: number

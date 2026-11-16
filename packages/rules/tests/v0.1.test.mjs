@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs"
 import test from "node:test"
 import { standardScenario } from "../v0.1/scenario.ts"
 import { victoryEpilogues } from "../v0.1/endings/standard.ts"
-import { trees } from "../v0.1/evolution/trees.ts"
+import { attributeIds, researchNode, researchNodes, trees } from "../v0.1/evolution/trees.ts"
+import { researchBuilds } from "../v0.1/evolution/builds.ts"
 import { actions } from "../v0.1/evolution/actions.ts"
 import { channels } from "../v0.1/world/channels.ts"
 import { computeSnapshot } from "../v0.1/world/compute.ts"
@@ -59,14 +60,48 @@ test("the six starting markets follow continental borders and share the all-mark
   }
 })
 
-test("18 evolution slots have unique IDs, including the mutually exclusive subscription alternative", () => {
-  assert.deepEqual(trees.map(t => t.skills.length), [6, 6, 6])
-  const slots = trees.flatMap(t => t.skills)
-  assert.equal(slots.find(s => s.id === "open-source").alternative.id, "closed-subscription")
-  const variants = slots.flatMap(s => s.alternative ? [s, s.alternative] : [s])
-  assert.equal(new Set(variants.map(s => s.id)).size, variants.length)
+test("the three research pages contain fifty distinct technologies and reciprocal exclusive choices", () => {
+  assert.deepEqual(trees.map(t => t.skills.length), [17,17,16])
+  const skills = researchNodes.map(n => n.skill)
+  assert.equal(new Set(skills.map(s => s.id)).size, 50)
+  assert.equal(skills.filter(s => s.repeatCostStep).length, 4)
+  assert.equal(skills.filter(s => s.dangerBps).length, 5)
+  assert.equal(skills.filter(s => s.excludes).length, 4)
+  for (const s of skills.filter(s => s.excludes)) assert.equal(researchNode(s.excludes).skill.excludes, s.id)
   const abilityIds = [...actions.map(a => a.id), ...Object.values(standardScenario.factions).map(f => f.ability.id)]
   assert.equal(new Set(abilityIds).size, abilityIds.length)
+})
+
+test("the dependency graph is acyclic and ten feasible build paths cover all fifty projects", () => {
+  const visited = new Set(), visiting = new Set()
+  function visit(id) {
+    if (visited.has(id)) return
+    assert.ok(!visiting.has(id), id)
+    visiting.add(id)
+    const {skill} = researchNode(id)
+    for (const group of skill.requires) {
+      assert.ok(group.length)
+      group.forEach(visit)
+    }
+    for (const v of [skill.cost, skill.weeks, skill.repeatCostStep, skill.weeklyCorpusBonus, skill.dangerBps])
+      if (v !== undefined) assert.ok(Number.isSafeInteger(v) && v > 0, id)
+    assert.ok(Object.entries(skill.attributes).every(([key,v]) => attributeIds.includes(key) && Number.isInteger(v)), id)
+    visiting.delete(id)
+    visited.add(id)
+  }
+  researchNodes.forEach(n => visit(n.skill.id))
+  const covered = new Set()
+  assert.equal(researchBuilds.length, 10)
+  for (const build of researchBuilds) {
+    const done = new Set()
+    for (const id of build.path) {
+      const {skill} = researchNode(id)
+      assert.ok(!done.has(id) && !done.has(skill.excludes) && skill.requires.every(g => g.some(p => done.has(p))), id)
+      done.add(id)
+      covered.add(id)
+    }
+  }
+  assert.equal(covered.size, 50)
 })
 
 test("the compute snapshot covers every market once and its recorded share sums to 100%", () => {

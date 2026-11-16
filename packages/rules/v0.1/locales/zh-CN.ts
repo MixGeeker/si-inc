@@ -4,6 +4,7 @@ import { news } from "../events/news.ts"
 import { competition } from "../events/competition.ts"
 import { actions } from "../evolution/actions.ts"
 import { trees } from "../evolution/trees.ts"
+import { researchBuilds } from "../evolution/builds.ts"
 import { factions } from "../factions/roster.ts"
 import { projectHuman } from "../opposition/project-human.ts"
 import { phases } from "../progression/phases.ts"
@@ -21,7 +22,7 @@ function byKey<K extends string, T, V>(items: Record<K, T>, text: (item: T) => V
 
 const description = (item: { name: string; description: string }) => ({ name: item.name, description: item.description })
 const titleBody = (item: { title: string; body: string }) => ({ title: item.title, body: item.body })
-const skills = trees.flatMap(tree => tree.skills.flatMap(skill => skill.alternative ? [skill, skill.alternative] : [skill]))
+const skills = trees.flatMap(tree => tree.skills)
 
 // The original authored text is the Chinese catalog. Keep rule values in their source modules.
 export const zhCN = {
@@ -36,7 +37,9 @@ export const zhCN = {
   endings: { ...endings, withdrawn: { title: "已结束本局", body: "本局由玩家主动结束。" } },
   epilogues: victoryEpilogues,
   trees: byId(trees, t => t.name),
+  builds: byId(researchBuilds, b => b.name),
   skills: byId(skills, s => s.name),
+  skillDescriptions: byId(skills, s => s.description),
   actions: byId(actions, description),
   phases: byId(phases, p => ({ name: p.name, focus: p.focus })),
   channels,

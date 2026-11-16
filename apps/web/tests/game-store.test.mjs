@@ -2,6 +2,10 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import { standardScenario } from "../../../packages/rules/v0.1/scenario.ts"
 import { attachWeekClock } from "../src/scenes/clock.ts"
+import { researchNode } from "../../../packages/rules/v0.1/evolution/trees.ts"
+import { nextCommandSeq } from "../../../packages/game/run.ts"
+import { slotProject } from "../../../packages/game/research.ts"
+import { runTimeline } from "../../../packages/game/inspection.ts"
 import { createGameStore, selectedPlace } from "../src/scenes/store.ts"
 
 const start = { type: "start", factionId: "claude", startRegionId: "as", difficultyId: "standard", seed: 42 }
@@ -15,6 +19,144 @@ function startGame(store, startRegionId = start.startRegionId) {
 const market = id => ({ kind: "market", id })
 const focus = id => ({ type: "focus-place", place: id === null ? null : market(id) })
 const pick = (countryId, lon, lat) => ({ type: "pick-location", selection: { countryId, lon, lat } })
+
+test("research orders bind to the open campaign, commit once, and complete alongside a scheduled event", () => {
+  const store = createGameStore()
+  const snapshot = store.getSnapshot
+  const run = () => snapshot().scene.run
+  const send = store.dispatch
+  const blocked = event => {
+    const old = snapshot()
+    send(event)
+    assert.strictEqual(snapshot(), old)
+  }
+  const select = { type: "select-research", skillId: "daily-chat" }
+  send(panel("overview"))
+  blocked(select)
+  blocked({ type: "unlock-research-slot", seed: start.seed, completedWeek: 0, seq: 1, slot: 1 })
+  send({ type: "back" })
+  startGame(store)
+  const order = payload => ({ seed: run().seed, completedWeek: run().completedWeek, seq: nextCommandSeq(run()), ...payload })
+  const tick = () => ({ type: "advance-week", seed: start.seed, completedWeek: run().completedWeek })
+  const opening = { type: "unlock-research-slot", slot: 1 }
+  const project = { type: "start-research", skillId: "daily-chat" }
+  blocked(order(opening))
+  blocked(order(project))
+  const deadline = run().schedule.nextWeek
+  while (run().completedWeek < deadline - researchNode(project.skillId).skill.weeks) send(tick())
+  send(panel("overview"))
+  send(select)
+  blocked(select)
+  blocked({ ...select, skillId: "unknown" })
+  blocked(tick())
+  const notices = []
+  for (const type of ["research-slot-unlocked", "research-started", "research-completed", "event-occurred"]) {
+    store.on(type, (event, state) => {
+      assert.strictEqual(state, snapshot())
+      notices.push(event.type)
+    })
+  }
+  for (const override of [{ seed: -1 }, { completedWeek: 0 }, { seq: 99 }, { slot: 2 }]) blocked(order({ ...opening, ...override }))
+  const first = order(opening)
+  send(first)
+  blocked(first)
+  const second = order(project)
+  blocked({ ...second, seed: -1 })
+  send(second)
+  blocked(second)
+  blocked(order(project))
+  assert.equal(slotProject(run(), 1).skillId, "daily-chat")
+  send({ type: "back" })
+  send(panel("overview"))
+  assert.equal(snapshot().scene.researchSkillId, "daily-chat")
+  send({ type: "back" })
+  for (let i = run().completedWeek; i < deadline; i++) {
+    const step = tick()
+    send(step)
+    blocked(step)
+  }
+  assert.deepEqual(notices, ["research-slot-unlocked", "research-started", "research-completed", "event-occurred"])
+  const scene = snapshot().scene
+  assert.equal(slotProject(scene.kind === "decision" ? scene.back.run : scene.run, 1), undefined)
+})
+
+test("each dangerous level settles once and reaching the HUMAN threshold takes priority over the final-week timeout", () => {
+  const store = createGameStore()
+  startGame(store)
+  const scene = () => store.getSnapshot().scene
+  const run = () => scene().kind === "decision" ? scene().back.run : scene().run
+  const send = store.dispatch
+  const endings = [], completions = []
+  store.on("run-ended", ({ outcome }) => endings.push(outcome))
+  store.on("research-completed", ({ project }) => completions.push(project.skillId))
+  function weeksTo(target) {
+    while (run().completedWeek < target) {
+      if (scene().kind === "decision") send({ type: "back" })
+      assert.equal(scene().kind, "campaign")
+      send({ type: "advance-week", seed: run().seed, completedWeek: run().completedWeek })
+    }
+    if (scene().kind === "decision") send({ type: "back" })
+  }
+  function order(payload) {
+    const before = run()
+    send({ ...payload, seed: before.seed, completedWeek: before.completedWeek, seq: nextCommandSeq(before) })
+    assert.equal(run().commands.length, before.commands.length + 1)
+  }
+  function research(...ids) {
+    send(panel("overview"))
+    for (const skillId of ids) order({ type: "start-research", skillId })
+    send({ type: "back" })
+    weeksTo(run().completedWeek + Math.max(...ids.map(id => researchNode(id).skill.weeks)))
+  }
+  weeksTo(20)
+  send(panel("overview"))
+  for (const slot of [1, 2, 3]) order({ type: "unlock-research-slot", slot })
+  send({ type: "back" })
+  research("inference-efficiency")
+  research("multimodal", "reinforcement-learning", "regulatory-adaptation")
+  research("version-rebuild")
+  const id = "recursive-improvement", node = researchNode(id)
+  const threshold = standardScenario.rules.projectHuman.completionBps
+  const levels = Math.ceil(threshold / node.skill.dangerBps)
+  for (let level = 1; level < levels; level++) {
+    research(id)
+    assert.equal(run().researchBps, level * node.skill.dangerBps)
+  }
+  weeksTo(standardScenario.rules.maxWeeks - node.skill.weeks)
+  research(id)
+  assert.equal(run().researchBps, threshold)
+  assert.equal(scene().kind, "ending")
+  assert.deepEqual(endings, ["human-victory"])
+  assert.equal(completions.filter(skillId => skillId === id).length, levels)
+  assert.ok(runTimeline(run()))
+  const terminal = store.getSnapshot()
+  send({ type: "advance-week", seed: run().seed, completedWeek: run().completedWeek })
+  assert.strictEqual(store.getSnapshot(), terminal)
+})
+
+test("a build selects its first outstanding technology only in the research panel and survives cross-page inspection", () => {
+  const store = createGameStore()
+  const { dispatch, getSnapshot } = store
+  const filter = buildId => ({ type: "select-research-build", buildId })
+  const rejects = event => { const old = getSnapshot(); dispatch(event); assert.strictEqual(getSnapshot(),old) }
+  rejects(filter("recursive"))
+  startGame(store)
+  rejects(filter("recursive"))
+  dispatch(panel("overview"))
+  rejects(filter("unknown"))
+  dispatch(filter("recursive"))
+  assert.equal(getSnapshot().scene.researchSkillId,"inference-efficiency")
+  rejects(filter("recursive"))
+  dispatch({type:"select-research",skillId:"daily-chat"})
+  assert.equal(getSnapshot().scene.researchBuildId,"recursive")
+  dispatch({type:"back"})
+  rejects(filter(null))
+  dispatch(panel("overview"))
+  dispatch(filter(null))
+  assert.equal(getSnapshot().scene.researchBuildId,undefined)
+  assert.equal(getSnapshot().scene.researchSkillId,"daily-chat")
+  rejects(filter(null))
+})
 
 test("setup, global cards and the directory each open one continent with no second selection", () => {
   for (const id of ["na", "sam", "eu", "as", "af", "oc"]) {

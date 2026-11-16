@@ -1,5 +1,27 @@
+import type { ReactNode } from "react"
+
+function LineSymbol({ id, children }: { id: string; children: ReactNode }) {
+  return <symbol id={id} viewBox="0 0 24 24"><g fill="none" stroke="currentColor" strokeWidth="1.5"
+    strokeLinecap="round" strokeLinejoin="round">{children}</g></symbol>
+}
+
 export function Symbols() {
   return <defs>
+    <LineSymbol id="lab-danger"><path d="m12 3 10 18H2zm0 6v5m0 3v.1"/></LineSymbol>
+    <LineSymbol id="lab-fork"><circle cx="7" cy="5" r="2"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="6" r="2"/>
+      <path d="M7 7v10m11-9c0 6-11 3-11 9"/></LineSymbol>
+    <LineSymbol id="lab-chat"><path d="M3 4h18v12H9l-6 4zM7 8h10m-10 4h6"/></LineSymbol>
+    <LineSymbol id="lab-cycle"><path d="M4 10a8 8 0 0 1 14-4l2 3m0-5v5h-5M20 14a8 8 0 0 1-14 4l-2-3m0 5v-5h5"/></LineSymbol>
+    <symbol id="lab-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="5.5" y="10" width="13" height="10.5" rx="1.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/></g></symbol>
+    <symbol id="lab-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="8.5"/><path d="M12 6.5v6l4 2"/></g></symbol>
+    <symbol id="lab-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeWidth="2" d="m4.5 12 5 5L20 6.5"/></symbol>
+    <symbol id="lab-branch" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M6 12h4V5h6m-6 7v7h6"/><circle cx="4" cy="12" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="18" cy="19" r="2"/></g></symbol>
+    <symbol id="lab-chip" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="5.5" y="5.5" width="13" height="13" rx="1"/><rect x="9" y="9" width="6" height="6"/>
+      <path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></g></symbol>
     <symbol id="plane" viewBox="0 0 32 32"><path fill="currentColor" d="M14.3 4.7c0-3.6 3.4-3.6 3.4 0l.6 7.4 12 6.9v2.5l-12-3.2-.4 7 3.8 2.7v1.5L16 28l-5.7 1.5V28l3.8-2.7-.4-7-12 3.2V19l12-6.9z"/></symbol>
     <symbol id="anchor" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" strokeWidth="2.9" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="16" cy="6" r="3"/><path d="M16 9v18M11.5 12h9M3 16c1 7 6 10 13 12 7-2 12-5 13-12M3 16l-.4 5.5M3 16l4.5 2M29 16l.4 5.5M29 16l-4.5 2"/></g></symbol>

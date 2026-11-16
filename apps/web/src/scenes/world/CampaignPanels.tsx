@@ -1,29 +1,24 @@
-import { Fragment } from "react"
-import type { RunState } from "../../../../../packages/game/run"
 import { btoken } from "../../../../../packages/rules/v0.1/economy/btoken"
 import { decisions } from "../../../../../packages/rules/v0.1/events/decisions"
 import { actions } from "../../../../../packages/rules/v0.1/evolution/actions"
-import { trees } from "../../../../../packages/rules/v0.1/evolution/trees"
+import { channelTechnologies, type Channel } from "../../../../../packages/rules/v0.1/evolution/market-effects"
+import { completedLevel, researchAttributes } from "../../../../../packages/game/research"
+import type { RunState } from "../../../../../packages/game/run"
 import { projectHuman } from "../../../../../packages/rules/v0.1/opposition/project-human"
 import { phases } from "../../../../../packages/rules/v0.1/progression/phases"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
 import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
-import type { RunSetup, Scene } from "../machine"
+import type { Scene } from "../machine"
 
-export function EvolutionPanel({ run }: { run: RunState }) {
-  const { ui, scenario, percent } = useLanguage()
-  const ability = scenario.factions[run.setup.factionId].ability
+export function MarketPanel({ run }: { run: RunState }) {
+  const { setup } = run
+  const { ui, scenario, percent, number } = useLanguage()
+  const ability = scenario.factions[setup.factionId].ability
   const { income } = btoken
   return <>
-    <h3>{standardScenario.factions[run.setup.factionId].name} · {ability.name}</h3><p>{ability.description}</p>
-    <p className="source-note">{ui.balance(ui.tokens(run.balance))}</p>
-    {trees.map(tree => <details key={tree.id}><summary>{scenario.trees[tree.id]}</summary>
-      <dl className="readings">{tree.skills.map(skill => <Fragment key={skill.id}>
-        <div><dt>{scenario.skills[skill.id]}</dt><dd>{ui.tokens(skill.cost)}</dd></div>
-        {skill.alternative && <div><dt>{ui.exclusive(scenario.skills[skill.alternative.id], scenario.skills[skill.id])}</dt><dd>{ui.tokens(skill.alternative.cost)}</dd></div>}
-      </Fragment>)}</dl>
-    </details>)}
+    <p>{ui.startMarket} · {scenario.regions[setup.startRegionId]}</p>
+    <details><summary>{standardScenario.factions[setup.factionId].name} · {ability.name}</summary><p>{ability.description}</p></details>
     <details><summary>{ui.activeAbilities}</summary>
       <dl className="readings">{actions.map(action => <div key={action.id}>
         <dt>{scenario.actions[action.id].name}<br/><small>{scenario.actions[action.id].description}</small></dt><dd>{ui.tokens(action.cost)}</dd>
@@ -32,19 +27,17 @@ export function EvolutionPanel({ run }: { run: RunState }) {
     <details><summary>{ui.income}</summary>
       <p>{ui.firstMarket(btoken.newMarketReward)} {btoken.adoptionMilestones.map(m => ui.milestone(percent.format(m.adoptionBps / 10000), m.reward)).join(" ")}</p>
       <p>{ui.incomeRule(income.everyWeeks, ui.tokens(income.base), percent.format(income.adoptionStepBps / 10000), ui.tokens(income.maximum))}</p>
+      <p>{ui.profitFactor(number.format(researchAttributes(run).profit / 100))}</p>
     </details>
-  </>
-}
-
-export function MarketPanel({ setup }: { setup: RunSetup }) {
-  const { ui, scenario, percent } = useLanguage()
-  return <>
-    <p>{ui.startMarket} · {scenario.regions[setup.startRegionId]}</p>
     <details><summary>{ui.phases}</summary>
       <ul>{phases.map(p => <li key={p.id}><strong>{scenario.phases[p.id].name} · {ui.phaseThreshold(percent.format(p.minAdoptionBps / 10000))}</strong> {scenario.phases[p.id].focus}</li>)}</ul>
     </details>
     <details><summary>{ui.channels}</summary>
-      <ul>{Object.entries(scenario.channels).map(([id, c]) => <li key={id}><strong>{c.name}</strong> {c.description}</li>)}</ul>
+      <ul>{(Object.keys(channelTechnologies) as Channel[]).map(id => {
+        const c = scenario.channels[id], tech = channelTechnologies[id]
+        return <li key={id}><strong>{c.name}</strong> · {completedLevel(run, tech) ? ui.lab.status.completed : ui.lab.requires}
+          {" · "}{scenario.skills[tech]}<br/>{c.description}</li>
+      })}</ul>
     </details>
     <details><summary>{projectHuman.name} · {scenario.humanSubtitle}</summary>
       <dl className="readings">{projectHuman.alertLevels.map(level => <div key={level.id}>
