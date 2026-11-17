@@ -14,14 +14,14 @@ type Props = {
   items: readonly NewsItem[]
   view: NewsView | null
   itemId?: string
-  week: number | null
+  day: number | null
   dated: boolean
   open: (view: NewsView, itemId?: string) => void
   close: () => void
   decide: (id: DecisionId, instanceId: string) => void
 }
 
-export function NewsLayer({ unit, sheetTop, items, view, itemId, week, dated, open, close, decide }: Props) {
+export function NewsLayer({ unit, sheetTop, items, view, itemId, day, dated, open, close, decide }: Props) {
   const language = useLanguage()
   const { ui } = language
   const latest = Math.max(0, items.length - 1)
@@ -58,7 +58,7 @@ export function NewsLayer({ unit, sheetTop, items, view, itemId, week, dated, op
   }, [reduced, items.length])
 
   useEffect(() => {
-    if (view !== "current" && view !== "week") return
+    if (view !== "current" && view !== "day") return
     const onPointer = (event: PointerEvent) => {
       const target = event.target
       if (target instanceof Element && target.closest("[data-news]")) return
@@ -77,10 +77,10 @@ export function NewsLayer({ unit, sheetTop, items, view, itemId, week, dated, op
   const current = items[cursor] ?? items[latest]
   if (!current) return null
   const label = tickerText(current, dated, language)
-  const docked = view === "current" || view === "week"
+  const docked = view === "current" || view === "day"
   const story = items.find(item => item.id === itemId) ?? items[latest]
-  const listed = view === "week" && week !== null ? items.filter(item => item.week === week) : items
-  const title = view === "week" ? (week === null ? ui.thisWeek : ui.newsWeek(week)) : ui.currentNews
+  const listed = view === "day" && day !== null ? items.filter(item => item.day === day) : items
+  const title = view === "day" ? (day === null ? ui.thisDay : ui.newsDay(day)) : ui.currentNews
   const pending = items.filter(item => item.pending)
 
   return <>
@@ -107,7 +107,7 @@ export function NewsLayer({ unit, sheetTop, items, view, itemId, week, dated, op
       {view === "current" ? <article>
         <p className="news-meta">{storyMeta(story, dated, language)}</p>
         <StoryBody item={story} decide={decide} related={id => open("current", id)}/>
-      </article> : listed.length === 0 ? <p className="news-empty">{ui.noWeekNews}</p> : <ul>
+      </article> : listed.length === 0 ? <p className="news-empty">{ui.noDayNews}</p> : <ul>
         {listed.map(item => <li key={item.id}>
           <button type="button" onClick={() => open("current", item.id)}>
             <span>{storyMeta(item, dated, language)}</span>
@@ -122,7 +122,7 @@ export function NewsLayer({ unit, sheetTop, items, view, itemId, week, dated, op
 }
 
 function storyMeta(item: NewsItem, dated: boolean, { ui }: Language) {
-  return dated ? `${ui.week(item.week)} · ${ui.kinds[item.kind]}` : ui.kinds[item.kind]
+  return dated ? `${ui.day(item.day)} · ${ui.kinds[item.kind]}` : ui.kinds[item.kind]
 }
 
 function StoryBody({ item, decide, related }: {
@@ -139,11 +139,11 @@ function StoryBody({ item, decide, related }: {
     </div>}
     <p className="narrative-body">{item.body}</p>
     {item.choiceLabel && <section className="narrative-result">
-      <p className="news-meta">{ui.selectedChoice(item.choiceLabel)}{item.resolvedWeek !== undefined && ` · ${ui.narrative.resolvedAt(ui.week(item.resolvedWeek))}`}</p>
+      <p className="news-meta">{ui.selectedChoice(item.choiceLabel)}{item.resolvedDay !== undefined && ` · ${ui.narrative.resolvedAt(ui.day(item.resolvedDay))}`}</p>
       {item.resultBody && <p>{item.resultBody}</p>}
       {item.effect && <div><span className="narrative-result-label">{ui.narrative.result}</span><EventEffects effect={item.effect}/></div>}
     </section>}
-    {item.followUpWeek !== undefined && <p className="news-meta">{ui.narrative.followUpAt(ui.week(item.followUpWeek))}</p>}
+    {item.followUpDay !== undefined && <p className="news-meta">{ui.narrative.followUpAt(ui.day(item.followUpDay))}</p>}
     {item.relatedId && <button type="button" className="narrative-related" onClick={() => related(item.relatedId!)}>
       {ui.narrative.related} · {item.relatedTitle}
     </button>}
@@ -152,7 +152,7 @@ function StoryBody({ item, decide, related }: {
   </>
 }
 
-export function NewsOverview({ items, itemId, dated, open, close, decide }: Omit<Props, "unit" | "sheetTop" | "view" | "week">) {
+export function NewsOverview({ items, itemId, dated, open, close, decide }: Omit<Props, "unit" | "sheetTop" | "view" | "day">) {
   const language = useLanguage()
   const { ui } = language
   const story = itemId ? items.find(item => item.id === itemId) : undefined

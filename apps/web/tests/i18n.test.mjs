@@ -1,8 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { readFileSync } from "node:fs"
-import { createRun } from "../../../packages/game/run.ts"
-import { standardScenario } from "../../../packages/rules/v0.1/scenario.ts"
+import { advanceDay, createRun } from "../../../packages/game/run.ts"
 import { computePlaces, computePlaceLabel } from "../src/cartography/compute-markers.ts"
 import { countryName } from "../src/cartography/place-names.ts"
 import { languages } from "../src/i18n/languages.ts"
@@ -62,47 +61,46 @@ test("older marker picks resolve to IDs so their original labels can be translat
   assert.deepEqual(store.getSnapshot().selection, { countryId: "CHN", lon: 114.4, lat: 10.3, islandId: "spratly-islands" })
 })
 
-test("a legacy paid decision translates in the archive and replays identically across languages", () => {
+test("a paid daily decision translates in the archive and settles identically across languages", () => {
   const play = initialLocale => {
     const initial = createGameStore(undefined, initialLocale)
     const setup = { factionId: "claude", startRegionId: "eu", difficultyId: "standard" }
+    let run = createRun(setup, 42, "localized-run")
+    while (!run.events.some(entry => entry.content.id === "community-router") && run.completedDay < 200) run = advanceDay(run)
+    const entry = run.events.find(entry => entry.content.id === "community-router")
+    assert.ok(entry)
     const store = forkDeveloperStore({ ...initial.getSnapshot(), scene: {
-      kind: "campaign", run: createRun(setup, 42, 0), panel: null, speed: 1,
+      kind: "decision", id: "community-router", instanceId: entry.instanceId,
+      back: { kind: "campaign", run, panel: null, speed: 1, manualPaused: false },
     } })
     const send = store.dispatch
     send({ type: "set-developer-open", open: false })
-    let checked = false
-    while (store.getSnapshot().scene.kind !== "ending") {
-      const { scene } = store.getSnapshot()
-      if (scene.kind === "campaign") {
-        send({ type: "advance-week", seed: scene.run.seed, completedWeek: scene.run.completedWeek })
-        continue
-      }
-      assert.equal(scene.kind, "decision")
-      const choose = { type: "choose", id: scene.id, instanceId: scene.instanceId, choiceId: "rollback" }
-      const before = scene.back.run.balance
-      send(choose)
-      const settled = store.getSnapshot().scene.run
-      assert.equal(settled.balance, before - 4)
-      assert.ok(settled.events.every(e => Object.keys(e.content).sort().join() === "id,kind"))
-      send(choose)
-      send({ type: "open-panel", panel: "menu" })
-      send({ type: "set-locale", locale: initialLocale === "en" ? "zh-CN" : "en" })
-      send({ type: "back" })
-      send({ type: "open-panel", panel: "news", newsView: "archive", newsItemId: scene.instanceId })
-      const state = store.getSnapshot()
-      assert.strictEqual(visibleRunState(state.scene), settled)
-      const story = campaignNews(settled, languages[state.locale]).find(e => e.id === state.scene.newsItemId)
-      assert.equal(story.pending, false)
-      assert.equal(story.choiceLabel, languages[state.locale].ui.narrative.legacyRollback)
-      assert.equal(story.title, languages[state.locale].scenario.events[scene.id].title)
-      send({ type: "back" })
-      checked = true
-    }
-    assert.ok(checked)
-    const run = store.getSnapshot().scene.run
-    assert.equal(run.completedWeek, standardScenario.rules.maxWeeks)
-    return run
+    const { scene } = store.getSnapshot()
+    assert.equal(scene.kind, "decision")
+    const choose = { type: "choose", id: scene.id, instanceId: scene.instanceId, choiceId: "sponsor" }
+    const before = scene.back.run.balance
+    send(choose)
+    const settled = store.getSnapshot().scene.run
+    assert.equal(settled.balance, before - 3)
+    assert.ok(settled.events.every(e => Object.keys(e.content).sort().join() === "id,kind"))
+    send(choose)
+    send({ type: "open-panel", panel: "menu" })
+    send({ type: "set-locale", locale: initialLocale === "en" ? "zh-CN" : "en" })
+    send({ type: "back" })
+    send({ type: "open-panel", panel: "news", newsView: "archive", newsItemId: scene.instanceId })
+    const state = store.getSnapshot()
+    assert.strictEqual(visibleRunState(state.scene), settled)
+    const story = campaignNews(settled, languages[state.locale]).find(e => e.id === state.scene.newsItemId)
+    assert.equal(story.pending, false)
+    assert.equal(story.choiceLabel, languages[state.locale].scenario.choices[scene.id].sponsor.label)
+    assert.equal(story.title, languages[state.locale].scenario.events[scene.id].title)
+    send({ type: "back" })
+    send({ type: "open-panel", panel: "menu" })
+    send({ type: "request-exit" })
+    send({ type: "withdraw" })
+    assert.equal(store.getSnapshot().scene.kind, "ending")
+    assert.equal(store.getSnapshot().scene.outcome, "withdrawn")
+    return store.getSnapshot().scene.run
   }
   assert.deepEqual(play("en"), play("zh-CN"))
 })

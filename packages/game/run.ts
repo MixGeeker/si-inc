@@ -1,6 +1,6 @@
 import { btoken } from "../rules/v0.1/economy/btoken.ts"
-import { decisions, legacyDecisionChoices, type DecisionChoice, type DecisionDefinition, type DecisionEffect, type DecisionId } from "../rules/v0.1/events/decisions.ts"
-import { eventPool, legacyEventPool, type EventContent } from "../rules/v0.1/events/pool.ts"
+import { decisions, type DecisionChoice, type DecisionDefinition, type DecisionEffect, type DecisionId } from "../rules/v0.1/events/decisions.ts"
+import { eventPool, type EventContent } from "../rules/v0.1/events/pool.ts"
 import { news } from "../rules/v0.1/events/news.ts"
 import { researchNode, type SkillId } from "../rules/v0.1/evolution/trees.ts"
 import type { FactionId } from "../rules/v0.1/factions/roster.ts"
@@ -9,8 +9,8 @@ import type { RegionId } from "../rules/v0.1/world/regions.ts"
 import type { GameCommand, RunCommand, TokenGrant } from "./types.ts"
 import type { CountryPopulations } from "./population.ts"
 import { marketResearchValue } from "./market-research.ts"
-import { completedLevel, completionWeek, firstIdleSlot, initialResearch, parallelCompletionCorpus, projectsCompleting, researchCost, researchLevels, researchState, researchStatus,
-  weeklyCorpus, type ResearchState } from "./research.ts"
+import { completedLevel, completionDay, firstIdleSlot, initialResearch, parallelCompletionCorpus, projectsCompleting, researchCost, researchLevels, researchState, researchStatus,
+  dailyCorpus, type ResearchState } from "./research.ts"
 
 export interface RunSetup {
   readonly factionId: FactionId
@@ -20,24 +20,25 @@ export interface RunSetup {
 
 export interface RunEvent {
   readonly instanceId: string
-  readonly week: number
+  readonly day: number
   readonly content: EventContent
   readonly choiceId?: string
   readonly sourceSkillId?: SkillId
-  readonly resolvedWeek?: number
+  readonly resolvedDay?: number
   /** Actual changes after payment and HUMAN clamping. */
   readonly effect?: DecisionEffect
-  readonly followUpWeek?: number
+  readonly followUpDay?: number
   readonly sourceInstanceId?: string
   readonly sourceChoiceId?: string
 }
 
 export interface RunState {
+  readonly runId: string
+  readonly rulesVersion: string
   readonly setup: RunSetup
   readonly seed: number
-  /** Missing in runs using the original unconditional event pool and choice prices. */
-  readonly eventVersion?: 1
-  readonly completedWeek: number
+  /** Fully settled days. Commands at N affect the settlement of day N + 1 onward. */
+  readonly completedDay: number
   readonly balance: number
   /** Hundredths of an operating token carried into the next income settlement. */
   readonly operatingRemainder?: number
@@ -45,11 +46,11 @@ export interface RunState {
   readonly dependencyBps: number | null
   readonly countryPopulations?: CountryPopulations
   readonly researchBps: number
-  readonly research?: ResearchState
+  readonly research: ResearchState
   readonly events: readonly RunEvent[]
   readonly commands: readonly RunCommand[]
   readonly schedule: {
-    readonly nextWeek: number
+    readonly nextDay: number
     readonly randomState: number
     readonly remaining: readonly EventContent[]
   }
@@ -63,38 +64,39 @@ function nextRandom(state: number): number {
   return (Math.imul(state, 1664525) + 1013904223) >>> 0
 }
 
-function scheduleAfter(week: number, previousRandom: number, remaining: readonly EventContent[]) {
+function scheduleAfter(day: number, previousRandom: number, remaining: readonly EventContent[]) {
   const randomState = nextRandom(previousRandom)
-  const { min, max } = rules.eventIntervalWeeks
+  const { min, max } = rules.eventIntervalDays
   const interval = min + Math.floor(randomState / uint32Range * (max - min + 1))
-  return { nextWeek: week + interval, randomState, remaining }
+  return { nextDay: day + interval, randomState, remaining }
 }
 
-export function createRun(input: { [K in keyof RunSetup]: string }, seed: number, eventVersion: 0 | 1 = 1): RunState | null {
+export function createRun(input: { [K in keyof RunSetup]: string }, seed: number, runId = "standalone"): RunState | null {
   const { factionId, difficultyId } = input
   const startRegionId = resolveStartRegionId(input.startRegionId)
   if (!Number.isInteger(seed) || seed < 0 || seed >= uint32Range || !isFactionId(factionId)
-    || !startRegionId || difficultyId !== standardScenario.difficulty.id || (eventVersion !== 0 && eventVersion !== 1)) return null
+    || !startRegionId || difficultyId !== standardScenario.difficulty.id
+    || typeof runId !== "string" || !runId.trim()) return null
   return {
-    setup: { factionId, startRegionId, difficultyId }, seed, ...(eventVersion === 1 ? { eventVersion } : {}),
-    completedWeek: 0, balance: rules.initialBtoken,
+    runId, rulesVersion: rules.rulesVersion, setup: { factionId, startRegionId, difficultyId }, seed,
+    completedDay: 0, balance: rules.initialBtoken, operatingRemainder: 0,
     adoptionBps: null, dependencyBps: null, countryPopulations: {}, researchBps: 0, research: initialResearch(),
-    events: [], commands: [], schedule: scheduleAfter(0, seed, eventVersion === 1 ? eventPool : legacyEventPool),
+    events: [], commands: [], schedule: scheduleAfter(0, seed, eventPool),
   }
 }
 
-export function weeklyOutcome(run: RunState): "human-victory" | "timeout" | null {
+export function dailyOutcome(run: RunState): "human-victory" | null {
   if (run.researchBps >= rules.projectHuman.completionBps) return "human-victory"
-  return run.completedWeek >= rules.maxWeeks ? "timeout" : null
+  return null
 }
 
 function eventInstance(run: RunState, content: EventContent): RunEvent {
-  return { instanceId: `${run.seed}:${run.completedWeek}:${content.id}`, week: run.completedWeek, content }
+  return { instanceId: `${run.runId}:${run.completedDay}:${content.id}`, day: run.completedDay, content }
 }
 
 function decisionEligible(run: RunState, id: DecisionId): boolean {
   const definition: DecisionDefinition = decisions[id]
-  return run.completedWeek >= definition.minWeek && (!definition.requiresHuman || run.researchBps > 0)
+  return run.completedDay >= definition.minDay && (!definition.requiresHuman || run.researchBps > 0)
     && (!definition.requiresSkill || completedLevel(run, definition.requiresSkill) > 0)
 }
 
@@ -103,38 +105,62 @@ function followUpContent(id: string): EventContent | undefined {
   return item ? { kind: "news", id: item.id } : undefined
 }
 
-/** The milestone has its own seed stream, so unrelated news cannot postpone it. */
-function codingMilestone(run: RunState): RunEvent | undefined {
+function pendingFollowUps(run: RunState) {
+  const pending: { parent: RunEvent; content: EventContent; day: number }[] = []
+  for (const parent of run.events) {
+    if (parent.followUpDay === undefined || parent.content.kind !== "decision" || !parent.choiceId
+      || run.events.some(entry => entry.sourceInstanceId === parent.instanceId)) continue
+    const followUp = decisionChoiceForRun(run, parent.content.id, parent.choiceId)?.followUp
+    const content = followUp && followUpContent(followUp.id)
+    if (content) pending.push({ parent, content, day: parent.followUpDay })
+  }
+  return pending
+}
+
+/** Its own seed stream makes this date independent of unrelated news draws. */
+function codingMilestoneDay(run: RunState): number | undefined {
   const id = "unexpected-coding"
   const definition: DecisionDefinition = decisions[id]
-  if (!definition.requiresSkill || !definition.delayWeeks || !decisionEligible(run, id)
+  if (!definition.requiresSkill || !definition.delayDays
     || run.events.some(entry => entry.content.id === id)) return undefined
   const completions = researchState(run).projects.filter(project => project.skillId === definition.requiresSkill)
-    .map(completionWeek).filter(week => week <= run.completedWeek)
+    .map(completionDay)
   if (!completions.length) return undefined
   const completed = Math.min(...completions)
   const draw = nextRandom((run.seed ^ completed ^ 0x9e3779b9) >>> 0)
-  const { min, max } = definition.delayWeeks
-  const due = completed + min + Math.floor(draw / uint32Range * (max - min + 1))
-  return due === run.completedWeek
-    ? { ...eventInstance(run, { kind: "decision", id }), sourceSkillId: definition.requiresSkill } : undefined
+  const { min, max } = definition.delayDays
+  return completed + min + Math.floor(draw / uint32Range * (max - min + 1))
+}
+
+function codingMilestone(run: RunState): RunEvent | undefined {
+  const id = "unexpected-coding"
+  return codingMilestoneDay(run) === run.completedDay && decisionEligible(run, id)
+    ? { ...eventInstance(run, { kind: "decision", id }), sourceSkillId: decisions[id].requiresSkill } : undefined
+}
+
+/** Read the next authored arrival without advancing time or consuming the random stream. */
+export function nextEventDay(run: RunState): number | null {
+  if (dailyOutcome(run)) return null
+  const candidates = [run.schedule.nextDay]
+  const milestoneDay = codingMilestoneDay(run)
+  if (milestoneDay !== undefined) candidates.push(milestoneDay)
+  for (const followUp of pendingFollowUps(run)) candidates.push(followUp.day)
+  const future = candidates.filter(day => day > run.completedDay)
+  return future.length ? Math.min(...future) : null
 }
 
 function advanceNarrativeEvents(run: RunState): RunState {
   const additions: RunEvent[] = []
-  for (const parent of run.events) {
-    if (parent.followUpWeek !== run.completedWeek || parent.content.kind !== "decision" || !parent.choiceId
-      || run.events.some(entry => entry.sourceInstanceId === parent.instanceId)) continue
-    const followUp = decisionChoiceForRun(run, parent.content.id, parent.choiceId)?.followUp
-    const content = followUp && followUpContent(followUp.id)
-    if (content) additions.push({ ...eventInstance(run, content),
-      instanceId: `${run.seed}:${run.completedWeek}:${content.id}:${parent.instanceId}`,
+  for (const { parent, content, day } of pendingFollowUps(run)) {
+    if (day !== run.completedDay) continue
+    additions.push({ ...eventInstance(run, content),
+      instanceId: `${run.runId}:${run.completedDay}:${content.id}:${parent.instanceId}`,
       sourceInstanceId: parent.instanceId, sourceChoiceId: parent.choiceId })
   }
 
   let decision = codingMilestone(run)
   let schedule = run.schedule
-  if (run.completedWeek === schedule.nextWeek) {
+  if (run.completedDay === schedule.nextDay) {
     const reports = eventPool.filter(content => content.kind !== "decision")
     let remaining = schedule.remaining.filter(content => content.kind !== "decision")
     if (!remaining.length) remaining = reports
@@ -148,50 +174,42 @@ function advanceNarrativeEvents(run: RunState): RunState {
       if (content.kind === "decision") decision = { ...entry,
         ...(decisions[content.id].requiresSkill ? { sourceSkillId: decisions[content.id].requiresSkill } : {}) }
       else additions.push(entry)
-      schedule = scheduleAfter(run.completedWeek, draw,
+      schedule = scheduleAfter(run.completedDay, draw,
         remaining.filter(report => report.kind !== content.kind || report.id !== content.id))
-    } else schedule = scheduleAfter(run.completedWeek, schedule.randomState, remaining)
+    } else schedule = scheduleAfter(run.completedDay, schedule.randomState, remaining)
   }
   // Scene entry points open the final decision while all reports remain in the archive.
   if (decision) additions.push(decision)
   return { ...run, schedule, events: additions.length ? [...run.events, ...additions] : run.events }
 }
 
-export function advanceWeek(run: RunState): RunState {
-  if (weeklyOutcome(run)) return run
-  const week = run.completedWeek + 1
+export function advanceDay(run: RunState): RunState {
+  if (dailyOutcome(run) || !Number.isSafeInteger(run.completedDay) || run.completedDay < 0
+    || run.completedDay === Number.MAX_SAFE_INTEGER) return run
+  const day = run.completedDay + 1
   const income = btoken.income
   const research = researchState(run)
   let payment = 0, operatingRemainder = run.operatingRemainder ?? 0
-  if (week % income.everyWeeks === 0) {
+  if (day % income.everyDays === 0) {
     const users = Math.min(income.maximum - income.base, Math.floor((run.adoptionBps ?? 0) / income.adoptionStepBps))
-    const earnings = users && run.completedWeek >= research.expandedAt!.week
-      ? marketResearchValue(researchLevels(run), "revenue", users) : users
+    const earnings = users ? marketResearchValue(researchLevels(run), "revenue", users) : users
     const cents = Math.round(100 * earnings) + operatingRemainder
     payment = Math.min(income.maximum, income.base + Math.floor(cents / 100))
     operatingRemainder = cents % 100
   }
-  const finishing = projectsCompleting(run, week)
+  const finishing = projectsCompleting(run, day)
   const danger = finishing.reduce((sum, p) => sum + (researchNode(p.skillId).skill.dangerBps ?? 0), 0)
-  const balance = run.balance + payment
-  const corpus = research.corpus + weeklyCorpus(run) + parallelCompletionCorpus(run, finishing.length)
-  if (!Number.isSafeInteger(balance) || balance < 0 || !Number.isSafeInteger(corpus) || corpus < 0) return run
-  const next = { ...run, completedWeek: week, balance, operatingRemainder,
+  const corpusIncome = dailyCorpus(run) + parallelCompletionCorpus(run, finishing.length)
+  if (!Number.isSafeInteger(run.balance) || run.balance < 0 || !Number.isSafeInteger(research.corpus) || research.corpus < 0
+    || !Number.isSafeInteger(payment) || payment < 0 || !Number.isSafeInteger(corpusIncome) || corpusIncome < 0) return run
+  // Natural income saturates at the representable limit without stopping the day clock.
+  const balance = run.balance + Math.min(payment, Number.MAX_SAFE_INTEGER - run.balance)
+  const corpus = research.corpus + Math.min(corpusIncome, Number.MAX_SAFE_INTEGER - research.corpus)
+  const next = { ...run, completedDay: day, balance, operatingRemainder,
     researchBps: Math.min(rules.projectHuman.completionBps, run.researchBps + danger),
     research: { ...research, corpus } }
-  if (weeklyOutcome(next)) return next
-  if (run.eventVersion === 1) return advanceNarrativeEvents(next)
-  if (week !== run.schedule.nextWeek) return next
-
-  const pool = run.schedule.remaining.length ? run.schedule.remaining : legacyEventPool
-  const draw = nextRandom(run.schedule.randomState)
-  const index = Math.floor(draw / uint32Range * pool.length)
-  const content = pool[index]
-  const entry: RunEvent = { instanceId: `${run.seed}:${week}:${content.id}`, week, content }
-  return {
-    ...next, events: [...run.events, entry],
-    schedule: scheduleAfter(week, draw, pool.filter((_, i) => i !== index)),
-  }
+  if (dailyOutcome(next)) return next
+  return advanceNarrativeEvents(next)
 }
 
 export function pendingDecision(run: RunState, instanceId: string, id: DecisionId) {
@@ -203,22 +221,26 @@ export function nextCommandSeq(run: RunState) {
   return (run.commands.at(-1)?.seq ?? 0) + 1
 }
 
+function isNextCommandSeq(run: RunState, seq: number) {
+  return Number.isSafeInteger(seq) && seq > 0 && seq === nextCommandSeq(run)
+}
+
 export function canUnlockSlot(run: RunState, slot: number): boolean {
   const { unlockedSlots, corpus } = researchState(run)
-  return !weeklyOutcome(run) && slot === unlockedSlots + 1 && slot <= rules.research.slotCosts.length
+  return !dailyOutcome(run) && slot === unlockedSlots + 1 && slot <= rules.research.slotCosts.length
     && corpus >= rules.research.slotCosts[slot - 1]
 }
 
 export function unlockResearchSlot(run: RunState, slot: number, seq: number): RunState {
-  if (seq !== nextCommandSeq(run) || !canUnlockSlot(run, slot)) return run
+  if (!isNextCommandSeq(run, seq) || !canUnlockSlot(run, slot)) return run
   const research = researchState(run)
-  const command: GameCommand = { kind: "unlockResearchSlot", slot, week: run.completedWeek, seq }
+  const command: GameCommand = { kind: "unlockResearchSlot", slot, day: run.completedDay, seq }
   return { ...run, commands: [...run.commands, command],
     research: { ...research, unlockedSlots: slot, corpus: research.corpus - rules.research.slotCosts[slot - 1] } }
 }
 
 export function startResearch(run: RunState, skillId: string, seq: number): RunState {
-  if (weeklyOutcome(run) || seq !== nextCommandSeq(run)) return run
+  if (dailyOutcome(run) || !isNextCommandSeq(run, seq)) return run
   const node = researchNode(skillId)
   if (!node) return run
   const research = researchState(run)
@@ -227,31 +249,27 @@ export function startResearch(run: RunState, skillId: string, seq: number): RunS
   if ((status !== "available" && status !== "upgradable") || research.corpus < cost) return run
   const slot = firstIdleSlot(run)
   if (slot === null) return run
-  const project = { skillId: node.skill.id, slot, startedWeek: run.completedWeek }
-  const command: GameCommand = { kind: "buySkill", skillId, week: run.completedWeek, seq }
+  const project = { skillId: node.skill.id, slot, startedDay: run.completedDay }
+  const command: GameCommand = { kind: "buySkill", skillId, day: run.completedDay, seq }
   return { ...run, commands: [...run.commands, command],
     research: { ...research, corpus: research.corpus - cost, projects: [...research.projects, project] } }
 }
 
 export function canGrantTokens(run: RunState, amount: number) {
-  const { everyWeeks, maximum } = btoken.income
-  const paymentsLeft = Math.floor(rules.maxWeeks / everyWeeks) - Math.floor(run.completedWeek / everyWeeks)
-  return !weeklyOutcome(run) && Number.isSafeInteger(amount) && amount > 0
-    && amount <= Number.MAX_SAFE_INTEGER - run.balance - paymentsLeft * maximum
+  return !dailyOutcome(run) && Number.isSafeInteger(run.balance) && run.balance >= 0
+    && Number.isSafeInteger(amount) && amount > 0
+    && amount <= Number.MAX_SAFE_INTEGER - run.balance
 }
 
 export function grantDeveloperTokens(run: RunState, amount: number, seq: number): RunState {
-  if (!canGrantTokens(run, amount) || seq !== nextCommandSeq(run)) return run
-  const command: TokenGrant = { kind: "devGrantTokens", week: run.completedWeek, seq, amount }
+  if (!canGrantTokens(run, amount) || !isNextCommandSeq(run, seq)) return run
+  const command: TokenGrant = { kind: "devGrantTokens", day: run.completedDay, seq, amount }
   return { ...run, balance: run.balance + amount, commands: [...run.commands, command] }
 }
 
-/** Price and effects must come from the same event version in the UI and reducer. */
+/** The UI and reducer read the same authored choice. */
 export function decisionChoiceForRun(run: RunState, id: DecisionId, choiceId: string): DecisionChoice | undefined {
   if (!Object.hasOwn(decisions, id)) return undefined
-  if (run.eventVersion !== 1) {
-    return id === "unexpected-coding" ? legacyDecisionChoices.find(choice => choice.id === choiceId) : undefined
-  }
   return decisions[id].choices.find(choice => choice.id === choiceId)
 }
 
@@ -273,7 +291,7 @@ export function decisionEffectForRun(run: RunState, id: DecisionId, choiceId: st
 export type DecisionChoiceStatus = "available" | "tokens" | "corpus" | "unavailable"
 
 export function decisionChoiceStatus(run: RunState, id: DecisionId, choiceId: string): DecisionChoiceStatus {
-  if (weeklyOutcome(run) || !Number.isSafeInteger(nextCommandSeq(run))) return "unavailable"
+  if (dailyOutcome(run) || !Number.isSafeInteger(nextCommandSeq(run))) return "unavailable"
   const choice = decisionChoiceForRun(run, id, choiceId)
   const effect = decisionEffectForRun(run, id, choiceId)
   if (!choice || !effect) return "unavailable"
@@ -288,8 +306,8 @@ export function decisionChoiceStatus(run: RunState, id: DecisionId, choiceId: st
   if (balanceAfter < 0) return "tokens"
   if (corpusAfter < 0) return "corpus"
   if (!Number.isSafeInteger(balanceAfter) || !Number.isSafeInteger(corpusAfter)) return "unavailable"
-  if (choice.followUp && (!followUpContent(choice.followUp.id) || !Number.isSafeInteger(choice.followUp.delayWeeks)
-    || choice.followUp.delayWeeks < 1 || !Number.isSafeInteger(run.completedWeek + choice.followUp.delayWeeks))) return "unavailable"
+  if (choice.followUp && (!followUpContent(choice.followUp.id) || !Number.isSafeInteger(choice.followUp.delayDays)
+    || choice.followUp.delayDays < 1 || !Number.isSafeInteger(run.completedDay + choice.followUp.delayDays))) return "unavailable"
   return "available"
 }
 
@@ -299,22 +317,16 @@ export function resolveDecision(run: RunState, instanceId: string, id: DecisionI
   if (!entry) return run
   const choice = decisionChoiceForRun(run, id, choiceId)!
   const command: GameCommand = {
-    kind: "chooseEvent", week: run.completedWeek, seq: nextCommandSeq(run),
+    kind: "chooseEvent", day: run.completedDay, seq: nextCommandSeq(run),
     eventInstanceId: instanceId, choiceId,
-  }
-  // Keep the original command semantics and snapshot shape for historical runs.
-  if (run.eventVersion !== 1) return {
-    ...run, balance: run.balance - choice.cost,
-    events: run.events.map(event => event === entry ? { ...entry, choiceId } : event),
-    commands: [...run.commands, command],
   }
   const research = researchState(run)
   const effect = decisionEffectForRun(run, id, choiceId)!
   const balance = run.balance + effect.tokens
   const corpus = research.corpus + effect.corpus
   const researchBps = run.researchBps + effect.humanBps
-  const resolved = { ...entry, choiceId, resolvedWeek: run.completedWeek, effect,
-    ...(choice.followUp ? { followUpWeek: run.completedWeek + choice.followUp.delayWeeks } : {}) }
+  const resolved = { ...entry, choiceId, resolvedDay: run.completedDay, effect,
+    ...(choice.followUp ? { followUpDay: run.completedDay + choice.followUp.delayDays } : {}) }
   return {
     ...run, balance, researchBps, research: { ...research, corpus },
     events: run.events.map(event => event === entry ? resolved : event),

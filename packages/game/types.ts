@@ -13,29 +13,26 @@ type Action =
   | { kind: "useAbility"; abilityId: string; targetRegionId?: string }
   | { kind: "chooseEvent"; eventInstanceId: string; choiceId: string }
 
-/** A decision made after `week` completed weeks. Sequence numbers increase across the run. */
-export type GameCommand = Readonly<{ week: number; seq: number } & Action>
-export type TokenGrant = Readonly<{ week: number; seq: number; kind: "devGrantTokens"; amount: number }>
+/** A decision made after `day` completed days. Sequence numbers increase across the run. */
+export type GameCommand = Readonly<{ day: number; seq: number } & Action>
+export type TokenGrant = Readonly<{ day: number; seq: number; kind: "devGrantTokens"; amount: number }>
 export type RunCommand = GameCommand | TokenGrant
 
 /** Persist the rules, seed and inputs together. The engine derives balances and results. */
-export interface ReplayV1 {
-  /** Missing in exports using the original weekly event pool and decision effects. */
-  readonly eventVersion?: 1
-  /** Absent in exports from the original research catalog. */
-  readonly researchExpandedAt?: { readonly week: number; readonly seq: number }
-  readonly saveVersion: 1
+export interface ReplayV2 {
+  readonly saveVersion: 2
+  readonly runId: string
   readonly rulesVersion: string
   readonly seed: number
   readonly factionId: string
   readonly startRegionId: string
   readonly difficultyId: string
-  readonly completedWeek: number
+  readonly completedDay: number
   readonly commands: readonly GameCommand[]
 }
 
-export interface DeveloperReplay extends Omit<ReplayV1, "saveVersion" | "commands"> {
+export interface DeveloperReplay extends Omit<ReplayV2, "saveVersion" | "commands"> {
   readonly format: "debug-replay"
-  readonly version: 1
+  readonly version: 2
   readonly commands: readonly RunCommand[]
 }

@@ -33,10 +33,10 @@ dialog.research-dialog {
   outline: 2px solid var(--amber); outline-offset: 2px;
 }
 .lab-icon { width: 1.1em; height: 1.1em; flex: none; vertical-align: middle; }
-.lab-week, .lab-human, .lab-balance { display: flex; align-items: center; gap: .6em; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.lab-week { color: #d4e0d8; }
-.lab-week small { font-size: .75em; padding: .25em .5em; color: #c2cabc; border: 1px solid #44514a; }
-.lab-week small::before { content: "Ⅱ"; margin-right: .35em; color: var(--amber); }
+.lab-day, .lab-human, .lab-balance { display: flex; align-items: center; gap: .6em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lab-day { color: #d4e0d8; }
+.lab-day small { font-size: .75em; padding: .25em .5em; color: #c2cabc; border: 1px solid #44514a; }
+.lab-day small::before { content: "Ⅱ"; margin-right: .35em; color: var(--amber); }
 .lab-human { margin-left: auto; color: var(--muted); font-size: .82em; }
 .lab-human b { color: #e2c4b7; font-weight: 600; }
 .lab-balance { border-left: 1px solid var(--border); padding-left: 1.5em; }
@@ -265,7 +265,7 @@ dialog.research-dialog {
 }
 @container lab (max-width: 730px) {
   .lab-human { display: none; } .lab-balance { margin-left: auto; border: 0; padding-left: 0; }
-  .lab-week { flex-wrap: wrap; gap: .25em; } .lab-tabs button { padding-inline: .38em; }
+  .lab-day { flex-wrap: wrap; gap: .25em; } .lab-tabs button { padding-inline: .38em; }
   .lab-tabs button .lab-icon { display: none; } .lab-chart-head { align-items: flex-start; }
   .lab-workbench { grid-template-columns: minmax(0,1fr); flex: none; }
   .lab-chart { min-height: 300px; } .lab-graph-scroll { height: 255px; } .lab-graph { min-height: 348px; }

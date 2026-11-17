@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import test from "node:test"
-import { standardScenario } from "../v0.1/scenario.ts"
-import { victoryEpilogues } from "../v0.1/endings/standard.ts"
+import { resolveStartRegionId, standardScenario } from "../v0.1/scenario.ts"
+import { endings, victoryEpilogues } from "../v0.1/endings/standard.ts"
 import { attributeIds, researchNode, researchNodes, trees } from "../v0.1/evolution/trees.ts"
 import { researchBuilds } from "../v0.1/evolution/builds.ts"
 import { actions } from "../v0.1/evolution/actions.ts"
@@ -13,7 +13,7 @@ import placesFile from "../v0.1/world/compute-places.json" with { type: "json" }
 import { decisions } from "../v0.1/events/decisions.ts"
 import { news } from "../v0.1/events/news.ts"
 import { competition } from "../v0.1/events/competition.ts"
-import { eventPool, legacyEventPool } from "../v0.1/events/pool.ts"
+import { eventPool } from "../v0.1/events/pool.ts"
 import { zhCN } from "../v0.1/locales/zh-CN.ts"
 import { en } from "../v0.1/locales/en.ts"
 
@@ -24,6 +24,13 @@ test("every playable faction, start market and faction epilogue belongs to the s
   assert.equal(new Set(Object.values(factions).map(f => f.ability.id)).size, rules.factionIds.length)
   assert.equal(Object.keys(regions).length, rules.regionCount)
   assert.equal(Object.keys(channels).length, 5)
+  assert.equal(rules.daySecondsAt1x, 4)
+  assert.deepEqual(rules.speedMultipliers, [1, 2, 5])
+  assert.equal(Object.hasOwn(rules, "maxDays"), false)
+  assert.deepEqual(Object.keys(endings).sort(), ["ai-victory", "human-victory"])
+  for (const locale of [zhCN, en]) assert.equal(Object.hasOwn(locale.endings, "timeout"), false)
+  for (const id of regionIds) assert.equal(resolveStartRegionId(id), id)
+  for (const id of ["we", "ee", "sa", "latam", "__proto__", ["as"]]) assert.equal(resolveStartRegionId(id), undefined)
 })
 
 test("every map selection outside Antarctica belongs to one continent and keeps its reference capacity", () => {
@@ -86,7 +93,7 @@ test("the dependency graph is acyclic and ten feasible build paths cover all fif
       assert.ok(group.length)
       group.forEach(visit)
     }
-    for (const v of [skill.cost, skill.weeks, skill.repeatCostStep, skill.weeklyCorpusBonus, skill.dangerBps])
+    for (const v of [skill.cost, skill.days, skill.repeatCostStep, skill.dailyCorpusBonus, skill.dangerBps])
       if (v !== undefined) assert.ok(Number.isSafeInteger(v) && v > 0, id)
     assert.ok(Object.entries(skill.attributes).every(([key,v]) => attributeIds.includes(key) && Number.isInteger(v)), id)
     visiting.delete(id)
@@ -171,7 +178,7 @@ test("five illustrated decisions have payable options, translated outcomes and v
       assert.ok(choice.cost >= 0 && choice.corpusCost >= 0)
       if (choice.followUp) {
         assert.ok(newsIds.has(choice.followUp.id), choice.followUp.id)
-        assert.ok(Number.isSafeInteger(choice.followUp.delayWeeks) && choice.followUp.delayWeeks > 0)
+        assert.ok(Number.isSafeInteger(choice.followUp.delayDays) && choice.followUp.delayDays > 0)
       }
       for (const locale of [zhCN, en]) {
         assert.ok(locale.choices[id][choice.id].label)
@@ -189,8 +196,6 @@ test("five illustrated decisions have payable options, translated outcomes and v
     assert.ok(image.readUInt32BE(16) > image.readUInt32BE(20), `${id}: banner must be landscape`)
   }
   assert.equal(images.size, 5)
-  assert.ok(legacyEventPool.some(item => item.id === "unexpected-coding"))
-  assert.equal(legacyEventPool.length, 6)
   for (const id of ["unexpected-coding", "coding-integrated", "coding-isolated"])
     assert.equal(eventPool.some(item => item.id === id), false, `${id}: belongs to a chain, not a random draw`)
 })

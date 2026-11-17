@@ -5,13 +5,14 @@ import { attachGameSound } from "../src/audio/game-sound.ts"
 import { createSoundOutput } from "../src/audio/player.ts"
 import { createGameStore } from "../src/scenes/store.ts"
 
-const start = { type: "start", factionId: "claude", startRegionId: "sea", difficultyId: "standard", seed: 42 }
+const start = { type: "start", factionId: "claude", startRegionId: "as", difficultyId: "standard", seed: 42 }
 const playTest = { type: "play-sound", cue: "test" }
 const open = panel => ({ type: "open-panel", panel })
 function startRun(store) {
   store.dispatch(open("menu"))
   store.dispatch({ type: "open-setup" })
   store.dispatch(start)
+  assert.equal(store.getSnapshot().scene.kind, "campaign")
 }
 function record(store) {
   const cues = [], saved = []
@@ -82,11 +83,12 @@ test("each accepted play-sound reaches only its store and preserves the committe
   other.stop()
 })
 
-test("a scripted event queues one test sound after its commit, including when the week is retried", () => {
+test("a scripted event queues one test sound after its commit, including when the day is retried", () => {
   const store = createGameStore()
   const { cues, stop } = record(store)
   startRun(store)
-  const firstEventWeek = store.getSnapshot().scene.run.schedule.nextWeek
+  const run = store.getSnapshot().scene.run
+  const firstEventDay = run.schedule.nextDay
   const order = []
   let eventSnapshot
   store.on("event-occurred", (_, snapshot) => { order.push("event"); eventSnapshot = snapshot })
@@ -94,8 +96,8 @@ test("a scripted event queues one test sound after its commit, including when th
     order.push("sound")
     assert.strictEqual(snapshot, eventSnapshot)
   })
-  for (let week = 0; week < firstEventWeek; week++) {
-    const tick = { type: "advance-week", seed: start.seed, completedWeek: week }
+  for (let day = 0; day < firstEventDay; day++) {
+    const tick = { type: "advance-day", runId: run.runId, completedDay: day }
     store.dispatch(tick)
     store.dispatch(tick)
   }

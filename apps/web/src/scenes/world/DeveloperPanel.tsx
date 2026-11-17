@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react"
 import { replayForRun, runTimeline, type RunTraceEntry } from "../../../../../packages/game/inspection"
-import { canGrantTokens, nextCommandSeq, type RunState } from "../../../../../packages/game/run"
+import { canGrantTokens, nextCommandSeq, nextEventDay, type RunState } from "../../../../../packages/game/run"
 import { researchNode } from "../../../../../packages/rules/v0.1/evolution/trees"
 import { decisions } from "../../../../../packages/rules/v0.1/events/decisions"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
@@ -39,8 +39,8 @@ function Timeline({ run }: { run: RunState }) {
     <ol className="dev-timeline">{(all ? rows : rows.slice(0, 5)).map(row => {
       const researchOrder = row.command?.kind === "buySkill" || row.command?.kind === "unlockResearchSlot"
       const delta = researchOrder ? row.corpusAfter - row.corpusBefore! : row.after - (row.before ?? row.after)
-      return <li key={row.command ? `command-${row.command.seq}` : `week-${row.week}`}><details>
-        <summary><span>{ui.week(row.week)}</span><strong>{traceTitle(row, language)}</strong>
+      return <li key={row.command ? `command-${row.command.seq}` : row.event ? `event-${row.event.instanceId}` : `day-${row.day}`}><details>
+        <summary><span>{ui.day(row.day)}</span><strong>{traceTitle(row, language)}</strong>
           <span className={delta > 0 ? "dev-credit" : delta < 0 ? "dev-debit" : ""}>{researchOrder ? ui.lab.corpusCount(delta) : delta ? (delta > 0 ? "+" : "") + number.format(delta) : "—"}</span></summary>
         <div className="dev-entry-detail">
           <p>{ui.developer.funds} · {row.before !== null && `${number.format(row.before)} → `}{ui.tokens(row.after)}</p>
@@ -71,7 +71,7 @@ function Replay({ run }: { run: RunState }) {
     }
   }
   return <div className="dev-replay">
-    <label>{"format" in replay ? ui.developer.debugReplay : "ReplayV1"}
+    <label>{"format" in replay ? ui.developer.debugReplay : "ReplayV2"}
       <textarea ref={field} readOnly rows={6} value={json} spellCheck={false} aria-label={ui.developer.replay}/>
     </label>
     <button type="button" onClick={copy}>{ui.developer.copy}</button>
@@ -91,7 +91,7 @@ function TokenControls({ store }: { store: GameStore }) {
       return
     }
     setError(null)
-    store.dispatch({ type: "dev-grant-token", seed: run.seed, completedWeek: run.completedWeek, seq: nextCommandSeq(run), amount: value })
+    store.dispatch({ type: "dev-grant-token", runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run), amount: value })
   }
   return <fieldset className="dev-grants"><legend>{text.grant} · token</legend>
     <div className="dev-actions">{[10, 100].map(n => <button type="button" key={n} onClick={() => grant(n)} aria-label={text.giveAmount(n)}>+{n}</button>)}
@@ -117,7 +117,7 @@ export default function DeveloperPanel({ openSetup, close, hidden }: { openSetup
   const scene = useGameSnapshot(state => state.scene, target)
   const run = visibleRunState(scene)
   const ended = scene.kind === "ending"
-  const next = run && !ended && run.schedule.nextWeek < standardScenario.rules.maxWeeks ? run.schedule.nextWeek : null
+  const next = run && !ended ? nextEventDay(run) : null
   const place = selectedPlace(map.selection)
   const selection = place ? scenario.regions[place.id] : map.selection && "lon" in map.selection
     ? `${number.format(map.selection.lon)}°, ${number.format(map.selection.lat)}°` : ui.worldOverview
@@ -138,20 +138,20 @@ export default function DeveloperPanel({ openSetup, close, hidden }: { openSetup
           {inTrial && <button type="button" className="dev-link" onClick={fork}>{text.refork}</button>}
         </div>
         <dl className="dev-meters">
-          <div><dt>{text.completed}</dt><dd>{number.format(run.completedWeek)}</dd></div>
+          <div><dt>{text.completed}</dt><dd>{number.format(run.completedDay)}</dd></div>
           <div><dt>{text.funds}</dt><dd aria-live="polite">{ui.tokens(run.balance)}</dd></div>
-          <div><dt>{text.next}</dt><dd>{next === null ? "—" : ui.week(next)}</dd></div>
+          <div><dt>{text.next}</dt><dd>{next === null ? "—" : ui.day(next)}</dd></div>
         </dl>
         <div className="dev-actions"><small>{ended ? text.ended : scene.kind === "decision" ? text.pending : text.manual}</small>
           {scene.kind === "campaign" && <>
             <button type="button" onClick={() => stepDeveloperRun(target)}>{text.step}</button>
-            <button type="button" onClick={() => stepDeveloperRun(target, true)}>{next === null ? text.untilEnd : text.until}</button>
+            <button type="button" onClick={() => stepDeveloperRun(target, true)}>{text.until}</button>
           </>}
         </div>
       </>}
       <fieldset><legend>{ui.lighting}</legend><div className="dev-actions">
         {[false, true].map(night => <button type="button" key={String(night)} aria-pressed={map.layers.night === night}
-          onClick={() => live.dispatch({ type: "set-layer", layer: "night", enabled: night })}>{night ? ui.night : ui.day}</button>)}
+          onClick={() => live.dispatch({ type: "set-layer", layer: "night", enabled: night })}>{night ? ui.night : ui.daylight}</button>)}
       </div></fieldset>
       {!run && <><p>{text.needRun}</p><button type="button" onClick={openSetup}>{ui.newRun}</button></>}
       {run && !ended && <TokenControls store={target}/>}

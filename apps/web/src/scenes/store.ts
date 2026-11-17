@@ -10,7 +10,7 @@ import { computePlaceById, computePlaces } from "../cartography/compute-markers.
 import { spratlyIslands } from "../cartography/place-names.ts"
 import { soundBank, type SoundCue } from "../audio/cues.ts"
 import { defaultSound, validVolume, type SoundSettings } from "../audio/settings.ts"
-import { advanceCampaignWeek, initialScene, playbackSpeed, sceneReducer, visibleRunState, type Scene, type SceneEvent } from "./machine.ts"
+import { advanceCampaignDay, initialScene, playbackSpeed, sceneReducer, visibleRunState, type Scene, type SceneEvent } from "./machine.ts"
 import { initialPopulationPreview, type PopulationPreview } from "./world/populationPreview.ts"
 
 export interface MapPoint {
@@ -48,13 +48,16 @@ export interface GameState {
   readonly sound: SoundSettings
   readonly locale: Locale
   readonly developer: { readonly enabled: boolean; readonly open: boolean }
+  readonly environment: { readonly visible: boolean; readonly suspended: boolean }
 }
 
 export type GameEvent = SceneEvent
   | { type: "set-developer-enabled"; enabled: boolean }
   | { type: "set-developer-open"; open: boolean }
-  | { type: "dev-step-week"; seed: number; completedWeek: number }
-  | { type: "dev-grant-token"; seed: number; completedWeek: number; seq: number; amount: number }
+  | { type: "dev-step-day"; runId: string; completedDay: number }
+  | { type: "dev-grant-token"; runId: string; completedDay: number; seq: number; amount: number }
+  | { type: "set-page-visible"; visible: boolean }
+  | { type: "set-page-suspended"; suspended: boolean }
   | { type: "set-locale"; locale: Locale }
   | { type: "play-sound"; cue: SoundCue }
   | { type: "set-sound-muted"; muted: boolean }
@@ -67,7 +70,7 @@ export type GameEvent = SceneEvent
   | { type: "map-preset"; view: "global" | "europe" }
 
 export type GameNotice =
-  | { type: "run-started"; setup: RunSetup; seed: number }
+  | { type: "run-started"; setup: RunSetup; seed: number; runId: string }
   | { type: "dev-token-granted"; command: TokenGrant }
   | { type: "event-occurred"; entry: RunEvent }
   | { type: "research-slot-unlocked"; slot: number }
@@ -111,6 +114,12 @@ function sameSelection(current: MapSelection | null, next: MapSelection | null) 
 function reduceGame(state: GameState, event: GameEvent): GameState | typeof acceptWithoutChange {
   const { scene } = state
   switch (event.type) {
+    case "set-page-visible":
+      return typeof event.visible !== "boolean" || event.visible === state.environment.visible ? state
+        : { ...state, environment: { ...state.environment, visible: event.visible } }
+    case "set-page-suspended":
+      return typeof event.suspended !== "boolean" || event.suspended === state.environment.suspended ? state
+        : { ...state, environment: { ...state.environment, suspended: event.suspended } }
     case "set-developer-enabled":
       if (typeof event.enabled !== "boolean" || event.enabled === state.developer.enabled) return state
       return { ...state, developer: { enabled: event.enabled, open: false } }
@@ -122,14 +131,14 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
       return { ...state, developer: { enabled: true, open: event.open },
         scene: event.open && fromMenu ? sceneReducer(scene, { type: "back" }) : scene }
     }
-    case "dev-step-week": {
+    case "dev-step-day": {
       if (!state.developer.open || scene.kind !== "campaign" || scene.panel !== null) return state
-      const next = advanceCampaignWeek(scene, event.seed, event.completedWeek)
+      const next = advanceCampaignDay(scene, event.runId, event.completedDay)
       return next === scene ? state : { ...state, scene: next }
     }
     case "dev-grant-token": {
       const campaign = scene.kind === "decision" ? scene.back : scene.kind === "campaign" && scene.panel === null ? scene : null
-      if (!state.developer.open || !campaign || campaign.run.seed !== event.seed || campaign.run.completedWeek !== event.completedWeek) return state
+      if (!state.developer.open || !campaign || campaign.run.runId !== event.runId || campaign.run.completedDay !== event.completedDay) return state
       const run = grantDeveloperTokens(campaign.run, event.amount, event.seq)
       if (run === campaign.run) return state
       const next = { ...campaign, run }
@@ -186,7 +195,7 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
       return { ...state, selection: event.view === "global" ? null : scene.kind === "campaign" ? marketFocus("eu") : previewSelection,
         scene: sceneReducer(scene, { type: "back" }) }
     default: {
-      if (event.type === "advance-week" && state.developer.open) return state
+      if (event.type === "advance-day" && gamePlaybackSpeed(state) === 0) return state
       const next = sceneReducer(scene, event)
       if (next === scene) return state
       if (event.type === "start" && next.kind === "campaign") {
@@ -201,15 +210,15 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
 
 function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
   if (event.type === "start" && scene.kind === "campaign") {
-    return [{ type: "run-started", setup: scene.run.setup, seed: scene.run.seed }]
+    return [{ type: "run-started", setup: scene.run.setup, seed: scene.run.seed, runId: scene.run.runId }]
   }
-  const stepped = event.type === "advance-week" || event.type === "dev-step-week"
+  const stepped = event.type === "advance-day" || event.type === "dev-step-day"
   if (stepped) {
     const run = visibleRunState(scene)
     if (!run) return []
-    const notices: GameNotice[] = projectsCompleting(run, run.completedWeek)
+    const notices: GameNotice[] = projectsCompleting(run, run.completedDay)
       .map(project => ({ type: "research-completed", project }))
-    for (const entry of run.events.filter(entry => entry.week === run.completedWeek)) {
+    for (const entry of run.events.filter(entry => entry.day === run.completedDay)) {
       notices.push({ type: "event-occurred", entry })
     }
     if (scene.kind === "ending") notices.push({ type: "run-ended", outcome: scene.outcome })
@@ -239,12 +248,16 @@ function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
 }
 
 function storeFromSnapshot(initial: GameState) {
-  return createEventStore<GameState, GameEvent, GameNotice>(initial, reduceGame, gameNotices)
+  const store = createEventStore<GameState, GameEvent, GameNotice>(initial, reduceGame, gameNotices)
+  return { ...store, dispatch(event: GameEvent) {
+    // Runtime identity is external input; the reducer and rule engine stay pure.
+    store.dispatch(event.type === "start" ? { ...event, runId: event.runId ?? crypto.randomUUID() } : event)
+  } }
 }
 
 export function createGameStore(sound: SoundSettings = defaultSound, locale: Locale = defaultLocale, developerEnabled = false) {
   return storeFromSnapshot({ scene: initialScene, layers: initialLayers, selection: previewSelection, populationPreview: null,
-    sound, locale, developer: { enabled: developerEnabled, open: false } })
+    sound, locale, developer: { enabled: developerEnabled, open: false }, environment: { visible: true, suspended: false } })
 }
 
 /** A manual trial owns its subscriptions and queue. The browser clock stays attached to the live store. */
@@ -259,7 +272,24 @@ export function forkDeveloperStore(snapshot: GameState) {
 }
 
 export function gamePlaybackSpeed(state: GameState) {
-  return state.developer.open ? 0 : playbackSpeed(state.scene)
+  return pauseReasons(state).length ? 0 : playbackSpeed(state.scene)
+}
+
+export function pauseReasons(state: GameState) {
+  const reasons: string[] = []
+  const { scene } = state
+  const map = scene.kind === "decision" ? scene.back : scene
+  if ((map.kind === "preview" || map.kind === "campaign") && map.manualPaused) reasons.push("manual")
+  if (map.kind === "preview" || map.kind === "campaign") {
+    if (map.panel === "menu") reasons.push("menu")
+    if (map.panel === "overview") reasons.push("research")
+    if (map.panel === "confirm-exit") reasons.push("confirm-exit")
+  }
+  if (scene.kind === "decision" || scene.kind === "setup" || scene.kind === "ending") reasons.push(scene.kind)
+  if (state.developer.open) reasons.push("developer")
+  if (!state.environment.visible) reasons.push("hidden")
+  if (state.environment.suspended) reasons.push("suspended")
+  return reasons
 }
 
 export type GameStore = ReturnType<typeof createGameStore>

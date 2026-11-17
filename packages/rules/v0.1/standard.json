@@ -2,15 +2,14 @@
   "rulesVersion": "v0.1",
   "regionCount": 6,
   "factionIds": ["gpt", "claude", "grok"],
-  "weekSecondsAt1x": 4,
-  "eventIntervalWeeks": { "min": 8, "max": 12 },
-  "speedMultipliers": [0, 1, 2],
-  "maxWeeks": 120,
+  "daySecondsAt1x": 4,
+  "eventIntervalDays": { "min": 8, "max": 12 },
+  "speedMultipliers": [1, 2, 5],
   "initialBtoken": 18,
   "research": {
     "attributeBaseline": 100,
     "initialCorpus": 32,
-    "weeklyCorpus": 8,
+    "dailyCorpus": 8,
     "slotCosts": [4, 8, 14, 22, 32, 44, 60]
   },
   "projectHuman": {
