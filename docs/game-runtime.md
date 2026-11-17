@@ -89,8 +89,14 @@ store.dispatch({ type: "play-sound", cue: "test" })
 
 自动评测集降低后续循环项目价格。版本重构从次周起，在同周完成至少两项研究时发一次额外语料。用户经营收入按盈利能力调整，按百分之一 token 跨期累计，再遵守周制收益上限。科技详情中的条件试算与经营结算使用同一个纯函数。研究预览采用明示的样本值，真实市场的迁移、召回和改造还需要相应的对局行动提供人口和预算。[市场研究效果](../packages/game/market-research.ts) · [版本化条件](../packages/rules/v0.1/evolution/market-effects.ts)
 
-标准剧本按版本化配置每 8–12 周抽一次。在一轮内按种子抽完新闻、竞争事件和突变，再补满池。每次产生独立的 `instanceId`，同一剧本条目在不同周仍可分别处理。正式突变会打开决策窗，退出后可从新闻记录继续处理。
+新建周制对局保存 `RunState.eventVersion: 1`。随机时机仍为每 8–12 周一次；候选由未抽完的新闻袋和符合周数、反制条件且本局未发生的普通决策组成。普通决策每局一次，新闻袋抽完后补满。四条普通决策分别涉及社区验证、推理返还、审查和研究交换。内容、图片、条件和效果集中在[决策目录](../packages/rules/v0.1/events/decisions.ts)。
 
-正式选择提交 `{ type: "choose", id, instanceId, choiceId }`。引擎核对待处理实例和余额，一次性提交选择、扣费和 `GameCommand`，并通知 `decision-resolved`。新闻目录的手动预览省略 `instanceId`，只更新上次预览选择。回放记录采用 `week`、递增的 `seq`、`eventInstanceId` 和 `choiceId`。[事件池](../packages/rules/v0.1/events/pool.ts) · [回放类型](../packages/game/types.ts)
+“自主编程”独立于随机池：首次完成 `agent-tasks` 后按种子等待 1–2 周，每局一次。其分支在实际选择后两周生成关联新闻，保存 `sourceInstanceId` 和 `sourceChoiceId`，不会再次结算资源。同周允许多条新闻和一个决策，store 逐条发出 `event-occurred`。结局判定优先于当周新事件，终局后不再投递后续。
+
+每次产生独立的 `instanceId`。正式决策打开时暂停，Esc 或“稍后处理”保留实例，可从新闻待办继续处理。`decisionChoiceForRun` 读取对应事件版本的价格；`decisionChoiceStatus` 校验当前 token、语料与安全整数范围；`decisionEffectForRun` 同时用于预计净变化与实际结算。HUMAN 进度钳在 0–100%，事件选择使其达到 100% 时当场进入结算，并按顺序发送 `decision-resolved` 和一次 `run-ended`。
+
+旧快照缺少 `eventVersion`，仍使用原六条混合池、一轮无放回和免费保留 / 4 token 回滚，选择没有额外语料或反制效果。`ReplayV1` 和调试回放都保存可选事件版本，重演按该版本重建调度，避免新抽池改变旧种子的结果。
+
+正式选择提交 `{ type: "choose", id, instanceId, choiceId }`。引擎核对待处理实例和资源，一次性提交选择、费用、收益、反制、实际净变化、后续周和 `GameCommand`。新闻目录的手动预览省略 `instanceId`，只更新上次预览选择。回放记录采用 `week`、递增的 `seq`、`eventInstanceId` 和 `choiceId`。[事件池](../packages/rules/v0.1/events/pool.ts) · [回放类型](../packages/game/types.ts)
 
 新增共享变量时，在所属状态定义类型、单位、初值和更新它的事件。新增事件先定义载荷，再实现转移，测试非法输入、重发和新局隔离。浏览器时钟只发带种子和预期周数的 `advance-week`。共享规则从输入和旧快照计算结果，随机序列由局内种子驱动，供浏览器、Node 和未来的 Worker 复用。[场景转移](../apps/web/src/scenes/machine.ts) · [浏览器时钟](../apps/web/src/scenes/clock.ts)

@@ -147,7 +147,9 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
       if (scene.kind !== "decision" || scene.id !== event.id || scene.instanceId !== event.instanceId) return scene
       if (event.instanceId !== undefined) {
         const run = resolveDecision(scene.back.run, event.instanceId, scene.id, event.choiceId)
-        return run === scene.back.run ? scene : { ...scene.back, run }
+        if (run === scene.back.run) return scene
+        const outcome = weeklyOutcome(run)
+        return outcome ? { kind: "ending", outcome, run } : { ...scene.back, run }
       }
       if (decisions[scene.id].choices.some(c => c.id === event.choiceId)) {
         return { ...scene.back, lastDecision: { id: event.id, choiceId: event.choiceId } }
@@ -178,6 +180,7 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
 export function advanceCampaignWeek(scene: Scene, seed: number, completedWeek: number): Scene {
   if (scene.kind !== "campaign" || scene.run.seed !== seed || scene.run.completedWeek !== completedWeek) return scene
   const run = advanceWeek(scene.run)
+  if (run === scene.run) return scene
   const outcome = weeklyOutcome(run)
   if (outcome) return { kind: "ending", outcome, run }
   const campaign: Campaign = { ...scene, run }

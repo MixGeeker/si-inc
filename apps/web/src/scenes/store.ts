@@ -209,8 +209,9 @@ function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
     if (!run) return []
     const notices: GameNotice[] = projectsCompleting(run, run.completedWeek)
       .map(project => ({ type: "research-completed", project }))
-    const entry = run.events.at(-1)
-    if (entry?.week === run.completedWeek) notices.push({ type: "event-occurred", entry })
+    for (const entry of run.events.filter(entry => entry.week === run.completedWeek)) {
+      notices.push({ type: "event-occurred", entry })
+    }
     if (scene.kind === "ending") notices.push({ type: "run-ended", outcome: scene.outcome })
     return notices
   }
@@ -226,9 +227,13 @@ function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
     const command = visibleRunState(scene)?.commands.at(-1)
     if (command?.kind === "devGrantTokens") return [{ type: "dev-token-granted", command }]
   }
-  if (event.type === "choose" && event.instanceId !== undefined && scene.kind === "campaign") {
+  if (event.type === "choose" && event.instanceId !== undefined && (scene.kind === "campaign" || scene.kind === "ending")) {
     const command = scene.run.commands.at(-1)
-    if (command?.kind === "chooseEvent") return [{ type: "decision-resolved", command }]
+    if (command?.kind === "chooseEvent") {
+      const notices: GameNotice[] = [{ type: "decision-resolved", command }]
+      if (scene.kind === "ending") notices.push({ type: "run-ended", outcome: scene.outcome })
+      return notices
+    }
   }
   return []
 }

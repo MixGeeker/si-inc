@@ -1,5 +1,5 @@
-import type { RunState } from "../../../../../packages/game/run.ts"
-import { decisions, type DecisionId } from "../../../../../packages/rules/v0.1/events/decisions.ts"
+import { weeklyOutcome, type RunState } from "../../../../../packages/game/run.ts"
+import { decisions, type DecisionEffect, type DecisionId } from "../../../../../packages/rules/v0.1/events/decisions.ts"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario.ts"
 import { languages, type Language } from "../../i18n/languages.ts"
 
@@ -13,6 +13,15 @@ export type NewsItem = {
   choiceLabel?: string
   decisionId?: DecisionId
   instanceId?: string
+  image?: string
+  source?: string
+  scope?: string
+  resultBody?: string
+  effect?: DecisionEffect
+  resolvedWeek?: number
+  followUpWeek?: number
+  relatedId?: string
+  relatedTitle?: string
 }
 
 export function campaignNews(run: RunState, { ui, scenario }: Language = languages["zh-CN"]): NewsItem[] {
@@ -26,19 +35,37 @@ export function campaignNews(run: RunState, { ui, scenario }: Language = languag
     pending: false,
   }
   return [opening, ...run.events.map(entry => {
-    const decision = entry.content.kind === "decision"
-    const chosen = decision && entry.choiceId
-      ? decisions[entry.content.id].choices.find(choice => choice.id === entry.choiceId)
-      : undefined
+    const decisionId = entry.content.kind === "decision" ? entry.content.id : undefined
+    const definition = decisionId ? decisions[decisionId] : undefined
+    const chosen = definition?.choices.find(choice => choice.id === entry.choiceId)
+    const parent = entry.sourceInstanceId ? run.events.find(source => source.instanceId === entry.sourceInstanceId) : undefined
+    const parentDecisionId = parent?.content.kind === "decision" ? parent.content.id : undefined
+    const contextId = decisionId ?? parentDecisionId
+    const legacy = run.eventVersion !== 1 && decisionId === "unexpected-coding"
+    const text = scenario.events[entry.content.id]
+    const choiceText = decisionId && chosen ? scenario.choices[decisionId][chosen.id] : undefined
+    const detail = contextId ? scenario.eventDetails[contextId] : undefined
+    const hasFollowUp = run.events.some(child => child.sourceInstanceId === entry.instanceId)
     return {
       id: entry.instanceId,
       week: entry.week,
-      ...scenario.events[entry.content.id],
+      ...text,
+      body: legacy ? ui.narrative.legacyBody : text.body,
       kind: entry.content.kind,
-      pending: decision && entry.choiceId === undefined,
-      choiceLabel: decision && chosen ? scenario.choices[entry.content.id][chosen.id].result : undefined,
-      decisionId: decision ? entry.content.id : undefined,
+      pending: decisionId !== undefined && entry.choiceId === undefined,
+      choiceLabel: legacy && chosen ? (chosen.id === "keep" ? ui.narrative.legacyKeep : ui.narrative.legacyRollback) : choiceText?.label,
+      resultBody: !legacy ? choiceText?.result : undefined,
+      decisionId,
       instanceId: entry.instanceId,
+      image: definition?.image ?? (parentDecisionId ? decisions[parentDecisionId].image : undefined),
+      source: legacy ? ui.narrative.legacySource : detail?.source,
+      scope: legacy ? ui.narrative.legacyScope : detail?.scope,
+      effect: entry.effect,
+      resolvedWeek: entry.resolvedWeek,
+      followUpWeek: !hasFollowUp && entry.followUpWeek !== undefined && entry.followUpWeek < standardScenario.rules.maxWeeks
+        && run.completedWeek < entry.followUpWeek && !weeklyOutcome(run) ? entry.followUpWeek : undefined,
+      relatedId: parent?.instanceId,
+      relatedTitle: parent ? scenario.events[parent.content.id].title : undefined,
     }
   })]
 }

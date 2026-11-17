@@ -5,6 +5,7 @@ import type { DeveloperReplay, GameCommand, ReplayV1, RunCommand } from "./types
 
 export function replayForRun(run: RunState): ReplayV1 | DeveloperReplay {
   const setup = { rulesVersion: standardScenario.rules.rulesVersion, researchExpandedAt: researchState(run).expandedAt,
+    ...(run.eventVersion === 1 ? { eventVersion: run.eventVersion } : {}),
     seed: run.seed, ...run.setup, completedWeek: run.completedWeek }
   if (run.commands.every((c): c is GameCommand => c.kind !== "devGrantTokens")) {
     return { saveVersion: 1, ...setup, commands: run.commands }
@@ -29,7 +30,7 @@ function traceEntry(before: RunState | null, after: RunState): RunTraceEntry {
 
 /** Reconstruct each settlement with the rules that produced the run, including deferred decisions. */
 export function runTimeline(run: RunState): RunTraceEntry[] | null {
-  const initial = createRun(run.setup, run.seed)
+  const initial = createRun(run.setup, run.seed, run.eventVersion ?? 0)
   if (!initial) return null
   let cursor: RunState = { ...initial, research: { ...researchState(initial), expandedAt: researchState(run).expandedAt } }
   const rows: RunTraceEntry[] = [traceEntry(null, cursor)]
@@ -38,8 +39,9 @@ export function runTimeline(run: RunState): RunTraceEntry[] | null {
     if (week > 0) {
       const before: RunState = cursor
       cursor = advanceWeek(cursor)
-      const last = cursor.events.at(-1)
-      rows.push({ ...traceEntry(before, cursor), event: last?.week === week ? last : undefined })
+      const events = cursor.events.slice(before.events.length)
+      rows.push({ ...traceEntry(before, cursor), event: events[0] })
+      for (const event of events.slice(1)) rows.push({ ...traceEntry(cursor, cursor), event })
     }
     while (run.commands[index]?.week === week) {
       const command = run.commands[index++]
@@ -52,6 +54,7 @@ export function runTimeline(run: RunState): RunTraceEntry[] | null {
         event = before.events.find(entry => entry.instanceId === command.eventInstanceId)
         if (event?.content.kind !== "decision") return null
         cursor = resolveDecision(before, event.instanceId, event.content.id, command.choiceId)
+        event = cursor.events.find(entry => entry.instanceId === command.eventInstanceId)
       } else return null
       if (cursor === before || cursor.commands.at(-1)?.seq !== command.seq) return null
       rows.push({ ...traceEntry(before, cursor), command, event })
@@ -64,5 +67,19 @@ export function runTimeline(run: RunState): RunTraceEntry[] | null {
     || expected.unlockedSlots !== actual.unlockedSlots || expected.projects.length !== actual.projects.length) return null
   const matches = expected.projects.every((p, i) => p.skillId === actual.projects[i].skillId
     && p.startedWeek === actual.projects[i].startedWeek && p.slot === actual.projects[i].slot)
-  return matches ? rows.reverse() : null
+  const eventMatches = cursor.events.length === run.events.length && cursor.events.every((event, i) => {
+    const expected = run.events[i]
+    return event.instanceId === expected.instanceId && event.week === expected.week
+      && event.content.kind === expected.content.kind && event.content.id === expected.content.id
+      && event.choiceId === expected.choiceId && event.resolvedWeek === expected.resolvedWeek
+      && event.sourceSkillId === expected.sourceSkillId && event.followUpWeek === expected.followUpWeek
+      && event.sourceInstanceId === expected.sourceInstanceId && event.sourceChoiceId === expected.sourceChoiceId
+      && event.effect?.tokens === expected.effect?.tokens && event.effect?.corpus === expected.effect?.corpus
+      && event.effect?.humanBps === expected.effect?.humanBps
+  })
+  const scheduleMatches = cursor.schedule.nextWeek === run.schedule.nextWeek
+    && cursor.schedule.randomState === run.schedule.randomState && cursor.schedule.remaining.length === run.schedule.remaining.length
+    && cursor.schedule.remaining.every((content, i) => content.kind === run.schedule.remaining[i].kind
+      && content.id === run.schedule.remaining[i].id)
+  return matches && eventMatches && scheduleMatches ? rows.reverse() : null
 }
