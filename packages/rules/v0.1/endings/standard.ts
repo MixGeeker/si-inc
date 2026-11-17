@@ -3,7 +3,6 @@ import type { FactionId } from "../factions/roster.ts"
 export const endings = {
   "ai-victory": { title: "全球 AI 统治", body: "全球普及、依赖和地区覆盖目标均已达成。" },
   "human-victory": { title: "反制成功", body: "Project HUMAN 已完成，各地区开始恢复自主系统。" },
-  timeout: { title: "错失窗口", body: "最后一周已经结束，竞争模型和替代技术占据了扩张窗口。" },
 } as const
 
 export type Outcome = keyof typeof endings

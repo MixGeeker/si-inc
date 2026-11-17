@@ -105,6 +105,9 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   const content = hudContent(run, location === null, language)
   const newsItems = run ? campaignNews(run, language) : previewNews(language)
   const speed = gamePlaybackSpeed(snapshot)
+  const playbackScene = scene.kind === "decision" || scene.kind === "setup" ? scene.back : scene
+  const selectedSpeed = "speed" in playbackScene ? playbackScene.speed : 1
+  const manualPaused = "manualPaused" in playbackScene ? playbackScene.manualPaused : false
   const panel = scene.kind === "campaign" || scene.kind === "preview" ? scene.panel : null
   const showDeveloper = developer.open && panel === null && scene.kind !== "setup"
   const openDeveloper = () => send({ type: "set-developer-open", open: true })
@@ -136,12 +139,13 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
         pick={({ country, ...point }) => send({ type: "pick-location", selection: { ...point, countryId: country?.id ?? null } })}
         marker={run ? undefined : previewMarker} showNews={() => openNews("current", "preview")} showGlobal={showGlobal}/>
     </Suspense>
-    <Hud location={location} place={place} content={content} zoom={zoom} speed={speed} night={night} toggleNight={() => send({ type: "set-layer", layer: "night", enabled: !night })}
-      newsItems={newsItems} newsView={newsView} newsItemId={newsItemId} newsWeek={run ? run.completedWeek : null}
+    <Hud location={location} place={place} content={content} zoom={zoom} selectedSpeed={selectedSpeed} manualPaused={manualPaused} paused={speed === 0}
+      night={night} toggleNight={() => send({ type: "set-layer", layer: "night", enabled: !night })}
+      newsItems={newsItems} newsView={newsView} newsItemId={newsItemId} newsDay={run ? run.completedDay : null}
       openNews={openNews} closeNews={back} decide={(id, instanceId) => send({ type: "open-decision", id, instanceId })}
       open={panelName => { if (newsView) send({ type: "back" }); send({ type: "open-panel", panel: panelName }) }}
       focusPlace={place => send({ type: "focus-place", place })}
-      setSpeed={n => send({ type: "set-speed", speed: n })} setZoom={n => rig.zoom(n)}/>
+      setSpeed={n => send({ type: "set-speed", speed: n })} onPause={paused => send({ type: "set-paused", paused })} setZoom={n => rig.zoom(n)}/>
     {example && panel === null && <PopulationControls preview={example}/>}
     {developer.open && <Suspense fallback={null}><DeveloperPanel hidden={!showDeveloper} close={() => {
       send({ type: "set-developer-open", open: false })

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { marketResearchValue as value, researchExample } from "../market-research.ts"
-import { advanceWeek, createRun } from "../run.ts"
+import { advanceDay, createRun } from "../run.ts"
 
-test("social reach respects market share and the two-week subsidy window, with no effect on other channels", () => {
+test("social reach respects market share and the two-day subsidy window, with no effect on other channels", () => {
   const levels = { "social-sharing": 1, "language-communities": 1, "trending-takeover": 1 }
-  const at = (channel, factionCoverage, subsidyWeek) => value(levels,"reach",100,{channel, metrics:{factionCoverage,subsidyWeek}})
+  const at = (channel, factionCoverage, subsidyDay) => value(levels,"reach",100,{channel, metrics:{factionCoverage,subsidyDay}})
   assert.equal(at("social",19.99,2),201)
   assert.equal(at("social",20,2),168)
   assert.equal(at("social",20,3),112)
@@ -44,15 +44,15 @@ test("model indices and contextual modifiers use the same arithmetic for researc
 
 test("profit applies to adopted-user revenue, carries fractional tokens, and leaves fixed income alone", () => {
   let run = createRun({factionId:"claude", startRegionId:"as", difficultyId:"standard"},42)
-  run = { ...run, completedWeek:5, adoptionBps:3000, research:{...run.research, unlockedSlots:1,
-    projects:[{skillId:"closed-subscription",slot:1,startedWeek:0}]} }
-  const quiet = advanceWeek({...run,adoptionBps:0})
+  run = { ...run, completedDay:5, adoptionBps:3000, research:{...run.research, unlockedSlots:1,
+    projects:[{skillId:"closed-subscription",slot:1,startedDay:0}]} }
+  const quiet = advanceDay({...run,adoptionBps:0})
   assert.equal(quiet.balance-run.balance,1)
   assert.equal(quiet.operatingRemainder,0)
-  const first = advanceWeek(run)
+  const first = advanceDay(run)
   assert.equal(first.balance-run.balance,2)
   assert.equal(first.operatingRemainder,8)
-  const spill = advanceWeek({...run,operatingRemainder:94})
+  const spill = advanceDay({...run,operatingRemainder:94})
   assert.equal(spill.balance-run.balance,3)
   assert.equal(spill.operatingRemainder,2)
 })

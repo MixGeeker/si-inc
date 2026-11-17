@@ -1,6 +1,6 @@
 import { useId, type KeyboardEvent, type ReactNode } from "react"
-import { completedLevel, completionWeek, firstIdleSlot, researchAttributes, researchCost, researchLevels, researchState, researchStatus,
-  slotProject, weeklyCorpus, type ResearchProject } from "../../../../../packages/game/research"
+import { completedLevel, completionDay, firstIdleSlot, researchAttributes, researchCost, researchLevels, researchState, researchStatus,
+  slotProject, dailyCorpus, type ResearchProject } from "../../../../../packages/game/research"
 import { researchExample } from "../../../../../packages/game/market-research"
 import { canUnlockSlot, nextCommandSeq, type RunState } from "../../../../../packages/game/run"
 import { researchBuild, researchBuilds, type BuildId, type ResearchBuild } from "../../../../../packages/rules/v0.1/evolution/builds"
@@ -92,8 +92,8 @@ function TreePanel({ run, node, build, select, selectBuild }: {
 
 function ProjectProgress({ run, project }: { run: RunState; project: ResearchProject }) {
   const { ui: { lab } } = useLanguage()
-  return <span className="lab-progress"><span>{lab.remaining(completionWeek(project) - run.completedWeek)}</span>
-    <progress aria-label={lab.status.active} value={run.completedWeek - project.startedWeek} max={researchNode(project.skillId).skill.weeks}/>
+  return <span className="lab-progress"><span>{lab.remaining(completionDay(project) - run.completedDay)}</span>
+    <progress aria-label={lab.status.active} value={run.completedDay - project.startedDay} max={researchNode(project.skillId).skill.days}/>
   </span>
 }
 
@@ -104,7 +104,7 @@ function ProjectDetail({ run, node, start, unlock, select }: {
   const { skill, tree } = node, status = researchStatus(run, node)
   const research = researchState(run), cost = researchCost(run, node)
   const level = completedLevel(run, skill.id), nextSlot = research.unlockedSlots + 1, idle = firstIdleSlot(run)
-  const project = research.projects.find(p => p.skillId === skill.id && completionWeek(p) > run.completedWeek)
+  const project = research.projects.find(p => p.skillId === skill.id && completionDay(p) > run.completedDay)
   const example = researchExample(researchLevels(run), skill.id)
   const ready = status === "available" || status === "upgradable"
   const opens = researchNodes.filter(n => n.skill.requires.some(group => group.includes(skill.id)))
@@ -136,8 +136,8 @@ function ProjectDetail({ run, node, start, unlock, select }: {
         <TechHex skill={skill} status={status}/><span className={`lab-status is-${status}`}>{lab.status[status]}</span></div>
       <h3>{scenario.skills[skill.id]}</h3><p className="lab-description">{scenario.skillDescriptions[skill.id]}</p>
       <dl className="lab-specs"><div><dt>{lab.cost}</dt><dd>{lab.corpusCount(cost)}</dd></div>
-        <div><dt>{lab.duration}</dt><dd>{lab.weeks(skill.weeks)}</dd></div>
-        {skill.weeklyCorpusBonus && <div><dt>{lab.yieldBonus}</dt><dd>+{skill.weeklyCorpusBonus}</dd></div>}
+        <div><dt>{lab.duration}</dt><dd>{lab.days(skill.days)}</dd></div>
+        {skill.dailyCorpusBonus && <div><dt>{lab.yieldBonus}</dt><dd>+{skill.dailyCorpusBonus}</dd></div>}
       </dl>
       <div className="lab-changes"><h4>{lab.changes}</h4><div>{attributeIds.filter(id => skill.attributes[id]).map(id =>
         <span key={id} className={`model-${id}`}><LabIcon name={attributeIcons[id]}/>{lab.attributes[id]} <b>{signed(skill.attributes[id]!)}</b></span>)}</div></div>
@@ -185,13 +185,13 @@ export function ResearchDialog({ run, skillId, buildId, back }: { run: RunState;
   const { ui, number, percent } = useLanguage()
   const { dispatch } = useGameStore()
   const node = researchNode(skillId)
-  const order = { seed: run.seed, completedWeek: run.completedWeek, seq: nextCommandSeq(run) }
+  const order = { runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) }
   const unlock = (slot: number) => dispatch({ type: "unlock-research-slot", slot, ...order })
   const select = (id: SkillId) => dispatch({ type: "select-research", skillId: id })
   return <SceneDialog title={ui.lab.title} onBack={back} className={`research-dialog tree-${node.tree.id}`} headerDetail={<>
-    <span className="lab-week">{ui.week(run.completedWeek)}<small>{ui.lab.paused}</small></span>
+    <span className="lab-day">{ui.day(run.completedDay)}<small>{ui.lab.paused}</small></span>
     <div className="lab-human" title={ui.lab.countermeasure}><span>Project HUMAN</span><b>{percent.format(run.researchBps / 10000)}</b></div>
-    <div className="lab-balance"><LabIcon name="flask"/><span>{ui.lab.corpus}</span><strong aria-live="polite">{number.format(researchState(run).corpus)}</strong><small>{ui.lab.weekly(weeklyCorpus(run))}</small></div>
+    <div className="lab-balance"><LabIcon name="flask"/><span>{ui.lab.corpus}</span><strong aria-live="polite">{number.format(researchState(run).corpus)}</strong><small>{ui.lab.daily(dailyCorpus(run))}</small></div>
   </>}>
     <div className="lab-workbench"><TreePanel run={run} node={node} build={buildId ? researchBuild(buildId) : undefined} select={select}
       selectBuild={id => dispatch({ type: "select-research-build", buildId: id })}/>

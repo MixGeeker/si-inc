@@ -2,12 +2,12 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import { standardScenario } from "../../../packages/rules/v0.1/scenario.ts"
 import { decisions } from "../../../packages/rules/v0.1/events/decisions.ts"
-import { attachWeekClock } from "../src/scenes/clock.ts"
+import { createDayClock } from "../src/scenes/clock.ts"
 import { researchNode } from "../../../packages/rules/v0.1/evolution/trees.ts"
 import { nextCommandSeq } from "../../../packages/game/run.ts"
 import { slotProject } from "../../../packages/game/research.ts"
 import { runTimeline } from "../../../packages/game/inspection.ts"
-import { createGameStore, selectedPlace } from "../src/scenes/store.ts"
+import { createGameStore, gamePlaybackSpeed, pauseReasons, selectedPlace } from "../src/scenes/store.ts"
 
 const start = { type: "start", factionId: "claude", startRegionId: "as", difficultyId: "standard", seed: 42 }
 const panel = name => ({ type: "open-panel", panel: name })
@@ -34,17 +34,17 @@ test("research orders bind to the open campaign, commit once, and complete along
   const select = { type: "select-research", skillId: "daily-chat" }
   send(panel("overview"))
   blocked(select)
-  blocked({ type: "unlock-research-slot", seed: start.seed, completedWeek: 0, seq: 1, slot: 1 })
+  blocked({ type: "unlock-research-slot", runId: "expired-run", completedDay: 0, seq: 1, slot: 1 })
   send({ type: "back" })
   startGame(store)
-  const order = payload => ({ seed: run().seed, completedWeek: run().completedWeek, seq: nextCommandSeq(run()), ...payload })
-  const tick = () => ({ type: "advance-week", seed: start.seed, completedWeek: run().completedWeek })
+  const order = payload => ({ runId: run().runId, completedDay: run().completedDay, seq: nextCommandSeq(run()), ...payload })
+  const tick = () => ({ type: "advance-day", runId: run().runId, completedDay: run().completedDay })
   const opening = { type: "unlock-research-slot", slot: 1 }
   const project = { type: "start-research", skillId: "daily-chat" }
   blocked(order(opening))
   blocked(order(project))
-  const deadline = run().schedule.nextWeek
-  while (run().completedWeek < deadline - researchNode(project.skillId).skill.weeks) send(tick())
+  const deadline = run().schedule.nextDay
+  while (run().completedDay < deadline - researchNode(project.skillId).skill.days) send(tick())
   send(panel("overview"))
   send(select)
   blocked(select)
@@ -57,12 +57,12 @@ test("research orders bind to the open campaign, commit once, and complete along
       notices.push(event.type)
     })
   }
-  for (const override of [{ seed: -1 }, { completedWeek: 0 }, { seq: 99 }, { slot: 2 }]) blocked(order({ ...opening, ...override }))
+  for (const override of [{ runId: "expired-run" }, { completedDay: 0 }, { seq: 99 }, { slot: 2 }]) blocked(order({ ...opening, ...override }))
   const first = order(opening)
   send(first)
   blocked(first)
   const second = order(project)
-  blocked({ ...second, seed: -1 })
+  blocked({ ...second, runId: "expired-run" })
   send(second)
   blocked(second)
   blocked(order(project))
@@ -71,7 +71,7 @@ test("research orders bind to the open campaign, commit once, and complete along
   send(panel("overview"))
   assert.equal(snapshot().scene.researchSkillId, "daily-chat")
   send({ type: "back" })
-  for (let i = run().completedWeek; i < deadline; i++) {
+  for (let i = run().completedDay; i < deadline; i++) {
     const step = tick()
     send(step)
     blocked(step)
@@ -81,7 +81,7 @@ test("research orders bind to the open campaign, commit once, and complete along
   assert.equal(slotProject(scene.kind === "decision" ? scene.back.run : scene.run, 1), undefined)
 })
 
-test("each dangerous level settles once and reaching the HUMAN threshold takes priority over the final-week timeout", () => {
+test("each dangerous level settles once and HUMAN completion ends a campaign after day 120", () => {
   const store = createGameStore()
   startGame(store)
   const scene = () => store.getSnapshot().scene
@@ -90,26 +90,26 @@ test("each dangerous level settles once and reaching the HUMAN threshold takes p
   const endings = [], completions = []
   store.on("run-ended", ({ outcome }) => endings.push(outcome))
   store.on("research-completed", ({ project }) => completions.push(project.skillId))
-  function weeksTo(target) {
-    while (run().completedWeek < target) {
+  function daysTo(target) {
+    while (run().completedDay < target) {
       if (scene().kind === "decision") send({ type: "back" })
       assert.equal(scene().kind, "campaign")
-      send({ type: "advance-week", seed: run().seed, completedWeek: run().completedWeek })
+      send({ type: "advance-day", runId: run().runId, completedDay: run().completedDay })
     }
     if (scene().kind === "decision") send({ type: "back" })
   }
   function order(payload) {
     const before = run()
-    send({ ...payload, seed: before.seed, completedWeek: before.completedWeek, seq: nextCommandSeq(before) })
+    send({ ...payload, runId: before.runId, completedDay: before.completedDay, seq: nextCommandSeq(before) })
     assert.equal(run().commands.length, before.commands.length + 1)
   }
   function research(...ids) {
     send(panel("overview"))
     for (const skillId of ids) order({ type: "start-research", skillId })
     send({ type: "back" })
-    weeksTo(run().completedWeek + Math.max(...ids.map(id => researchNode(id).skill.weeks)))
+    daysTo(run().completedDay + Math.max(...ids.map(id => researchNode(id).skill.days)))
   }
-  weeksTo(20)
+  daysTo(20)
   send(panel("overview"))
   for (const slot of [1, 2, 3]) order({ type: "unlock-research-slot", slot })
   send({ type: "back" })
@@ -123,15 +123,18 @@ test("each dangerous level settles once and reaching the HUMAN threshold takes p
     research(id)
     assert.equal(run().researchBps, level * node.skill.dangerBps)
   }
-  weeksTo(standardScenario.rules.maxWeeks - node.skill.weeks)
+  daysTo(130 - node.skill.days)
+  assert.equal(scene().kind, "campaign")
+  assert.deepEqual(endings, [])
   research(id)
   assert.equal(run().researchBps, threshold)
   assert.equal(scene().kind, "ending")
+  assert.equal(run().completedDay, 130)
   assert.deepEqual(endings, ["human-victory"])
   assert.equal(completions.filter(skillId => skillId === id).length, levels)
   assert.ok(runTimeline(run()))
   const terminal = store.getSnapshot()
-  send({ type: "advance-week", seed: run().seed, completedWeek: run().completedWeek })
+  send({ type: "advance-day", runId: run().runId, completedDay: run().completedDay })
   assert.strictEqual(store.getSnapshot(), terminal)
 })
 
@@ -232,7 +235,7 @@ test("stale subregions, countries and invalid navigation events leave the curren
   store.dispatch(focus("as"))
   assert.equal(snapshot().scene.panel, null)
   assert.deepEqual(snapshot().selection, market("as"))
-  startGame(store, "latam")
+  startGame(store, "sam")
   const run = snapshot().scene.run
   assert.deepEqual(snapshot().selection, market("sam"))
   store.dispatch(panel("news"))
@@ -297,7 +300,7 @@ test("preview, postponement and retries preserve one settlement and one terminal
   }
   startGame(store)
   const scene = () => store.getSnapshot().scene
-  const tick = () => ({ type: "advance-week", seed: start.seed, completedWeek: scene().run.completedWeek })
+  const tick = () => ({ type: "advance-day", runId: scene().run.runId, completedDay: scene().run.completedDay })
   let id = "unexpected-coding"
   store.dispatch(panel("news"))
   store.dispatch({ type: "open-decision", id })
@@ -308,8 +311,8 @@ test("preview, postponement and retries preserve one settlement and one terminal
   const first = tick()
   store.dispatch(first)
   store.dispatch(first)
-  assert.equal(scene().run.completedWeek, 1)
-  while (scene().kind === "campaign") store.dispatch(tick())
+  assert.equal(scene().run.completedDay, 1)
+  for (let i = 0; i < 80 && scene().kind === "campaign"; i++) store.dispatch(tick())
   assert.equal(scene().kind, "decision")
   id = scene().id
   const option = decisions[id].choices.find(c => c.cost > 0) ?? decisions[id].choices[0]
@@ -329,30 +332,37 @@ test("preview, postponement and retries preserve one settlement and one terminal
   assert.equal(scene().run.commands.length, 1)
   assert.deepEqual(notices.filter(n => n.type === "decision-resolved").map(n => n.command), scene().run.commands)
   assert.deepEqual(notices.filter(n => n.type === "event-occurred").map(n => n.entry.instanceId), before.events.map(e => e.instanceId))
-  while (scene().kind !== "ending") {
+  while ((scene().kind === "decision" ? scene().back.run : scene().run).completedDay < 130 || scene().kind === "decision") {
     if (scene().kind === "decision") store.dispatch({ type: "back" })
     else store.dispatch(tick())
   }
+  assert.equal(scene().kind, "campaign")
+  assert.equal(scene().run.completedDay, 130)
+  assert.equal(notices.filter(n => n.type === "run-ended").length, 0)
+  store.dispatch({ type: "finish", outcome: "human-victory" })
   const ending = scene()
-  assert.equal(ending.run.completedWeek, standardScenario.rules.maxWeeks)
-  assert.equal(ending.outcome, "timeout")
-  store.dispatch({ type: "finish", outcome: "timeout" })
+  assert.equal(ending.outcome, "human-victory")
+  store.dispatch({ type: "finish", outcome: "human-victory" })
   store.dispatch({ type: "open-setup" })
   store.dispatch({ type: "back" })
   assert.strictEqual(scene(), ending)
   assert.equal(notices.filter(n => n.type === "run-ended").length, 1)
   store.dispatch({ type: "open-setup" })
   store.dispatch(start)
-  assert.equal(scene().run.completedWeek, 0)
+  assert.equal(scene().run.completedDay, 0)
   assert.equal(scene().run.balance, standardScenario.rules.initialBtoken)
   assert.deepEqual(scene().run.events, [])
+  assert.notEqual(scene().run.runId, ending.run.runId)
+  const restarted = store.getSnapshot()
+  store.dispatch(first)
+  assert.strictEqual(store.getSnapshot(), restarted)
   assert.equal(notices.filter(n => n.type === "run-started").length, 2)
 })
 
-test("the clock preserves fractional weeks across speed, menu and tab changes and detaches cleanly", () => {
+test("the clock preserves fractional days across speed, menu and tab changes and detaches cleanly", () => {
   let now = 0, visible = true, timer, visibilityChanged
   const store = createGameStore()
-  const stop = attachWeekClock(store, {
+  const clock = createDayClock(store, {
     now: () => now, visible: () => visible,
     after(ms, callback) {
       assert.equal(timer, undefined)
@@ -364,6 +374,7 @@ test("the clock preserves fractional weeks across speed, menu and tab changes an
       return () => { visibilityChanged = undefined }
     },
   })
+  const stop = clock.attach()
   function elapse(ms) {
     const end = now + ms
     while (timer && timer.due <= end) {
@@ -374,17 +385,17 @@ test("the clock preserves fractional weeks across speed, menu and tab changes an
     }
     now = end
   }
-  const week = () => store.getSnapshot().scene.run.completedWeek
+  const day = () => store.getSnapshot().scene.run.completedDay
   startGame(store)
   const staleTick = timer.callback
   elapse(1000)
   store.dispatch({ type: "set-speed", speed: 2 })
   staleTick()
-  assert.equal(week(), 0)
+  assert.equal(day(), 0)
   elapse(500)
   store.dispatch(panel("menu"))
   elapse(60000)
-  assert.equal(week(), 0)
+  assert.equal(day(), 0)
   store.dispatch({ type: "back" })
   elapse(500)
   visible = false
@@ -393,18 +404,72 @@ test("the clock preserves fractional weeks across speed, menu and tab changes an
   visible = true
   visibilityChanged()
   elapse(499)
-  assert.equal(week(), 0)
+  assert.equal(day(), 0)
   elapse(1)
-  assert.equal(week(), 1)
-  store.dispatch({ type: "set-speed", speed: 0 })
-  elapse(8000)
-  assert.equal(week(), 1)
-  store.dispatch({ type: "set-speed", speed: 2 })
-  elapse(2000)
-  assert.equal(week(), 2)
+  assert.equal(day(), 1)
+  store.dispatch({ type: "set-paused", paused: true })
+  elapse(80000)
+  assert.equal(day(), 1)
+  store.dispatch({ type: "set-speed", speed: 5 })
+  assert.equal(day(), 1)
+  store.dispatch({ type: "set-paused", paused: false })
+  elapse(799)
+  assert.equal(day(), 1)
+  elapse(1)
+  assert.equal(day(), 2)
   assert.equal(store.getSnapshot().scene.run.balance, standardScenario.rules.initialBtoken + 1)
   stop()
   assert.equal(visibilityChanged, undefined)
   elapse(60000)
-  assert.equal(week(), 2)
+  assert.equal(day(), 2)
+})
+
+test("pause reasons compose across manual controls, panels, developer tools and page lifecycle", () => {
+  const store = createGameStore()
+  startGame(store)
+  const snapshot = store.getSnapshot
+  const send = store.dispatch
+  const reasons = () => [...pauseReasons(snapshot())].sort()
+  const unchanged = event => { const before = snapshot(); send(event); assert.strictEqual(snapshot(), before) }
+  unchanged({ type: "set-speed", speed: 10 })
+  send({ type: "set-speed", speed: 2 })
+  assert.equal(gamePlaybackSpeed(snapshot()), 2)
+  assert.deepEqual(reasons(), [])
+  send({ type: "set-paused", paused: true })
+  send(panel("menu"))
+  assert.deepEqual(reasons(), ["manual", "menu"])
+  send({ type: "set-speed", speed: 5 })
+  send({ type: "set-paused", paused: false })
+  assert.deepEqual(reasons(), ["menu"])
+  assert.equal(gamePlaybackSpeed(snapshot()), 0)
+  send({ type: "set-developer-enabled", enabled: true })
+  send({ type: "set-developer-open", open: true })
+  send({ type: "set-page-visible", visible: false })
+  send({ type: "set-page-suspended", suspended: true })
+  assert.deepEqual(reasons(), ["developer", "hidden", "suspended"])
+  assert.equal(gamePlaybackSpeed(snapshot()), 0)
+  unchanged({ type: "set-page-visible", visible: "true" })
+  unchanged({ type: "set-page-suspended", suspended: 0 })
+  unchanged({ type: "set-page-visible", visible: false })
+  unchanged({ type: "set-page-suspended", suspended: true })
+  const run = snapshot().scene.run
+  unchanged({ type: "advance-day", runId: run.runId, completedDay: run.completedDay })
+  send({ type: "set-developer-open", open: false })
+  send({ type: "set-page-visible", visible: true })
+  assert.deepEqual(reasons(), ["suspended"])
+  send({ type: "set-page-suspended", suspended: false })
+  assert.equal(gamePlaybackSpeed(snapshot()), 5)
+  send(panel("overview"))
+  assert.deepEqual(reasons(), ["research"])
+  send({ type: "set-paused", paused: true })
+  send({ type: "back" })
+  assert.deepEqual(reasons(), ["manual"])
+  send({ type: "set-paused", paused: false })
+  send(panel("news"))
+  send({ type: "open-decision", id: "unexpected-coding" })
+  assert.deepEqual(reasons(), ["decision"])
+  send({ type: "set-speed", speed: 2 })
+  assert.equal(gamePlaybackSpeed(snapshot()), 0)
+  send({ type: "back" })
+  assert.equal(gamePlaybackSpeed(snapshot()), 2)
 })

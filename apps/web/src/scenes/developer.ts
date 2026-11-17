@@ -1,4 +1,4 @@
-import { standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
+import { nextEventDay } from "../../../../packages/game/run.ts"
 import type { GameStore } from "./store.ts"
 
 const preferenceKey = "singularity-inc.developer.v1"
@@ -19,10 +19,13 @@ export function stepDeveloperRun(store: GameStore, untilEvent = false) {
   const { scene, developer } = store.getSnapshot()
   if (!developer.open || scene.kind !== "campaign" || scene.panel !== null) return
   const { run } = scene
-  const stop = untilEvent ? Math.min(run.schedule.nextWeek, standardScenario.rules.maxWeeks) : run.completedWeek + 1
-  for (let week = run.completedWeek; week < stop; week++) {
+  const stop = untilEvent ? nextEventDay(run) : run.completedDay + 1
+  if (stop === null) return
+  for (let day = run.completedDay; day < stop; day++) {
     const current = store.getSnapshot().scene
-    if (current.kind !== "campaign" || current.run.setup !== run.setup || current.run.completedWeek !== week) break
-    store.dispatch({ type: "dev-step-week", seed: run.seed, completedWeek: week })
+    if (current.kind !== "campaign" || current.run.setup !== run.setup || current.run.completedDay !== day) break
+    store.dispatch({ type: "dev-step-day", runId: run.runId, completedDay: day })
+    const next = store.getSnapshot().scene
+    if (untilEvent && (next.kind !== "campaign" || next.run.events.length !== run.events.length)) break
   }
 }

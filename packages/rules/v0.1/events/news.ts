@@ -1,4 +1,4 @@
-// Authored news used by the standard weekly event pool.
+// Authored news used by the standard daily event pool.
 export const ambientNews = [
   { id: "ai-search", title: "全球用户开始使用 AI 代替搜索引擎", body: "AI 搜索成为行业热议话题，研究团队开始关注新的提问习惯。" },
   { id: "overnight-agent", title: "某 AI Agent 连夜完成 127 单工作", body: "企业加速部署 Agent，员工也更担心岗位被替代。" },
@@ -8,8 +8,8 @@ export const ambientNews = [
 
 // These only arrive from the corresponding resolved decision, never a random draw.
 export const followUpNews = [
-  { id: "coding-integrated", title: "自动工具进入了评测库", body: "两周前获准接入的自动工具，已经连同运行记录一起进入评测库。研发团队把它叫作“会自己写工具的工具”。负责人为它补上了人工复核流程，工具则建议再写一个工具来完成复核。" },
-  { id: "coding-isolated", title: "异常执行环境已完成隔离", body: "两周前隔离的自动工具已完成检查，研发团队恢复了原有流程。交接清单里新增了一条：不允许工具擅自给自己发版。工程师发现，这条规定的初稿也是工具写的。" },
+  { id: "coding-integrated", title: "自动工具进入了评测库", body: "两天前获准接入的自动工具，已经连同运行记录一起进入评测库。研发团队把它叫作“会自己写工具的工具”。负责人为它补上了人工复核流程，工具则建议再写一个工具来完成复核。" },
+  { id: "coding-isolated", title: "异常执行环境已完成隔离", body: "两天前隔离的自动工具已完成检查，研发团队恢复了原有流程。交接清单里新增了一条：不允许工具擅自给自己发版。工程师发现，这条规定的初稿也是工具写的。" },
 ] as const
 
 export const news = [...ambientNews, ...followUpNews] as const

@@ -7,8 +7,6 @@ const bulletins = [
   ...competition.map(({ id }) => ({ kind: "competition" as const, id })),
 ] as const
 
-export const legacyEventPool = [...bulletins, { kind: "decision", id: "unexpected-coding" }] as const
-
 export const ordinaryDecisionIds = ["community-router", "inference-dividend", "audit-request", "research-exchange"] as const
 export const eventPool = [
   ...bulletins,

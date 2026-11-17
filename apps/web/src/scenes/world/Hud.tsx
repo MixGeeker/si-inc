@@ -21,17 +21,20 @@ interface Props {
   newsItems: readonly NewsItem[]
   newsView: NewsView | null
   newsItemId?: string
-  newsWeek: number | null
+  newsDay: number | null
   openNews: (view: NewsView, itemId?: string) => void
   closeNews: () => void
   decide: (id: DecisionId, instanceId: string) => void
   zoom: number
-  speed: number
+  selectedSpeed: number
+  manualPaused: boolean
+  paused: boolean
   night: boolean
   toggleNight: () => void
   open: (panel: MapPanel) => void
   focusPlace: (place: PlaceFocus | null) => void
   setSpeed: (speed: number) => void
+  onPause: (paused: boolean) => void
   setZoom: (zoom: number) => void
 }
 
@@ -246,7 +249,7 @@ function RegionStrip({location,place,open,x,y,content}:{location:Location|null;p
     </Control>
   </g>
 }
-export default function Hud({location,place,content,newsItems,newsView,newsItemId,newsWeek,openNews,closeNews,decide,zoom,speed,night,toggleNight,open,focusPlace,setSpeed,setZoom}:Props) {
+export default function Hud({location,place,content,newsItems,newsView,newsItemId,newsDay,openNews,closeNews,decide,zoom,selectedSpeed,manualPaused,paused,night,toggleNight,open,focusPlace,setSpeed,onPause,setZoom}:Props) {
   const { ui, percent } = useLanguage()
   const host=useRef<HTMLDivElement>(null)
   const [size,setSize]=useState({width:HUD.width,height:HUD.height})
@@ -295,7 +298,7 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
         <Control label={ui.archive} description={ui.allNews} pressed={newsView==="archive"} news run={()=>openNews("archive")}>
           <path d="M16 26h96v92H16Z" fill="transparent"/>
         </Control>
-        <Control label={ui.thisWeek} pressed={newsView==="week"} news run={()=>openNews("week")}>
+        <Control label={ui.thisDay} pressed={newsView==="day"} news run={()=>openNews("day")}>
           <path d="M910 26h100v52H910Z" fill="transparent"/>
         </Control>
       </g>
@@ -303,7 +306,7 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
         {content.kind === "preview" ? <g transform="translate(-430 26)">
           <Control label={night ? ui.switchDay : ui.switchNight} pressed={night} run={toggleNight}>
             <Glass d="M0 0h92v51H0Z"/>
-            <text x="46" y="35" textAnchor="middle" fontSize="28">{night ? ui.night : ui.day}</text>
+            <text x="46" y="35" textAnchor="middle" fontSize="28">{night ? ui.night : ui.daylight}</text>
           </Control>
         </g> : <g transform="translate(-586 26)" role="group" aria-label={night ? ui.secondActFull : ui.firstActFull}>
           <Glass d="M0 0h248v51H0Z"/>
@@ -315,10 +318,17 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
             <path d="M260 4h42v42h-42z M265 9l32 32m0-32-32 32" fill="none" stroke="#ffe1bf" strokeOpacity=".55" strokeWidth="1.1" filter="url(#edge-glow)"/>
           </Control>
           <Glass d="M90 51h216v38H126Z"/>
-          {content.speeds.map((n)=><Control key={n} label={n===0 ? ui.pause : ui.speed(n)} pressed={speed===n} run={()=>setSpeed(n)}>
-            <rect x={120+n*40} y="53" width={n===3 ? 63 : 40} height="35" fill="transparent"/>
-            <g transform={`translate(${131+n*39} 60)`} fill={speed===n ? "#ffb15a" : "#6f8f86"} opacity={speed===n ? 1 : .7}>
-              {n===0 ? <path d="M1 0h6v20H1zm11 0h6v20h-6z"/> : Array.from({length:n},(_,j)=><path key={j} d={`M${j*14} 0l17 10-17 10Z`}/>)}
+          <Control label={manualPaused ? ui.resumePlayback : ui.pause} pressed={manualPaused}
+            description={paused && !manualPaused ? ui.automaticallyPaused : undefined} run={() => onPause(!manualPaused)}>
+            <rect x="112" y="53" width="38" height="35" fill="transparent"/>
+            <g transform="translate(122 61)" fill={paused ? "#ffb15a" : "#6f8f86"}>
+              {manualPaused ? <path d="M1 0l17 10L1 20Z"/> : <path d="M1 0h6v20H1zm11 0h6v20h-6z"/>}
+            </g>
+          </Control>
+          {content.speeds.map((n,index)=><Control key={n} label={ui.speed(n)} pressed={selectedSpeed===n} run={()=>setSpeed(n)}>
+            <rect x={150+index*38} y="53" width="38" height="35" fill="transparent"/>
+            <g transform={`translate(${169+index*38} 78)`} fill={selectedSpeed===n ? "#ffb15a" : "#6f8f86"} opacity={selectedSpeed===n ? 1 : .7}>
+              <text textAnchor="middle" fontSize="16" fontWeight="700">{n}×</text>
             </g>
           </Control>)}
         </g>
@@ -344,6 +354,6 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
     <input className="zoom-rail" type="range" min="0" max="1000" step="1" value={Math.round(progress*1000)}
       style={{left:railX*unit,top:(railY+HUD.railTrackTop)*unit,width:68*unit,height:HUD.railTravel*unit}}
       aria-label={ui.mapZoom} aria-valuetext={percent.format(Math.round(zoom * 100) / 100)} onChange={e=>setZoom(Math.expm1(Number(e.target.value)/1000*Math.log(69))/68)}/>
-    <NewsLayer unit={newsUnit} sheetTop={sheetTop} items={newsItems} view={newsView} itemId={newsItemId} week={newsWeek} dated={content.kind==="campaign"} open={openNews} close={closeNews} decide={decide}/>
+    <NewsLayer unit={newsUnit} sheetTop={sheetTop} items={newsItems} view={newsView} itemId={newsItemId} day={newsDay} dated={content.kind==="campaign"} open={openNews} close={closeNews} decide={decide}/>
   </div>
 }

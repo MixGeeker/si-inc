@@ -23,7 +23,7 @@ export function SetupDialog({ previous, start, back }: { previous?: RunSetup; st
       <label>{ui.startMarket}<select required value={startRegionId} onChange={e => setRegion(e.target.value)}>
         <option value="">{ui.selectContinent}</option>{regionIds.map(id => <option key={id} value={id}>{scenario.regions[id]}</option>)}
       </select></label>
-      <p>{ui.setupSummary(scenario.difficulty, ui.tokens(rules.initialBtoken), rules.maxWeeks)}</p>
+      <p>{ui.setupSummary(scenario.difficulty, ui.tokens(rules.initialBtoken))}</p>
       <div className="window-actions"><button type="submit" disabled={!faction || !isRegionId(startRegionId)}>{ui.enterMap}</button></div>
     </form>
   </SceneDialog>
