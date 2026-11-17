@@ -1,14 +1,14 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { readFileSync } from "node:fs"
-import { decisions } from "../../../packages/rules/v0.1/events/decisions.ts"
+import { createRun } from "../../../packages/game/run.ts"
 import { standardScenario } from "../../../packages/rules/v0.1/scenario.ts"
 import { computePlaces, computePlaceLabel } from "../src/cartography/compute-markers.ts"
 import { countryName } from "../src/cartography/place-names.ts"
 import { languages } from "../src/i18n/languages.ts"
 import { resolveLocale } from "../src/i18n/preferences.ts"
 import { visibleRunState } from "../src/scenes/machine.ts"
-import { createGameStore } from "../src/scenes/store.ts"
+import { createGameStore, forkDeveloperStore } from "../src/scenes/store.ts"
 import { campaignNews, previewNews } from "../src/scenes/world/newsFeed.ts"
 
 test("a saved language takes priority, otherwise the first supported browser language wins", () => {
@@ -62,13 +62,15 @@ test("older marker picks resolve to IDs so their original labels can be translat
   assert.deepEqual(store.getSnapshot().selection, { countryId: "CHN", lon: 114.4, lat: 10.3, islandId: "spratly-islands" })
 })
 
-test("a paid decision translates in the archive and replays identically across languages", () => {
+test("a legacy paid decision translates in the archive and replays identically across languages", () => {
   const play = initialLocale => {
-    const store = createGameStore(undefined, initialLocale)
+    const initial = createGameStore(undefined, initialLocale)
+    const setup = { factionId: "claude", startRegionId: "eu", difficultyId: "standard" }
+    const store = forkDeveloperStore({ ...initial.getSnapshot(), scene: {
+      kind: "campaign", run: createRun(setup, 42, 0), panel: null, speed: 1,
+    } })
     const send = store.dispatch
-    send({ type: "open-panel", panel: "menu" })
-    send({ type: "open-setup" })
-    send({ type: "start", factionId: "claude", startRegionId: "eu", difficultyId: "standard", seed: 42 })
+    send({ type: "set-developer-open", open: false })
     let checked = false
     while (store.getSnapshot().scene.kind !== "ending") {
       const { scene } = store.getSnapshot()
@@ -81,8 +83,7 @@ test("a paid decision translates in the archive and replays identically across l
       const before = scene.back.run.balance
       send(choose)
       const settled = store.getSnapshot().scene.run
-      const cost = decisions[scene.id].choices.find(c => c.id === "rollback").cost
-      assert.equal(settled.balance, before - cost)
+      assert.equal(settled.balance, before - 4)
       assert.ok(settled.events.every(e => Object.keys(e.content).sort().join() === "id,kind"))
       send(choose)
       send({ type: "open-panel", panel: "menu" })
@@ -93,8 +94,8 @@ test("a paid decision translates in the archive and replays identically across l
       assert.strictEqual(visibleRunState(state.scene), settled)
       const story = campaignNews(settled, languages[state.locale]).find(e => e.id === state.scene.newsItemId)
       assert.equal(story.pending, false)
-      assert.equal(story.choiceLabel, state.locale === "en" ? "Rolled back" : "回滚突变")
-      assert.equal(story.title, state.locale === "en" ? "Model unexpectedly learns to code on its own" : "模型意外学会了自主编程")
+      assert.equal(story.choiceLabel, languages[state.locale].ui.narrative.legacyRollback)
+      assert.equal(story.title, languages[state.locale].scenario.events[scene.id].title)
       send({ type: "back" })
       checked = true
     }

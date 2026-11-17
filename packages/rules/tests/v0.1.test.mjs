@@ -13,6 +13,9 @@ import placesFile from "../v0.1/world/compute-places.json" with { type: "json" }
 import { decisions } from "../v0.1/events/decisions.ts"
 import { news } from "../v0.1/events/news.ts"
 import { competition } from "../v0.1/events/competition.ts"
+import { eventPool, legacyEventPool } from "../v0.1/events/pool.ts"
+import { zhCN } from "../v0.1/locales/zh-CN.ts"
+import { en } from "../v0.1/locales/en.ts"
 
 test("every playable faction, start market and faction epilogue belongs to the standard scenario", () => {
   const { factions, regions, rules } = standardScenario
@@ -152,4 +155,42 @@ test("news, competitive events and decisions can be addressed by unambiguous IDs
     assert.equal(new Set(choices.map(c => c.id)).size, choices.length)
     assert.ok(choices.length >= 2)
   }
+})
+
+test("five illustrated decisions have payable options, translated outcomes and valid content references", () => {
+  assert.deepEqual(Object.keys(decisions).sort(), ["unexpected-coding", "community-router", "inference-dividend", "audit-request", "research-exchange"].sort())
+  const images = new Set()
+  const newsIds = new Set(news.map(item => item.id))
+  for (const [id, decision] of Object.entries(decisions)) {
+    assert.ok(decision.source && decision.scope, id)
+    if (decision.requiresSkill) assert.ok(researchNode(decision.requiresSkill), id)
+    assert.ok(decision.choices.some(choice => choice.cost === 0 && choice.corpusCost === 0), `${id}: no free fallback`)
+    for (const choice of decision.choices) {
+      for (const amount of [choice.cost, choice.corpusCost, choice.effect.tokens, choice.effect.corpus, choice.effect.humanBps])
+        assert.ok(Number.isSafeInteger(amount), `${id}/${choice.id}`)
+      assert.ok(choice.cost >= 0 && choice.corpusCost >= 0)
+      if (choice.followUp) {
+        assert.ok(newsIds.has(choice.followUp.id), choice.followUp.id)
+        assert.ok(Number.isSafeInteger(choice.followUp.delayWeeks) && choice.followUp.delayWeeks > 0)
+      }
+      for (const locale of [zhCN, en]) {
+        assert.ok(locale.choices[id][choice.id].label)
+        assert.ok(locale.choices[id][choice.id].result)
+      }
+    }
+    for (const locale of [zhCN, en]) {
+      assert.ok(locale.events[id].title && locale.events[id].body)
+      assert.ok(locale.eventDetails[id].source && locale.eventDetails[id].scope)
+    }
+    assert.match(decision.image, /^\/assets\/events\/[a-z-]+\.png$/)
+    images.add(decision.image)
+    const image = readFileSync(new URL(`../../../apps/web/public${decision.image}`, import.meta.url))
+    assert.equal(image.subarray(0, 8).toString("hex"), "89504e470d0a1a0a", decision.image)
+    assert.ok(image.readUInt32BE(16) > image.readUInt32BE(20), `${id}: banner must be landscape`)
+  }
+  assert.equal(images.size, 5)
+  assert.ok(legacyEventPool.some(item => item.id === "unexpected-coding"))
+  assert.equal(legacyEventPool.length, 6)
+  for (const id of ["unexpected-coding", "coding-integrated", "coding-isolated"])
+    assert.equal(eventPool.some(item => item.id === id), false, `${id}: belongs to a chain, not a random draw`)
 })

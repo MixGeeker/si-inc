@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { replayForRun, runTimeline } from "../../../packages/game/inspection.ts"
+import { createRun } from "../../../packages/game/run.ts"
 import { standardScenario } from "../../../packages/rules/v0.1/scenario.ts"
 import { attachWeekClock } from "../src/scenes/clock.ts"
 import { stepDeveloperRun } from "../src/scenes/developer.ts"
@@ -18,6 +19,12 @@ function begin(store) {
   store.dispatch(menu)
   store.dispatch({ type: "open-setup" })
   store.dispatch(start)
+}
+function legacyGame() {
+  const store = createGameStore()
+  begin(store)
+  const snapshot = store.getSnapshot()
+  return forkDeveloperStore({ ...snapshot, scene: { ...snapshot.scene, run: createRun(start, start.seed, 0) } })
 }
 function credit(store, amount) {
   const { seed, completedWeek, commands } = runOf(store)
@@ -71,9 +78,8 @@ test("settings gate the drawer and all manual settlements, including expired and
   blocked({ ...step, completedWeek: 1 })
 })
 
-test("trial copies settle income, draws, grants and choices independently and export them in commit order", () => {
-  const live = createGameStore()
-  begin(live)
+test("legacy trial copies settle income, draws, grants and choices independently and export them in commit order", () => {
+  const live = legacyGame()
   live.dispatch(enable)
   live.dispatch(open)
   const original = live.getSnapshot()
@@ -151,9 +157,8 @@ test("the drawer preserves the remaining clock interval and manual steps start a
   stop()
 })
 
-test("a deferred archive decision can fork, settle in a later week and keep stepping without a news overlay", () => {
-  const live = createGameStore()
-  begin(live)
+test("a deferred legacy archive decision can fork, settle in a later week and keep stepping without a news overlay", () => {
+  const live = legacyGame()
   live.dispatch(enable)
   live.dispatch(open)
   stepDeveloperRun(live, true)

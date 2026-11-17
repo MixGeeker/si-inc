@@ -20,6 +20,8 @@ export type RunCommand = GameCommand | TokenGrant
 
 /** Persist the rules, seed and inputs together. The engine derives balances and results. */
 export interface ReplayV1 {
+  /** Missing in exports using the original weekly event pool and decision effects. */
+  readonly eventVersion?: 1
   /** Absent in exports from the original research catalog. */
   readonly researchExpandedAt?: { readonly week: number; readonly seq: number }
   readonly saveVersion: 1

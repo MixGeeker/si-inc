@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { standardScenario } from "../../../packages/rules/v0.1/scenario.ts"
+import { decisions } from "../../../packages/rules/v0.1/events/decisions.ts"
 import { attachWeekClock } from "../src/scenes/clock.ts"
 import { researchNode } from "../../../packages/rules/v0.1/evolution/trees.ts"
 import { nextCommandSeq } from "../../../packages/game/run.ts"
@@ -297,7 +298,7 @@ test("preview, postponement and retries preserve one settlement and one terminal
   startGame(store)
   const scene = () => store.getSnapshot().scene
   const tick = () => ({ type: "advance-week", seed: start.seed, completedWeek: scene().run.completedWeek })
-  const id = "unexpected-coding"
+  let id = "unexpected-coding"
   store.dispatch(panel("news"))
   store.dispatch({ type: "open-decision", id })
   store.dispatch({ type: "choose", id, choiceId: "rollback" })
@@ -310,19 +311,21 @@ test("preview, postponement and retries preserve one settlement and one terminal
   assert.equal(scene().run.completedWeek, 1)
   while (scene().kind === "campaign") store.dispatch(tick())
   assert.equal(scene().kind, "decision")
+  id = scene().id
+  const option = decisions[id].choices.find(c => c.cost > 0) ?? decisions[id].choices[0]
   const { instanceId } = scene()
   const before = scene().back.run
   store.dispatch({ type: "back" })
   store.dispatch(panel("news"))
   store.dispatch({ type: "open-decision", id, instanceId })
-  store.dispatch({ type: "choose", id, instanceId: "stale", choiceId: "rollback" })
+  store.dispatch({ type: "choose", id, instanceId: "stale", choiceId: option.id })
   assert.strictEqual(scene().back.run, before)
-  const choice = { type: "choose", id, instanceId, choiceId: "rollback" }
+  const choice = { type: "choose", id, instanceId, choiceId: option.id }
   store.dispatch(choice)
   store.dispatch(choice)
   store.dispatch({ type: "open-decision", id, instanceId })
   assert.equal(scene().kind, "campaign")
-  assert.equal(scene().run.balance, before.balance - 4)
+  assert.equal(scene().run.balance, before.balance - option.cost + option.effect.tokens)
   assert.equal(scene().run.commands.length, 1)
   assert.deepEqual(notices.filter(n => n.type === "decision-resolved").map(n => n.command), scene().run.commands)
   assert.deepEqual(notices.filter(n => n.type === "event-occurred").map(n => n.entry.instanceId), before.events.map(e => e.instanceId))
