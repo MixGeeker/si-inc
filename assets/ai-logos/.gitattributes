@@ -1,0 +1,2 @@
+*.svg -text whitespace=cr-at-eol
+index.html text eol=lf

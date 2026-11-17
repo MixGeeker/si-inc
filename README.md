@@ -14,6 +14,8 @@
 
 全仓游戏事件和共享状态遵循根目录约定。界面通过类型化事件写入，HUD、地图和面板读取同一份只读快照。[全仓约定](AGENTS.md) · [事件与全局状态使用规范](docs/game-runtime.md)
 
+游戏美术参考收录了 AI 公司、研究机构和产品的官方标志，可按公司或阵营名检索。[标志资产库与阵营对照](assets/ai-logos/README.md) · [离线预览](assets/ai-logos/index.html)
+
 使用 Node 24 和 npm，在仓库根目录运行：
 
 ```sh
