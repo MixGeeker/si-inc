@@ -3,4 +3,5 @@ node_modules/
 apps/web/dist/
 output/playwright/
 output/audio/
+output/ai-logos-*.zip
 .playwright-cli/

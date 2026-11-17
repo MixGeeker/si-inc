@@ -1,0 +1,1119 @@
+{
+  "collectedOn": "2026-11-14",
+  "organizations": [
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "category": "模型与研究",
+      "website": "https://openai.com/",
+      "aliases": [
+        "GPT",
+        "ChatGPT"
+      ],
+      "guidelines": "https://openai.com/brand/",
+      "assets": [
+        {
+          "name": "OpenAI 字标",
+          "kind": "organization",
+          "file": "companies/openai.svg",
+          "sourcePage": "https://openai.com/brand/",
+          "assetUrl": "https://cdn.openai.com/brand/OpenAI-Logos-2025.zip",
+          "archiveMember": "OpenAI-logos(new)/SVGs/OpenAI-black-wordmark.svg",
+          "sha256": "f5a8c4c38b81972f2ede620b06ac5c51fa7cd16a35a3b8361deffaa3202a351e"
+        },
+        {
+          "name": "OpenAI Blossom",
+          "kind": "organization",
+          "file": "companies/openai-blossom.svg",
+          "sourcePage": "https://openai.com/brand/",
+          "assetUrl": "https://cdn.openai.com/brand/OpenAI-Logos-2025.zip",
+          "archiveMember": "OpenAI-logos(new)/SVGs/OpenAI-black-monoblossom.svg",
+          "sha256": "7be72f1fea831d3ba81a545cee79b7e0ae69449d5d7837c9571ccbfb4aa1e00b"
+        }
+      ]
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "category": "模型与研究",
+      "website": "https://www.anthropic.com/",
+      "aliases": [
+        "Claude"
+      ],
+      "guidelines": "https://assets.claude.com/f7874b435aabdaee5f836e888b4439b9b56a934b.pdf",
+      "assets": [
+        {
+          "name": "Anthropic",
+          "kind": "organization",
+          "file": "companies/anthropic.svg",
+          "sourcePage": "https://www.anthropic.com/news",
+          "assetUrl": "https://www.anthropic.com/press-kit",
+          "archiveMember": "Anthropic media resources/Anthropic logos/Anthropic logos/1 Anthropic logo/SVG/Anthropic logo - Slate.svg",
+          "sha256": "56cc8de50f5c863520c7ae24464a8b2fd5c2f66f9063b9790aff8c37b4a0a554"
+        },
+        {
+          "name": "Claude Spark",
+          "kind": "product",
+          "file": "products/claude.svg",
+          "sourcePage": "https://www.anthropic.com/news",
+          "assetUrl": "https://www.anthropic.com/press-kit",
+          "archiveMember": "Anthropic media resources/Anthropic logos/Claude logos/3 Claude Spark/SVG/Claude Spark - Clay.svg",
+          "sha256": "6d53db4be375e899c937c26cf16684a80d6e869b1928d72b37748bef2560e219"
+        }
+      ]
+    },
+    {
+      "id": "google-deepmind",
+      "name": "Google DeepMind",
+      "category": "模型与研究",
+      "website": "https://deepmind.google/",
+      "aliases": [
+        "谷歌",
+        "Gemini"
+      ],
+      "guidelines": "https://about.google/brand-resource-center/",
+      "assets": [
+        {
+          "name": "Google DeepMind",
+          "kind": "organization",
+          "file": "companies/google-deepmind.svg",
+          "sourcePage": "https://deepmind.google/",
+          "assetUrl": "https://storage.googleapis.com/gdm-deepmind-com-prod-public/media/images/0xBk-c8kzB5UTrWs/nav__gdm-lockup__light.height-25.svg",
+          "sha256": "5f0d7b9a42124c37124c1b10c8f5e404b009c04465a27f7b9b87bec9e8dc362a"
+        },
+        {
+          "name": "Gemini",
+          "kind": "product",
+          "file": "products/gemini.svg",
+          "sourcePage": "https://gemini.google.com/",
+          "assetUrl": "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg",
+          "sha256": "f56df33f86dc0c0257da337c63bf7ad68c0a1b27b796ec707e147984351bccb3"
+        }
+      ]
+    },
+    {
+      "id": "xai",
+      "name": "SpaceXSI",
+      "category": "模型与研究",
+      "website": "https://x.ai/",
+      "aliases": [
+        "xAI",
+        "SpaceX Super Intelligence",
+        "Grok"
+      ],
+      "guidelines": "https://x.ai/legal/brand-guidelines",
+      "assets": [
+        {
+          "name": "SpaceXSI 文档站标志",
+          "kind": "organization",
+          "file": "companies/spacexsi.svg",
+          "sourcePage": "https://docs.x.ai/overview",
+          "element": "a[aria-label=\"SpaceXSI Docs home\"] svg",
+          "sha256": "3a2ec6c7f543c70b7c6116fbd6bc4b55c5830a8139bc97835bef9fbfac0ed995"
+        },
+        {
+          "name": "xAI 旧标志",
+          "kind": "historical",
+          "file": "companies/xai.webp",
+          "sourcePage": "https://huggingface.co/xai-org",
+          "assetUrl": "https://cdn-avatars.huggingface.co/v1/production/uploads/65f32e8277a2f0e983437469/fKpP0Yowa29vJHK9JSnBf.png",
+          "sha256": "3adcc5ce4f2670e1a642b2a934cf3976c6ba62bcb2b07f3c643baff281d6b2a3"
+        },
+        {
+          "name": "Grok",
+          "kind": "product",
+          "file": "products/grok.png",
+          "sourcePage": "https://grok.com/manifest.webmanifest",
+          "assetUrl": "https://grok.com/images/android-chrome-512x512.png",
+          "sha256": "3a462c3c2524733c173bb05c431de737812f8219db8fa115b0025d12a347e086"
+        }
+      ]
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "category": "模型与研究",
+      "website": "https://www.deepseek.com/",
+      "aliases": [
+        "深度求索"
+      ],
+      "guidelines": "https://github.com/deepseek-ai/awesome-deepseek-integration/blob/main/docs/_logo%20svg/guidelines.md",
+      "assets": [
+        {
+          "name": "DeepSeek",
+          "kind": "organization",
+          "file": "companies/deepseek.svg",
+          "sourcePage": "https://github.com/deepseek-ai/awesome-deepseek-integration/blob/main/docs/_logo%20svg/guidelines.md",
+          "assetUrl": "https://raw.githubusercontent.com/deepseek-ai/awesome-deepseek-integration/172dc8b74a0d549f4bce9850f7fe6a25b37a5ac7/docs/_logo%20svg/COMBINE.svg",
+          "sha256": "64272f03ba3076160c8a11f795d208c9dc19606ed09615aa03f107a51b7d82d0"
+        },
+        {
+          "name": "DeepSeek 鲸鱼",
+          "kind": "organization",
+          "file": "companies/deepseek-symbol.svg",
+          "sourcePage": "https://github.com/deepseek-ai/awesome-deepseek-integration/blob/main/docs/_logo%20svg/guidelines.md",
+          "assetUrl": "https://raw.githubusercontent.com/deepseek-ai/awesome-deepseek-integration/172dc8b74a0d549f4bce9850f7fe6a25b37a5ac7/docs/_logo%20svg/ICON.svg",
+          "sha256": "b15083e3cbb398bd35619b758c43adc0a632efccc7e2d69f2481a860862910fe"
+        }
+      ]
+    },
+    {
+      "id": "zhipu",
+      "name": "智谱",
+      "category": "模型与研究",
+      "website": "https://www.zhipuai.cn/",
+      "aliases": [
+        "Z.ai",
+        "Zhipu AI",
+        "GLM",
+        "ChatGLM"
+      ],
+      "assets": [
+        {
+          "name": "智谱",
+          "kind": "organization",
+          "file": "companies/zhipu.svg",
+          "sourcePage": "https://www.zhipuai.cn/zh",
+          "assetUrl": "https://www.zhipuai.cn/logo.svg",
+          "sha256": "3f8e33a42855c45b94c6fd80c45ebd5dd4c2bfd26ec0f0fe5629f9c3c72b0121"
+        },
+        {
+          "name": "Z.ai（GLM 仓库用标）",
+          "kind": "organization",
+          "file": "companies/zai.svg",
+          "sourcePage": "https://github.com/zai-org/GLM-5",
+          "assetUrl": "https://raw.githubusercontent.com/zai-org/GLM-5/83c03d317378f86f0a012f7c4cd48b6243c7e69b/resources/logo.svg",
+          "sha256": "e60742a0b37f805e654249dedb7b6ca11c785a60a2dd9ae33864668dce217693"
+        }
+      ]
+    },
+    {
+      "id": "moonshot",
+      "name": "月之暗面",
+      "category": "模型与研究",
+      "website": "https://www.moonshot.cn/",
+      "aliases": [
+        "Moonshot AI",
+        "Kimi"
+      ],
+      "assets": [
+        {
+          "name": "Moonshot AI",
+          "kind": "organization",
+          "file": "companies/moonshot.svg",
+          "sourcePage": "https://www.moonshot.cn/",
+          "assetUrl": "https://statics.kimi.ai/moonshot-ai/assets/static/moonshot-ai-wordmark.DeMGOuiG.svg",
+          "background": "dark",
+          "sha256": "441f80552221dbb5bac7af7b84265f0fee03655426359cd48d10952c65058c11"
+        },
+        {
+          "name": "Kimi",
+          "kind": "product",
+          "file": "products/kimi.png",
+          "sourcePage": "https://www.kimi.com/",
+          "assetUrl": "https://www.kimi.com/pwa-192.png",
+          "sha256": "6c14f9c3062e953b3ed57ae3e19db931c1c1bba38d4d8d55550544f31d55e469"
+        }
+      ]
+    },
+    {
+      "id": "bytedance",
+      "name": "字节跳动",
+      "category": "模型与研究",
+      "website": "https://www.bytedance.com/",
+      "aliases": [
+        "ByteDance",
+        "豆包",
+        "Doubao"
+      ],
+      "assets": [
+        {
+          "name": "ByteDance",
+          "kind": "organization",
+          "file": "companies/bytedance.svg",
+          "sourcePage": "https://www.bytedance.com/?locale=en",
+          "element": "img[alt=\"ByteDance\"]（彩色版）",
+          "sha256": "3a7d78e858a31801e53df3d0b7280e09ece2fa9d858b45dcdf7a905f2f7a193f"
+        },
+        {
+          "name": "豆包",
+          "kind": "product",
+          "file": "products/doubao.png",
+          "sourcePage": "https://www.doubao.com/chat/",
+          "assetUrl": "https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/favicon/new-doubao/192x192.png",
+          "sha256": "dabb2abd94e3a6c11e7f1a42c9343839b6ef643c086751b71afbc68f615aec38"
+        }
+      ]
+    },
+    {
+      "id": "alibaba",
+      "name": "阿里巴巴集团",
+      "category": "模型与研究",
+      "website": "https://www.alibabagroup.com/",
+      "aliases": [
+        "Alibaba Group",
+        "阿里",
+        "Qwen",
+        "通义千问"
+      ],
+      "guidelines": "https://home.alibabagroup.com/en-US/resource-logos",
+      "usageNote": "Source: www.alibabagroup.com. 集团媒体库对使用场景和署名有具体要求，详见来源页。",
+      "assets": [
+        {
+          "name": "阿里巴巴集团",
+          "kind": "organization",
+          "file": "companies/alibaba.png",
+          "sourcePage": "https://home.alibabagroup.com/en-US/resource-logos",
+          "assetUrl": "https://ali-home-data.oss-cn-hangzhou.aliyuncs.com/ecms-files/886024452/d7eaad8d-b2b1-4f5f-ad09-9338bfe8efc5.png",
+          "sha256": "99e16b3aa1342434196ae400c5ad1ea1e5dd91265d30570545b5d6ffd09a3b3f"
+        },
+        {
+          "name": "Qwen",
+          "kind": "product",
+          "file": "products/qwen.svg",
+          "sourcePage": "https://chat.qwen.ai/",
+          "assetUrl": "https://assets.alicdn.com/g/qwenweb/qwen-chat-fe/0.3.42/static/images/qwen-logo.svg",
+          "sha256": "501a95022bac0d03914ec7605730817386c3e392a6667f75d8582f22917fa914"
+        }
+      ]
+    },
+    {
+      "id": "baidu",
+      "name": "百度",
+      "category": "模型与研究",
+      "website": "https://home.baidu.com/",
+      "aliases": [
+        "Baidu",
+        "文心",
+        "ERNIE"
+      ],
+      "assets": [
+        {
+          "name": "百度",
+          "kind": "organization",
+          "file": "companies/baidu.png",
+          "sourcePage": "https://home.baidu.com/",
+          "assetUrl": "https://home.baidu.com/Public/img/logo.png?v=15",
+          "sha256": "d95942708a67aaac7bf4da585384fdf5841d4ce69a28cfbe5beb1c47ac72f406"
+        }
+      ]
+    },
+    {
+      "id": "tencent",
+      "name": "腾讯",
+      "category": "模型与研究",
+      "website": "https://www.tencent.com/",
+      "aliases": [
+        "Tencent",
+        "混元",
+        "Hunyuan",
+        "元宝"
+      ],
+      "assets": [
+        {
+          "name": "Tencent",
+          "kind": "organization",
+          "file": "companies/tencent.png",
+          "sourcePage": "https://www.tencent.com/",
+          "assetUrl": "https://www.tencent.com/wp-content/uploads/2024/05/logo@2x-en.png",
+          "sha256": "c79699e8e5e0dd02f70ff0359f29881892fa10f578d39f5af963f0287cb0af5f"
+        }
+      ]
+    },
+    {
+      "id": "minimax",
+      "name": "MiniMax",
+      "category": "模型与研究",
+      "website": "https://www.minimax.io/",
+      "aliases": [
+        "稀宇科技",
+        "海螺 AI",
+        "Hailuo"
+      ],
+      "assets": [
+        {
+          "name": "MiniMax",
+          "kind": "organization",
+          "file": "companies/minimax.webp",
+          "sourcePage": "https://www.minimax.io/",
+          "assetUrl": "https://www.minimax.io/assets/logo/minimax-horizontal-brand-black.webp",
+          "sha256": "7459aaaecb55eeb47c9a754ecc4c982a469d73f783084adc044d538cb4e593c5"
+        }
+      ]
+    },
+    {
+      "id": "stepfun",
+      "name": "阶跃星辰",
+      "category": "模型与研究",
+      "website": "https://www.stepfun.com/",
+      "aliases": [
+        "StepFun",
+        "Step"
+      ],
+      "assets": [
+        {
+          "name": "StepFun",
+          "kind": "organization",
+          "file": "companies/stepfun.svg",
+          "sourcePage": "https://github.com/stepfun-ai/Step-3.5-Flash",
+          "assetUrl": "https://raw.githubusercontent.com/stepfun-ai/Step-3.5-Flash/21d85a5f6c291f3f138da0bc09979af43345251a/assets/stepfun-wide.svg",
+          "sha256": "6d268c636b54ddc98afd58a6bf9a417990baace86da64d8fefd244fd654c9027"
+        }
+      ]
+    },
+    {
+      "id": "baichuan",
+      "name": "百川智能",
+      "category": "模型与研究",
+      "website": "https://www.baichuan-ai.com/",
+      "aliases": [
+        "Baichuan"
+      ],
+      "assets": [
+        {
+          "name": "百川智能",
+          "kind": "organization",
+          "file": "companies/baichuan.png",
+          "sourcePage": "https://www.baichuan-ai.com/",
+          "assetUrl": "https://www.baichuan-ai.com/apple-touch-icon.png",
+          "sha256": "d18e6691e8fc0b5912663afff031f7809b5314d1c98a3a447ba2cafc8832c7f4"
+        }
+      ]
+    },
+    {
+      "id": "modelbest",
+      "name": "面壁智能",
+      "category": "模型与研究",
+      "website": "https://modelbest.cn/",
+      "aliases": [
+        "ModelBest",
+        "MiniCPM"
+      ],
+      "assets": [
+        {
+          "name": "面壁智能",
+          "kind": "organization",
+          "file": "companies/modelbest.svg",
+          "sourcePage": "https://modelbest.cn/",
+          "assetUrl": "https://modelbest.cn/modelbest/modelbest.D2yqVNr3.svg",
+          "sha256": "d0c37aaac8bd7cda932a56ba7e2fcebc9c0a97431070737c91fe5324c036b7ec"
+        }
+      ]
+    },
+    {
+      "id": "01-ai",
+      "name": "零一万物",
+      "category": "模型与研究",
+      "website": "https://www.01.ai/",
+      "aliases": [
+        "01.AI",
+        "Yi",
+        "Lingyiwanwu"
+      ],
+      "assets": [
+        {
+          "name": "零一万物",
+          "kind": "organization",
+          "file": "companies/01-ai.png",
+          "sourcePage": "https://www.01.ai/",
+          "assetUrl": "https://www.01.ai/branding/logo.fb7ccad7.png",
+          "background": "dark",
+          "sha256": "fb7ccad7d4f25215602cb12c54429e1092287ba8f1280e9201d12746704bb389"
+        }
+      ]
+    },
+    {
+      "id": "iflytek",
+      "name": "科大讯飞",
+      "category": "模型与研究",
+      "website": "https://www.iflytek.com/",
+      "aliases": [
+        "iFLYTEK",
+        "讯飞星火",
+        "Spark"
+      ],
+      "assets": [
+        {
+          "name": "iFLYTEK",
+          "kind": "organization",
+          "file": "companies/iflytek.svg",
+          "sourcePage": "https://www.iflytek.com/en/",
+          "assetUrl": "https://www.iflytek.com/en/Public/Uploads/uploadfile/images/20230812/comlogo1.svg",
+          "sha256": "ae825a3ddb3e7bed8c4a1691c6676cca9d003d673ba5089b246178c9bd43727f"
+        }
+      ]
+    },
+    {
+      "id": "sensetime",
+      "name": "商汤科技",
+      "category": "模型与研究",
+      "website": "https://www.sensetime.com/",
+      "aliases": [
+        "SenseTime",
+        "日日新",
+        "SenseNova"
+      ],
+      "assets": [
+        {
+          "name": "商汤 SenseTime",
+          "kind": "organization",
+          "file": "companies/sensetime.png",
+          "sourcePage": "https://www.sensetime.com/en/",
+          "assetUrl": "https://www.sensetime.com/assets/logo-frame10.png",
+          "sha256": "7708d37d4b2367d866aee732020be22d2f5086f5c85869a01221ef722f068001"
+        }
+      ]
+    },
+    {
+      "id": "meta",
+      "name": "Meta",
+      "category": "模型与研究",
+      "website": "https://about.meta.com/",
+      "aliases": [
+        "Meta AI",
+        "Llama"
+      ],
+      "guidelines": "https://www.meta.com/brand/resources/meta/company-brand/",
+      "assets": [
+        {
+          "name": "Meta",
+          "kind": "organization",
+          "file": "companies/meta.svg",
+          "sourcePage": "https://about.fb.com/news/2021/10/facebook-company-is-now-meta/",
+          "element": ".site-wordmark svg",
+          "sha256": "9571d4565061dcbbbdf12ca070653cb5ca146b0c31059aacd94de2dea905e4b1"
+        }
+      ]
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral AI",
+      "category": "模型与研究",
+      "website": "https://mistral.ai/",
+      "aliases": [
+        "Le Chat"
+      ],
+      "guidelines": "https://mistral.ai/brand/",
+      "assets": [
+        {
+          "name": "Mistral AI",
+          "kind": "organization",
+          "file": "companies/mistral.svg",
+          "sourcePage": "https://mistral.ai/brand/",
+          "element": "a[data-mobile-logo] svg[viewBox=\"0 0 98 22\"]",
+          "sha256": "4af90f5941c959b554b4f3eb82c5633044ad06fdf2d8daa837eea0357fbd7e22"
+        }
+      ]
+    },
+    {
+      "id": "cohere",
+      "name": "Cohere",
+      "category": "模型与研究",
+      "website": "https://cohere.com/",
+      "aliases": [
+        "Command"
+      ],
+      "assets": [
+        {
+          "name": "Cohere",
+          "kind": "organization",
+          "file": "companies/cohere.svg",
+          "sourcePage": "https://cohere.com/newsroom",
+          "assetUrl": "https://cdn.sanity.io/files/rjtqmwfu/web3-prod/32f7d09e898b78e0b96c6de7969586824ce4bb71.zip",
+          "archiveMember": "Cohere_Press_Kit/Cohere Logos/Logo/Digital (RGB)/Color/cohere_logo_colour_rgb.svg",
+          "sha256": "b453b84e3de54ad9810627660877d6fdd2e564b15d9697905432eda8e180b0c1"
+        }
+      ]
+    },
+    {
+      "id": "ai21",
+      "name": "AI21 Labs",
+      "category": "模型与研究",
+      "website": "https://www.ai21.com/",
+      "aliases": [
+        "AI21",
+        "Jamba"
+      ],
+      "assets": [
+        {
+          "name": "AI21 Labs",
+          "kind": "organization",
+          "file": "companies/ai21.svg",
+          "sourcePage": "https://www.ai21.com/",
+          "assetUrl": "https://www.ai21.com/wp-content/uploads/2026/02/ai21-logo-black.svg",
+          "sha256": "a0c99d435f3631a27a8d03818bbd0007cbf3a8d2cb57465602b5309ccc42a666"
+        }
+      ]
+    },
+    {
+      "id": "sakana",
+      "name": "Sakana AI",
+      "category": "模型与研究",
+      "website": "https://sakana.ai/",
+      "aliases": [
+        "Sakana"
+      ],
+      "assets": [
+        {
+          "name": "Sakana AI",
+          "kind": "organization",
+          "file": "companies/sakana.webp",
+          "sourcePage": "https://sakana.ai/",
+          "assetUrl": "https://sakana.ai/sakana-logo-hero-1280.webp",
+          "sha256": "922f299f2ee00ffe3995d47276b74506eba58b5540181c14627e240a42783a7a"
+        }
+      ]
+    },
+    {
+      "id": "sarvam",
+      "name": "Sarvam AI",
+      "category": "模型与研究",
+      "website": "https://www.sarvam.ai/",
+      "assets": [
+        {
+          "name": "Sarvam AI",
+          "kind": "organization",
+          "file": "companies/sarvam.svg",
+          "sourcePage": "https://www.sarvam.ai/",
+          "assetUrl": "https://assets.sarvam.ai/assets/brand/logos/sarvam-wordmark-black.svg",
+          "sha256": "d0fde8af1b0fdb4991a708abbf8089544daa1acde4e23eef38a69a139d3a4a15"
+        }
+      ]
+    },
+    {
+      "id": "upstage",
+      "name": "Upstage",
+      "category": "模型与研究",
+      "website": "https://www.upstage.ai/",
+      "aliases": [
+        "Solar"
+      ],
+      "assets": [
+        {
+          "name": "Upstage",
+          "kind": "organization",
+          "file": "companies/upstage.svg",
+          "sourcePage": "https://www.upstage.ai/",
+          "element": ".uui-logo_component svg[viewBox=\"0 0 56 66\"]",
+          "sha256": "ce6ae16af21d2af9cfca2d74bcc07036ad29671bec5bc0437c6d8c1f4fec196e"
+        }
+      ]
+    },
+    {
+      "id": "tii",
+      "name": "Technology Innovation Institute",
+      "category": "模型与研究",
+      "website": "https://www.tii.ae/",
+      "aliases": [
+        "TII",
+        "Falcon"
+      ],
+      "assets": [
+        {
+          "name": "Technology Innovation Institute",
+          "kind": "organization",
+          "file": "companies/tii.svg",
+          "sourcePage": "https://www.tii.ae/",
+          "assetUrl": "https://webfiles.tii.ae/static/tii-logo-dark.svg",
+          "sha256": "87d8fc46a5f84b4d8ac65e83e8529b7d8898ed49ba4fdc431dd326753cca8256"
+        }
+      ]
+    },
+    {
+      "id": "black-forest-labs",
+      "name": "Black Forest Labs",
+      "category": "应用与创作",
+      "website": "https://bfl.ai/",
+      "aliases": [
+        "BFL",
+        "FLUX"
+      ],
+      "guidelines": "https://bfl.ai/brand",
+      "assets": [
+        {
+          "name": "Black Forest Labs",
+          "kind": "organization",
+          "file": "companies/black-forest-labs.svg",
+          "sourcePage": "https://bfl.ai/brand",
+          "assetUrl": "https://bfl.ai/brand/logotype-black.svg",
+          "sha256": "11b5f57572d2730eef9b09804edd79f0494b663d204712c3b9ca844afdbd3282"
+        }
+      ]
+    },
+    {
+      "id": "stability",
+      "name": "Stability AI",
+      "category": "应用与创作",
+      "website": "https://stability.ai/",
+      "aliases": [
+        "Stable Diffusion",
+        "Stable Audio"
+      ],
+      "guidelines": "https://static1.squarespace.com/static/6213c340453c3f502425776e/t/690387a6777d1c4bbc728719/1761839014196/Stability%2BAI%2B--%2BBrand%2BGuidelines.pdf",
+      "assets": [
+        {
+          "name": "Stability AI",
+          "kind": "organization",
+          "file": "companies/stability.webp",
+          "sourcePage": "https://stability.ai/press",
+          "assetUrl": "https://images.squarespace-cdn.com/content/v1/6213c340453c3f502425776e/4e38b1d7-350c-4fd8-ac08-114a3448f110/Stability-ai-logo-white-dot.png",
+          "background": "dark",
+          "sha256": "e030c46f689730ba31f5d00e248f889dae0631a6d7fc62b46e34a486b841469c"
+        }
+      ]
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity",
+      "category": "应用与创作",
+      "website": "https://www.perplexity.ai/",
+      "aliases": [
+        "Perplexity AI",
+        "Sonar"
+      ],
+      "assets": [
+        {
+          "name": "Perplexity",
+          "kind": "organization",
+          "file": "companies/perplexity.svg",
+          "sourcePage": "https://www.perplexity.ai/hub",
+          "element": "img[src*=\"PPLX_Wordmark_B\"]",
+          "sha256": "3fe03686e07073c641dcbc35f9b720048f71152d80089c48f4d2c5f69903fd84"
+        }
+      ]
+    },
+    {
+      "id": "runway",
+      "name": "Runway",
+      "category": "应用与创作",
+      "website": "https://runway.com/",
+      "aliases": [
+        "RunwayML"
+      ],
+      "guidelines": "https://runway.com/brand-guidelines",
+      "assets": [
+        {
+          "name": "Runway",
+          "kind": "organization",
+          "file": "companies/runway.svg",
+          "sourcePage": "https://runway.com/brand-guidelines",
+          "assetUrl": "https://runway.com/assets/Runway-Brand-Guidelines.zip",
+          "archiveMember": "Runway Brand Guidelines/Runway_Black_Logo_SVG.svg",
+          "sha256": "10eb37f633c348ec78190cdb081bf3d001cea71976cae9e4f35124dc4e2065f5"
+        }
+      ]
+    },
+    {
+      "id": "elevenlabs",
+      "name": "ElevenLabs",
+      "category": "应用与创作",
+      "website": "https://elevenlabs.io/",
+      "aliases": [
+        "11Labs"
+      ],
+      "assets": [
+        {
+          "name": "ElevenLabs",
+          "kind": "organization",
+          "file": "companies/elevenlabs.svg",
+          "sourcePage": "https://elevenlabs.io/press",
+          "assetUrl": "https://11labs-nonprd-15f22c1d.s3.eu-west-3.amazonaws.com/0b9cd3e1-9fad-4a5b-b3a0-c96b0a1f1d2b/elevenlabs-logo-black.svg",
+          "sha256": "7a41b7f26b6286f607d34c80a658ef06e5cb6c094a1b087b563c8508e15f2178"
+        }
+      ]
+    },
+    {
+      "id": "anysphere",
+      "name": "Anysphere",
+      "category": "应用与创作",
+      "website": "https://anysphere.inc/",
+      "aliases": [
+        "Cursor"
+      ],
+      "assets": [
+        {
+          "name": "Anysphere",
+          "kind": "organization",
+          "file": "companies/anysphere.svg",
+          "sourcePage": "https://anysphere.inc/",
+          "element": "svg[aria-label=\"Anysphere\"]",
+          "sha256": "e3705a51e01496e8ca64ff8550911fac200b297c613d0c7ee9a4efc27d8b71d3"
+        },
+        {
+          "name": "Cursor",
+          "kind": "product",
+          "file": "products/cursor.svg",
+          "sourcePage": "https://cursor.com/brand",
+          "assetUrl": "https://ptht05hbb1ssoooe.public.blob.vercel-storage.com/assets/brand/cursor-brand-assets.zip",
+          "archiveMember": "General Logos/Lockup Horizontal/SVG/LOCKUP_HORIZONTAL_25D_LIGHT.svg",
+          "sha256": "498f170e0969d86c5d489c70f198e5d1abcfc9316919b894ce743a6c16192251"
+        }
+      ]
+    },
+    {
+      "id": "luma",
+      "name": "Luma AI",
+      "category": "应用与创作",
+      "website": "https://lumalabs.ai/",
+      "aliases": [
+        "Luma",
+        "Dream Machine"
+      ],
+      "assets": [
+        {
+          "name": "Luma",
+          "kind": "organization",
+          "file": "companies/luma.svg",
+          "sourcePage": "https://lumalabs.ai/",
+          "element": "svg 含 title「Luma company logo」",
+          "sha256": "9a224a64d070a1a72fffd3dd7577dbd8e4db0d2616446ec5cdfb271cbf729182"
+        }
+      ]
+    },
+    {
+      "id": "midjourney",
+      "name": "Midjourney",
+      "category": "应用与创作",
+      "website": "https://www.midjourney.com/",
+      "aliases": [
+        "MJ"
+      ],
+      "guidelines": "https://docs.midjourney.com/hc/en-us/articles/32084281102349-Midjourney-Trademark-Policy",
+      "assets": [
+        {
+          "name": "Midjourney",
+          "kind": "organization",
+          "file": "companies/midjourney.png",
+          "sourcePage": "https://github.com/midjourney",
+          "assetUrl": "https://avatars.githubusercontent.com/u/61396273?v=4",
+          "sha256": "3cd84946bc7daaac09ec3c3a27fc394d07ada6e1e6c6bbbffd7c3474d178e474"
+        }
+      ]
+    },
+    {
+      "id": "suno",
+      "name": "Suno",
+      "category": "应用与创作",
+      "website": "https://suno.com/",
+      "assets": [
+        {
+          "name": "Suno",
+          "kind": "organization",
+          "file": "companies/suno.svg",
+          "sourcePage": "https://suno.com/",
+          "element": "svg[aria-label=\"Suno logo\"]",
+          "sha256": "f95c306222105416a61fb8cea088139a36702c79f63d1e99416c7eefbbc0860b"
+        }
+      ]
+    },
+    {
+      "id": "synthesia",
+      "name": "Synthesia",
+      "category": "应用与创作",
+      "website": "https://www.synthesia.io/",
+      "assets": [
+        {
+          "name": "Synthesia",
+          "kind": "organization",
+          "file": "companies/synthesia.svg",
+          "sourcePage": "https://www.synthesia.io/",
+          "assetUrl": "https://cdn.prod.website-files.com/65e89895c5a4b8d764c0d710/65eae689ace95f5017dc17a0_Logo-main.svg",
+          "sha256": "c25cdf2dd427ebffdbca91a94b8f5252440ec9db986bb249f932e50edb6455c7"
+        }
+      ]
+    },
+    {
+      "id": "ideogram",
+      "name": "Ideogram",
+      "category": "应用与创作",
+      "website": "https://ideogram.ai/",
+      "assets": [
+        {
+          "name": "Ideogram",
+          "kind": "organization",
+          "file": "companies/ideogram.svg",
+          "sourcePage": "https://ideogram.ai/",
+          "assetUrl": "https://ideogram.ai/favicon.svg?v=new-brand-20261020",
+          "sha256": "7a50d17b8d3d21b31f7bb40c7ca1a36da9c1e9fb0689bd084aaddf31d6c3fa28"
+        }
+      ]
+    },
+    {
+      "id": "recraft",
+      "name": "Recraft",
+      "category": "应用与创作",
+      "website": "https://www.recraft.ai/",
+      "assets": [
+        {
+          "name": "Recraft",
+          "kind": "organization",
+          "file": "companies/recraft.svg",
+          "sourcePage": "https://www.recraft.ai/",
+          "assetUrl": "https://static.recraft.ai/apps/images/home/logo.svg",
+          "background": "dark",
+          "sha256": "e16c0a878e2bb575aef76bc7badca59421276b9547a4881010d573e7b3f73425"
+        }
+      ]
+    },
+    {
+      "id": "deepl",
+      "name": "DeepL",
+      "category": "应用与创作",
+      "website": "https://www.deepl.com/",
+      "aliases": [
+        "DeepL 翻译"
+      ],
+      "assets": [
+        {
+          "name": "DeepL",
+          "kind": "organization",
+          "file": "companies/deepl.svg",
+          "sourcePage": "https://www.deepl.com/en/press",
+          "assetUrl": "https://www.deepl.com/img/logo/deepl-logo-blue.svg",
+          "sha256": "71df5c84f31125f2f585a82489a570efb6fb371c6ca2b8c1deabca4463e601ba"
+        }
+      ]
+    },
+    {
+      "id": "hugging-face",
+      "name": "Hugging Face",
+      "category": "平台与算力",
+      "website": "https://huggingface.co/",
+      "aliases": [
+        "HuggingFace",
+        "HF"
+      ],
+      "guidelines": "https://huggingface.co/brand",
+      "assets": [
+        {
+          "name": "Hugging Face",
+          "kind": "organization",
+          "file": "companies/hugging-face.svg",
+          "sourcePage": "https://huggingface.co/brand",
+          "assetUrl": "https://huggingface.co/datasets/huggingface/brand-assets/resolve/main/hf-logo.svg",
+          "sha256": "942cad1ccda905ac5a659dfd2d78b344fccfb84a8a3ac3721e08f488205638a0"
+        }
+      ]
+    },
+    {
+      "id": "siliconflow",
+      "name": "硅基流动",
+      "category": "平台与算力",
+      "website": "https://www.siliconflow.cn/",
+      "aliases": [
+        "SiliconFlow"
+      ],
+      "assets": [
+        {
+          "name": "硅基流动",
+          "kind": "organization",
+          "file": "companies/siliconflow.svg",
+          "sourcePage": "https://www.siliconflow.cn/",
+          "assetUrl": "https://www.siliconflow.cn/logo-new.svg",
+          "sha256": "0d2f3d8cfdee363161649263a89d796defb163f37fab88f1e42abbf55ec446ed"
+        }
+      ]
+    },
+    {
+      "id": "together",
+      "name": "Together AI",
+      "category": "平台与算力",
+      "website": "https://www.together.ai/",
+      "assets": [
+        {
+          "name": "Together AI",
+          "kind": "organization",
+          "file": "companies/together.svg",
+          "sourcePage": "https://www.together.ai/",
+          "element": "svg.nav-logo",
+          "sha256": "b784396689f313bdaaac371cb12f95b0f4d6e22180499b088f34b0d2cc84808c"
+        }
+      ]
+    },
+    {
+      "id": "fireworks",
+      "name": "Fireworks AI",
+      "category": "平台与算力",
+      "website": "https://fireworks.ai/",
+      "assets": [
+        {
+          "name": "Fireworks AI",
+          "kind": "organization",
+          "file": "companies/fireworks.svg",
+          "sourcePage": "https://fireworks.ai/",
+          "element": "svg[aria-label=\"Fireworks AI\"]",
+          "sha256": "ac54f5a575c65578bd84def3f7f9ae3a87c90f4e365cc44cb4c992d3710c997c"
+        }
+      ]
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "category": "平台与算力",
+      "website": "https://groq.com/",
+      "aliases": [
+        "GroqCloud"
+      ],
+      "assets": [
+        {
+          "name": "Groq",
+          "kind": "organization",
+          "file": "companies/groq.svg",
+          "sourcePage": "https://groq.com/",
+          "element": "a[aria-label=\"Groq home\"] svg",
+          "sha256": "becbcba1b2f1eb64749d221fc996da3180216cf7786fbae3024df5e69c4a57d1"
+        }
+      ]
+    },
+    {
+      "id": "cerebras",
+      "name": "Cerebras Systems",
+      "category": "平台与算力",
+      "website": "https://www.cerebras.ai/",
+      "aliases": [
+        "Cerebras"
+      ],
+      "assets": [
+        {
+          "name": "Cerebras",
+          "kind": "organization",
+          "file": "companies/cerebras.svg",
+          "sourcePage": "https://www.cerebras.ai/company/press-kit",
+          "assetUrl": "https://cdn.sanity.io/files/e4qjo92p/production/047798c0db861ade2a18320e534c00f05883a180.zip",
+          "archiveMember": "Cerebras C logo.svg",
+          "sha256": "5cd1e17dee4a2e135cbbe270776414e5e43babaea4715beb8c05f466c7a9c3f2"
+        }
+      ]
+    },
+    {
+      "id": "nvidia",
+      "name": "NVIDIA",
+      "category": "平台与算力",
+      "website": "https://www.nvidia.com/",
+      "aliases": [
+        "英伟达",
+        "NVIDIA AI"
+      ],
+      "guidelines": "https://www.nvidia.com/en-us/about-nvidia/legal-info/logo-brand-usage/",
+      "assets": [
+        {
+          "name": "NVIDIA",
+          "kind": "organization",
+          "file": "companies/nvidia.svg",
+          "sourcePage": "https://www.nvidia.com/en-us/about-nvidia/legal-info/logo-brand-usage/",
+          "assetUrl": "https://www.nvidia.com/content/nvidiaGDC/us/en_US/about-nvidia/legal-info/logo-brand-usage/_jcr_content/root/responsivegrid/nv_container_392921705/nv_container/nv_image.coreimg.svg/1776076920288/nvidia-logo-vert.svg",
+          "sha256": "5347e5188c74204767d2d4daa17b59b5a18ccd7ad0a7281e7961a83c20c96808"
+        }
+      ]
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama",
+      "category": "平台与算力",
+      "website": "https://ollama.com/",
+      "assets": [
+        {
+          "name": "Ollama",
+          "kind": "organization",
+          "file": "companies/ollama.svg",
+          "sourcePage": "https://github.com/ollama/ollama/tree/main/docs",
+          "assetUrl": "https://raw.githubusercontent.com/ollama/ollama/a5864fcb33969705de3c0ebfedf4b2a16c970bcc/docs/ollama-logo.svg",
+          "sha256": "397a6ee071cce1496edd8a86dd1c91ce005712ec161690e411b3dc7f151181f5"
+        }
+      ]
+    },
+    {
+      "id": "replicate",
+      "name": "Replicate",
+      "category": "平台与算力",
+      "website": "https://replicate.com/",
+      "assets": [
+        {
+          "name": "Replicate",
+          "kind": "organization",
+          "file": "companies/replicate.svg",
+          "sourcePage": "https://replicate.com/about",
+          "element": ".v2-header-logo svg",
+          "sha256": "74f4f1988218afbd34d48b010086a360550730e82c09d08eeee889749d6c0a26"
+        }
+      ]
+    },
+    {
+      "id": "databricks",
+      "name": "Databricks",
+      "category": "平台与算力",
+      "website": "https://www.databricks.com/",
+      "assets": [
+        {
+          "name": "Databricks",
+          "kind": "organization",
+          "file": "companies/databricks.svg",
+          "sourcePage": "https://www.databricks.com/company/newsroom/press-kit",
+          "assetUrl": "https://www.databricks.com/sites/default/files/2024-10/Databricks-Logo-Icon.svg?v=1730232694",
+          "sha256": "7de87fef1567963690991896469ad7ed29e29c57c12c42822fca78e3f09f40e2"
+        }
+      ]
+    },
+    {
+      "id": "microsoft",
+      "name": "Microsoft",
+      "category": "平台与算力",
+      "website": "https://www.microsoft.com/",
+      "aliases": [
+        "微软",
+        "Azure",
+        "Copilot"
+      ],
+      "assets": [
+        {
+          "name": "Microsoft",
+          "kind": "organization",
+          "file": "companies/microsoft.png",
+          "sourcePage": "https://www.microsoft.com/en-us/",
+          "assetUrl": "https://img-prod-cms-rt-microsoft-com.akamaized.net/cms/api/am/imageFileData/RE1Mu3b?ver=5c31",
+          "sha256": "112fec798b78aa02e102a724b5cb1990c0f909bc1d8b7b1fa256eab41bbc0960"
+        }
+      ]
+    },
+    {
+      "id": "aws",
+      "name": "Amazon Web Services",
+      "category": "平台与算力",
+      "website": "https://aws.amazon.com/",
+      "aliases": [
+        "AWS",
+        "亚马逊云科技",
+        "Amazon Bedrock"
+      ],
+      "assets": [
+        {
+          "name": "AWS",
+          "kind": "organization",
+          "file": "companies/aws.png",
+          "sourcePage": "https://press.aboutamazon.com/logos?p=3",
+          "assetUrl": "https://assets.aboutamazon.com/ff/9f/c88d0578474381e7ee1b6d337d23/aws-logo-rgb.png",
+          "sha256": "0762717e921e1cf1813b7e28d3097b24e564357f7d30d416b3aa2aafcb18f9d3"
+        }
+      ]
+    },
+    {
+      "id": "g42",
+      "name": "G42",
+      "category": "平台与算力",
+      "website": "https://www.g42.ai/",
+      "aliases": [
+        "Group 42"
+      ],
+      "assets": [
+        {
+          "name": "G42",
+          "kind": "organization",
+          "file": "companies/g42.png",
+          "sourcePage": "https://www.g42.ai/",
+          "assetUrl": "https://www.g42.ai/application/themes/G42/dist/images/logo.png",
+          "sha256": "1f410469fc1ad390a90b92d1810d5c7045ca6f5c94e784085b0b06a524422d75"
+        }
+      ]
+    }
+  ]
+}
