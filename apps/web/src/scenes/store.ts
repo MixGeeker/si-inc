@@ -9,6 +9,7 @@ import { regionOfCountry, type RegionId } from "../../../../packages/rules/v0.1/
 import { computePlaceById, computePlaces } from "../cartography/compute-markers.ts"
 import { spratlyIslands } from "../cartography/place-names.ts"
 import { soundBank, type SoundCue } from "../audio/cues.ts"
+import { defaultMusic, resolveMusicTrackId, type MusicSettings } from "../audio/music.ts"
 import { defaultSound, validVolume, type SoundSettings } from "../audio/settings.ts"
 import { advanceCampaignDay, initialScene, playbackSpeed, sceneReducer, visibleRunState, type Scene, type SceneEvent } from "./machine.ts"
 import { initialPopulationPreview, type PopulationPreview } from "./world/populationPreview.ts"
@@ -46,6 +47,7 @@ export interface GameState {
   readonly layers: Readonly<typeof initialLayers>
   readonly populationPreview: PopulationPreview | null
   readonly sound: SoundSettings
+  readonly music: MusicSettings
   readonly locale: Locale
   readonly developer: { readonly enabled: boolean; readonly open: boolean }
   readonly environment: { readonly visible: boolean; readonly suspended: boolean }
@@ -62,6 +64,9 @@ export type GameEvent = SceneEvent
   | { type: "play-sound"; cue: SoundCue }
   | { type: "set-sound-muted"; muted: boolean }
   | { type: "set-sound-volume"; volume: number }
+  | { type: "set-music-enabled"; enabled: boolean }
+  | { type: "set-music-volume"; volume: number }
+  | { type: "set-music-track"; trackId: string | null }
   | { type: "set-layer"; layer: keyof typeof initialLayers; enabled: boolean }
   | { type: "open-population-preview" } | { type: "close-population-preview" }
   | { type: "set-preview-population"; field: keyof PopulationPreview; percent: number }
@@ -157,6 +162,17 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
     case "set-sound-volume":
       if (!validVolume(event.volume) || state.sound.volume === event.volume) return state
       return { ...state, sound: { ...state.sound, volume: event.volume } }
+    case "set-music-enabled":
+      if (typeof event.enabled !== "boolean" || state.music.enabled === event.enabled) return state
+      return { ...state, music: { ...state.music, enabled: event.enabled } }
+    case "set-music-volume":
+      if (!validVolume(event.volume) || state.music.volume === event.volume) return state
+      return { ...state, music: { ...state.music, volume: event.volume } }
+    case "set-music-track": {
+      const trackId = resolveMusicTrackId(event.trackId)
+      if (trackId === undefined || state.music.trackId === trackId) return state
+      return { ...state, music: { ...state.music, trackId } }
+    }
     case "set-layer":
       if (!Object.hasOwn(initialLayers, event.layer) || typeof event.enabled !== "boolean"
         || state.layers[event.layer] === event.enabled) return state
@@ -257,9 +273,9 @@ function storeFromSnapshot(initial: GameState) {
   } }
 }
 
-export function createGameStore(sound: SoundSettings = defaultSound, locale: Locale = defaultLocale, developerEnabled = false) {
+export function createGameStore(sound: SoundSettings = defaultSound, locale: Locale = defaultLocale, developerEnabled = false, music: MusicSettings = defaultMusic) {
   return storeFromSnapshot({ scene: initialScene, layers: initialLayers, selection: previewSelection, populationPreview: null,
-    sound, locale, developer: { enabled: developerEnabled, open: false }, environment: { visible: true, suspended: false } })
+    sound, music, locale, developer: { enabled: developerEnabled, open: false }, environment: { visible: true, suspended: false } })
 }
 
 /** A manual trial owns its subscriptions and queue. The browser clock stays attached to the live store. */
