@@ -9,7 +9,11 @@ import { createGameStore, type GameStore } from "./store"
 const GameContext = createContext<GameStore | null>(null)
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const [store] = useState(() => createGameStore(readSoundSettings(), readLocale(), readDeveloperEnabled()))
+  const [store] = useState(() => {
+    const game = createGameStore(readSoundSettings(), readLocale(), readDeveloperEnabled())
+    game.dispatch({ type: "open-start" })
+    return game
+  })
   const [clock] = useState(() => createDayClock(store))
   useLayoutEffect(() => attachLocale(store), [store])
   useEffect(() => attachGameSound(store), [store])

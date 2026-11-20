@@ -1,6 +1,6 @@
 # 剧本目录与场景状态机
 
-首页进入全屏地图预览。打开右上角「日期与菜单 → 新建对局」，选择 AI 阵营和起始市场，即可在同一张地图进入标准剧本。当前对局按天发放 token 和研究语料、推进研究、抽取事件并处理决策。常速每 4 秒一天，支持 1、2、5 倍速和独立暂停，没有固定到期日。危险研究或事件选择使 Project HUMAN 达到 100% 时进入人类胜利；玩家也可主动退出。市场传播、多阵营经营、完整局势胜负和本地存档仍待接入。[运行规范](game-runtime.md) · [对局实现](../packages/game/run.ts)
+首页在地图背景上显示开始界面，可开始游戏、打开全局设置或探索地图。新局先选择 AI 阵营和起始大洲，再进入独立难度页；当前标准难度可开局，其他档位未开放。地图菜单也保留新建入口。当前对局按天发放 token 和研究语料、推进研究、抽取事件并处理决策。常速每 4 秒一天，支持 1、2、5 倍速和独立暂停，没有固定到期日。危险研究或事件选择使 Project HUMAN 达到 100% 时进入人类胜利；玩家也可主动退出。市场传播、多阵营经营、完整局势胜负和本地存档仍待接入。[运行规范](game-runtime.md) · [对局实现](../packages/game/run.ts)
 
 ## 到哪里改
 
@@ -41,7 +41,10 @@ apps/web/
       store.ts / GameContext.tsx 每根应用的 store、暂停原因和时钟所有者
       clock.ts                  日内进度、环境输入和逐日推进
       Dialog.tsx                原生模态窗口、Escape 和焦点恢复
-      setup/SetupDialog.tsx
+      setup/StartScreen.tsx     开始界面与主菜单入口
+      setup/SetupDialog.tsx     阵营与起始大洲选择
+      setup/DifficultyDialog.tsx 难度确认及开局摘要
+      settings/SettingsDialog.tsx 全局语言、声音与显示设置
       world/
         WorldScene.tsx          连接地图、相机与 HUD 事件
         Hud.tsx / Symbols.tsx   全屏 SVG 控件与图形
@@ -62,18 +65,26 @@ apps/api/                       尚未接入的挑战接口规划与初始 D1 DD
 
 ## 场景如何切换
 
-实线表示当前界面或共享规则可达的转场。HUMAN 完成已能通过每日危险研究结题或正式事件选择触发；AI 胜利的完整自动判定尚待经营规则接入。虚线 `finish` 是已有的外部规则结局入口。地图加载和重试属于 `App`，数据就绪后进入 `preview`。[可缩放的场景与面板图](scene-machine.svg) · [加载入口](../apps/web/src/App.tsx) · [状态机](../apps/web/src/scenes/machine.ts)
+实线表示当前界面或共享规则可达的转场。HUMAN 完成已能通过每日危险研究结题或正式事件选择触发；AI 胜利的完整自动判定尚待经营规则接入。虚线 `finish` 是已有的外部规则结局入口。地图加载和重试属于 `App`，数据就绪后显示 `start`；探索地图进入 `preview`。`createGameStore()` 的独立实例默认仍从预览开始。[地图内对局流程图](scene-machine.svg) · [加载入口](../apps/web/src/App.tsx) · [状态机](../apps/web/src/scenes/machine.ts)
 
 ```mermaid
 flowchart TD
     accTitle: Singularity Inc. 场景状态机
-    accDescr: 地图就绪后从预览菜单开局。每日推进可触发决策或 HUMAN 完成；正式选择也可立即触发终局。玩家可主动退出，对局没有固定到期日。
-    Load(["读取地图"]) -->|数据就绪| Preview["地图预览 · preview"]
+    accDescr: 地图就绪后显示主菜单，新局选择阵营和起点，再确认难度；全局设置可返回原入口。每日推进或正式选择可触发终局，对局没有固定到期日。
+    Load(["读取地图"]) -->|数据就绪| Start["开始界面 · start"]
     Load -->|读取失败| Failed["加载失败"]
     Failed -->|重试| Load
-    Preview -->|菜单内新建| Setup["开局配置 · setup"]
+    Start <-->|打开设置 / 返回| Settings["游戏设置 · settings"]
+    Start -->|探索地图| Preview["地图预览 · preview"]
+    Preview -->|菜单内主菜单| Start
+    Start -->|开始游戏| Setup["阵营与起点 · setup"]
+    Setup -->|返回开始入口| Start
+    Preview -->|菜单内新建| Setup
     Setup -->|取消新建，回菜单| Preview
-    Setup -->|确认有效配置| Campaign["标准对局 · campaign"]
+    Setup <-->|确认选择 / 返回保留| Difficulty["难度设置 · difficulty"]
+    Difficulty -->|开始对局| Campaign["标准对局 · campaign"]
+    Preview <-->|菜单设置 / 返回| Settings
+    Campaign <-->|菜单设置 / 返回| Settings
     Campaign -->|常规日推进| Campaign
     Campaign <-->|日决策或新闻打开 / 返回来源| Decision["决策 · decision"]
     Campaign -->|主动退出或 HUMAN 完成| Ending["结算 · ending"]
@@ -87,7 +98,7 @@ flowchart TD
     classDef dialog fill:#f0ecfb,stroke:#76619a,color:#302344
     classDef load fill:#f0f3f6,stroke:#657487,color:#24303d
     class Preview,Campaign map
-    class Setup,Decision,Ending dialog
+    class Start,Settings,Setup,Difficulty,Decision,Ending dialog
     class Load,Failed load
 ```
 
@@ -117,7 +128,9 @@ flowchart LR
 | 玩家所在的位置 | 进入和返回 | 有效速度 |
 | --- | --- | --- |
 | 预览地图及其面板 | 面板可用 `back` 关闭，新建入口位于预览菜单。 | 可选 1、2、5 倍速；手动暂停、菜单、概况和环境暂停分别生效。 |
-| 开局配置 | 取消首次开局回预览菜单，取消重开回原结算。`start` 校验配置、生成独立 `runId` 并创建新局。 | 配置时暂停；新局从 1 倍、未手动暂停开始。 |
+| 开始界面 | 开始游戏进入选局，游戏设置返回同一开始页，探索地图关闭前台界面。 | 暂停。 |
+| 游戏设置 | 从开始页或地图菜单进入，关闭后返回原入口；语言、声音与显示直接写入当前 store。 | 暂停；保留原菜单、手动暂停和日内进度。 |
+| 阵营与起点、难度设置 | 确认阵营和大洲后进入难度页，返回保留选择；取消选局返回原开始页、预览菜单或结算。`start` 校验配置、生成独立 `runId` 并创建新局。 | 配置时暂停；新局从 1 倍、未手动暂停开始。 |
 | 对局地图、世界、地区、新闻 | 日推进可打开本日决策，也可从新闻打开预览或待处理实例。 | 沿用所选倍速，仍受手动和环境暂停约束。 |
 | 对局菜单、研究、退出确认 | 确认退出才发出 `withdraw`。关闭面板后恢复到来源。 | 暂停；关闭只解除该面板原因，手动暂停继续保留。 |
 | 决策 | 选择或 Esc 返回来源；Esc 留下正式实例，新闻待办可再次打开。 | 暂停；返回后仍检查其他暂停原因。 |

@@ -2,29 +2,50 @@ import { useState } from "react"
 import { isFactionId, isRegionId, standardScenario } from "../../../../../packages/rules/v0.1/scenario"
 import { regionIds } from "../../../../../packages/rules/v0.1/world/regions"
 import { useLanguage } from "../../i18n/useLanguage"
-import type { RunSetup } from "../machine"
+import type { RunSelection } from "../machine"
 import { SceneDialog } from "../Dialog"
+import { factionLogos } from "./factionAssets"
+import "./front-scenes.css"
 
-export function SetupDialog({ previous, start, back }: { previous?: RunSetup; start: (setup: RunSetup) => void; back: () => void }) {
+export function SetupDialog({ previous, next, back }: { previous?: RunSelection; next: (selection: RunSelection) => void; back: () => void }) {
   const { ui, scenario } = useLanguage()
-  const { difficulty, factions, rules } = standardScenario
-  const [factionId, setFaction] = useState<string>(previous?.factionId ?? "")
-  const [startRegionId, setRegion] = useState<string>(previous?.startRegionId ?? "")
-  const faction = isFactionId(factionId) ? scenario.factions[factionId] : null
-  return <SceneDialog title={ui.newRun} onBack={back}>
-    <form className="setup-form" onSubmit={e => {
+  const text = ui.front
+  const [factionId, setFaction] = useState<RunSelection["factionId"]>(previous?.factionId ?? "gpt")
+  const [startRegionId, setRegion] = useState<RunSelection["startRegionId"]>(previous?.startRegionId ?? "eu")
+  return <SceneDialog title={text.selectionTitle} className="front-dialog front-setup-dialog" onBack={back}
+    headerDetail={<span className="front-step">{text.stepSelection}</span>}>
+    <form className="front-setup" onSubmit={e => {
       e.preventDefault()
-      if (isFactionId(factionId) && isRegionId(startRegionId)) start({ factionId, startRegionId, difficultyId: difficulty.id })
+      if (isFactionId(factionId) && isRegionId(startRegionId)) next({ factionId, startRegionId })
     }}>
-      <label>{ui.faction}<select required value={factionId} onChange={e => setFaction(e.target.value)}>
-        <option value="">{ui.chooseFaction}</option>{Object.entries(factions).map(([id, f]) => <option key={id} value={id}>{f.name}</option>)}
-      </select></label>
-      {faction && <p className="source-note">{ui.factionProfile(faction.strength, faction.risk, faction.ability.name)}</p>}
-      <label>{ui.startMarket}<select required value={startRegionId} onChange={e => setRegion(e.target.value)}>
-        <option value="">{ui.selectContinent}</option>{regionIds.map(id => <option key={id} value={id}>{scenario.regions[id]}</option>)}
-      </select></label>
-      <p>{ui.setupSummary(scenario.difficulty, ui.tokens(rules.initialBtoken))}</p>
-      <div className="window-actions"><button type="submit" disabled={!faction || !isRegionId(startRegionId)}>{ui.enterMap}</button></div>
+      <p className="front-intro">{text.selectionIntro}</p>
+      <fieldset className="front-choice-group"><legend><span className="front-section-index" aria-hidden="true">01</span>{text.factionLabel}</legend>
+        <div className="front-faction-grid">{standardScenario.rules.factionIds.filter(isFactionId).map(id => {
+          const faction = scenario.factions[id]
+          return <label className={`front-choice front-faction ${factionId === id ? "is-selected" : ""}`} key={id}>
+            <input className="front-radio" type="radio" name="faction" value={id} checked={factionId === id} onChange={() => setFaction(id)}/>
+            <span className="front-card-body">
+              <span className="front-card-top"><span className={`front-faction-emblem is-${id}`}><img src={factionLogos[id]} alt="" width="56" height="56"/></span>
+                <span className="front-choice-mark" aria-hidden="true">{factionId === id ? "✓" : "+"}</span></span>
+              <strong className="front-faction-name">{standardScenario.factions[id].name}</strong>
+              <span className="front-faction-strength">{faction.strength}</span>
+              <span className="front-faction-risk">{faction.risk}</span>
+            </span>
+          </label>
+        })}</div>
+      </fieldset>
+      <fieldset className="front-choice-group"><legend><span className="front-section-index" aria-hidden="true">02</span>{text.originLabel}</legend>
+        <p className="front-choice-hint">{text.originHint}</p>
+        <div className="front-origin-grid">{regionIds.map((id, index) => <label className={`front-choice front-origin ${startRegionId === id ? "is-selected" : ""}`} key={id}>
+          <input className="front-radio" type="radio" name="origin" value={id} checked={startRegionId === id} onChange={() => setRegion(id)}/>
+          <span className="front-card-body"><span className="front-origin-code" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+            <strong>{scenario.regions[id]}</strong><span className="front-choice-mark" aria-hidden="true">{startRegionId === id ? "✓" : "+"}</span></span>
+        </label>)}</div>
+      </fieldset>
+      <div className="front-footer"><button type="button" className="front-tertiary" onClick={back}>← {text.back}</button>
+        <p className="front-selection-summary">{standardScenario.factions[factionId].name}<span aria-hidden="true">/</span>{scenario.regions[startRegionId]}</p>
+        <button type="submit" className="front-primary">{text.next}<span className="front-arrow" aria-hidden="true">→</span></button>
+      </div>
     </form>
   </SceneDialog>
 }

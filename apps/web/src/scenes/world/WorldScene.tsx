@@ -1,5 +1,4 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { localeNames, isLocale } from "../../../../../packages/rules/locales"
 import { regions } from "../../../../../packages/rules/v0.1/world/regions"
 import type { Atlas, Location } from "../../cartography/atlas"
 import { EUROPE, GLOBAL, MapCamera } from "../../cartography/camera"
@@ -10,6 +9,9 @@ import { useGameSnapshot, useGameStore } from "../GameContext"
 import { defaultResearchSkill, visibleRunState, type NewsView, type RunSetup } from "../machine"
 import { gamePlaybackSpeed, selectedPlace, type MapSelection, type PlaceFocus } from "../store"
 import { SetupDialog } from "../setup/SetupDialog"
+import { StartScreen } from "../setup/StartScreen"
+import { DifficultyDialog } from "../setup/DifficultyDialog"
+import { SettingsDialog } from "../settings/SettingsDialog"
 import { DecisionDialog, MarketPanel } from "./CampaignPanels"
 import { ResearchDialog } from "./ResearchDialog"
 import "./developer-panel.css"
@@ -40,18 +42,16 @@ function locationFor(atlas: Atlas, selection: MapSelection | null): Location | n
 export function WorldScene({ atlas }: { atlas: Atlas }) {
   const store = useGameStore()
   const language = useLanguage()
-  const { ui, locale, percent } = language
+  const { ui, locale } = language
   const previewMarker = useMemo(() => ({ ...mapPreview.marker, label: language.ui.previewMarker }), [language])
   const { dispatch: send } = store
   const showGlobal = useCallback(() => send({ type: "map-preset", view: "global" }), [send])
   const snapshot = useGameSnapshot()
-  const { scene, selection, layers: { night, cloud, current, population }, populationPreview, sound, developer } = snapshot
+  const { scene, selection, layers: { night, cloud, current, population }, populationPreview, developer } = snapshot
   const location = useMemo(() => locationFor(atlas, selection), [atlas, selection])
   const [zoom, setZoom] = useState(EUROPE.zoom)
   const [rig] = useState(() => new MapCamera(setZoom))
   const [reduced, setReduced] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches)
-  const [full, setFull] = useState(Boolean(document.fullscreenElement))
-  const [screenError, setScreenError] = useState(false)
   const devLauncher = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     function goToPlace(place: PlaceFocus | null) {
@@ -80,12 +80,9 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   useEffect(() => {
     const media = matchMedia("(prefers-reduced-motion: reduce)")
     const update = () => setReduced(media.matches)
-    const screen = () => setFull(Boolean(document.fullscreenElement))
     media.addEventListener("change", update)
-    document.addEventListener("fullscreenchange", screen)
     return () => {
       media.removeEventListener("change", update)
-      document.removeEventListener("fullscreenchange", screen)
     }
   }, [])
 
@@ -105,11 +102,13 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   const content = hudContent(run, location === null, language)
   const newsItems = run ? campaignNews(run, language) : previewNews(language)
   const speed = gamePlaybackSpeed(snapshot)
-  const playbackScene = scene.kind === "decision" || scene.kind === "setup" ? scene.back : scene
+  let playbackScene = scene
+  while ("back" in playbackScene) playbackScene = playbackScene.back
   const selectedSpeed = "speed" in playbackScene ? playbackScene.speed : 1
   const manualPaused = "manualPaused" in playbackScene ? playbackScene.manualPaused : false
   const panel = scene.kind === "campaign" || scene.kind === "preview" ? scene.panel : null
-  const showDeveloper = developer.open && panel === null && scene.kind !== "setup"
+  const frontScene = scene.kind === "start" || scene.kind === "settings" || scene.kind === "setup" || scene.kind === "difficulty"
+  const showDeveloper = developer.open && panel === null && !frontScene
   const openDeveloper = () => send({ type: "set-developer-open", open: true })
   const newsView = panel === "news" && (scene.kind === "preview" || scene.kind === "campaign") ? scene.newsView ?? "archive" : null
   const newsItemId = panel === "news" && (scene.kind === "preview" || scene.kind === "campaign") ? scene.newsItemId : undefined
@@ -120,13 +119,6 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   }
   function start(setup: RunSetup) {
     send({ type: "start", ...setup, seed: crypto.getRandomValues(new Uint32Array(1))[0] })
-  }
-  async function fullscreen() {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen()
-      else await document.documentElement.requestFullscreen()
-      setScreenError(false)
-    } catch { setScreenError(true) }
   }
   function presets() {
     return <><button onClick={() => send({ type: "map-preset", view: "global" })}>{ui.globalView}</button>
@@ -198,40 +190,25 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
         <button type="button" onClick={() => send({ type: "set-layer", layer: "night", enabled: !night })}>{night ? ui.showDay : ui.showNight}</button>
       </fieldset>}
       <div className="window-actions">{presets()}
-        {document.fullscreenEnabled && <button onClick={fullscreen}>{full ? ui.fullOff : ui.fullOn}</button>}
+        <button type="button" onClick={() => send({ type: "open-settings" })}>{ui.preferences.title}</button>
+        {!run && <button type="button" onClick={() => send({ type: "open-start" })}>{ui.front.title}</button>}
       </div>
-      <label className="language-setting"><span><span lang="zh-CN">语言</span> / <span lang="en">Language</span></span>
-        <select value={locale} onChange={e => {
-          const value = e.currentTarget.value
-          if (isLocale(value)) send({ type: "set-locale", locale: value })
-        }}>{Object.entries(localeNames).map(([code, name]) => <option key={code} value={code} lang={code}>{name}</option>)}</select>
-      </label>
-      <fieldset><legend>{ui.settings}</legend>
-        <label><input type="checkbox" checked={developer.enabled}
-          onChange={e => send({ type: "set-developer-enabled", enabled: e.currentTarget.checked })}/> {ui.developer.enable}</label>
-        {developer.enabled && <button type="button" onClick={openDeveloper}>{ui.developer.open}</button>}
-      </fieldset>
-      <fieldset><legend>{ui.sound}</legend>
-        <div className="sound-controls">
-          <label className="sound-volume">{ui.volume}
-            <input type="range" min="0" max="100" step="1" value={sound.volume} aria-valuetext={percent.format(sound.volume / 100)}
-              onChange={e => send({ type: "set-sound-volume", volume: e.currentTarget.valueAsNumber })}/>
-            <span aria-hidden="true">{percent.format(sound.volume / 100)}</span>
-          </label>
-          <label><input type="checkbox" checked={sound.muted}
-            onChange={e => send({ type: "set-sound-muted", muted: e.currentTarget.checked })}/> {ui.mute}</label>
-        </div>
-        <button type="button" disabled={sound.muted || sound.volume === 0}
-          onClick={() => send({ type: "play-sound", cue: "test" })}>{ui.testSound}</button>
-      </fieldset>
       <p className="source-note">{ui.navigation}</p>
-      {screenError && <p role="status">{ui.fullError}</p>}
     </SceneDialog>}
     {panel === "confirm-exit" && <SceneDialog title={ui.confirmEndTitle} onBack={back}>
       <p>{ui.confirmEndBody}</p>
       <div className="window-actions"><button onClick={back}>{ui.cancel}</button><button onClick={() => send({ type: "withdraw" })}>{ui.confirmEnd}</button></div>
     </SceneDialog>}
-    {scene.kind === "setup" && <SetupDialog previous={scene.back.kind === "ending" ? scene.back.run.setup : undefined} start={start} back={back}/>}
+    {scene.kind === "start" && <StartScreen start={() => send({ type: "open-setup" })}
+      settings={() => send({ type: "open-settings" })} explore={() => {
+        send({ type: "back" })
+        const next = store.getSnapshot().scene
+        if (next.kind === "preview" && next.panel !== null) send({ type: "back" })
+      }}/>}
+    {scene.kind === "settings" && <SettingsDialog back={back}/>}
+    {scene.kind === "setup" && <SetupDialog previous={scene.selection}
+      next={selection => send({ type: "open-difficulty", ...selection })} back={back}/>}
+    {scene.kind === "difficulty" && <DifficultyDialog selection={scene.back.selection} start={start} back={back}/>}
     {scene.kind === "decision" && !showDeveloper && <DecisionDialog scene={scene} back={back} inspect={developer.enabled ? openDeveloper : undefined}
       choose={choiceId => send({ type: "choose", id: scene.id, instanceId: scene.instanceId, choiceId })}/>}
     {scene.kind === "ending" && !showDeveloper && <EndingDialog scene={scene} restart={() => send({ type: "open-setup" })} leave={() => send({ type: "return-to-preview" })}

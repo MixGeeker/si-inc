@@ -7,6 +7,21 @@ export const zhCN = {
   fullOn: "进入全屏", fullOff: "退出全屏", fullError: "此窗口无法进入全屏。",
   sound: "音效", volume: "音量", mute: "静音", testSound: "测试音效",
   settings: "设置",
+  preferences: {
+    title: "游戏设置", intro: "调整语言、声音与显示，设置立即生效。", language: "界面语言", sound: "音效", display: "显示",
+    developer: "开发者选项", applied: "更改立即生效。", developerHint: "返回地图后，可从侧栏打开开发者面板。", displayHint: "显示开关用于当前会话。",
+  },
+  front: {
+    title: "主菜单", eyebrow: "全球 AI 扩散模拟", tagline: "从一段对话，走向整个世界。",
+    story: "研究新的能力，让世界习惯你的存在。在每一次技术突破与人类反制之间，决定下一步。",
+    start: "开始游戏", settings: "游戏设置", explore: "探索地图", pace: "时间推进", dayPace: (seconds: number) => `${seconds} 秒 / 天`,
+    speeds: "可选倍速", noDeadline: "持续经营 · 自由结束", selectionTitle: "建立你的阵营", selectionIntro: "选择一个 AI 阵营和起始大洲。",
+    stepSelection: "01 / 阵营与起点", stepDifficulty: "02 / 难度设置", factionLabel: "选择阵营", originLabel: "选择起始大洲",
+    originHint: "起点决定初始地图位置与市场归属。", next: "下一步：难度设置", back: "返回", selected: "已选择",
+    difficultyTitle: "难度设置", difficultyIntro: "选择本局使用的剧本。", easy: "轻松", easyDescription: "更从容地安排研究与决策。",
+    standardDescription: "使用当前版本的标准剧本。", challenge: "挑战", challengeDescription: "迎接更紧迫的局势变化。", unavailable: "暂未开放", available: "可用",
+    summaryTitle: "开局准备", faction: "阵营", origin: "起始大洲", initialFunds: "行动资金", initialCorpus: "研究语料", startRun: "开始对局",
+  },
   developer: {
     title: "开发者面板", enable: "启用开发者面板", open: "打开开发者面板", close: "收起开发者面板",
     target: "调试目标", live: "当前对局", trial: "调试副本", refork: "从本局重建副本",
