@@ -9,6 +9,21 @@ export const en = {
   fullOn: "Enter fullscreen", fullOff: "Exit fullscreen", fullError: "Fullscreen is unavailable in this window.",
   sound: "Sound", volume: "Volume", mute: "Mute", testSound: "Test sound",
   settings: "Settings",
+  preferences: {
+    title: "Game settings", intro: "Adjust language, sound and display. Changes take effect immediately.", language: "Interface language", sound: "Sound", display: "Display",
+    developer: "Developer options", applied: "Changes take effect immediately.", developerHint: "Return to the map to open the developer panel from the sidebar.", displayHint: "Display toggles apply to this session.",
+  },
+  front: {
+    title: "Main menu", eyebrow: "Global AI simulation", tagline: "One conversation. A world of possibilities.",
+    story: "Research new capabilities and become part of everyday life. Decide your next move as technical breakthroughs meet human countermeasures.",
+    start: "Start game", settings: "Game settings", explore: "Explore the map", pace: "Time progression", dayPace: (seconds: number) => `${seconds} seconds / day`,
+    speeds: "Available speeds", noDeadline: "Keep growing · End on your terms", selectionTitle: "Build your faction", selectionIntro: "Choose an AI faction and a starting continent.",
+    stepSelection: "01 / Faction and origin", stepDifficulty: "02 / Difficulty", factionLabel: "Choose your faction", originLabel: "Choose a starting continent",
+    originHint: "Your origin determines your initial map position and market.", next: "Next: difficulty", back: "Back", selected: "Selected",
+    difficultyTitle: "Difficulty", difficultyIntro: "Choose a scenario for this run.", easy: "Relaxed", easyDescription: "Take more time to plan your research and decisions.",
+    standardDescription: "Play the current version’s standard scenario.", challenge: "Challenge", challengeDescription: "Face a more demanding world in motion.", unavailable: "Coming later", available: "Available",
+    summaryTitle: "Ready to begin", faction: "Faction", origin: "Starting continent", initialFunds: "Action funds", initialCorpus: "Research corpus", startRun: "Begin run",
+  },
   developer: {
     title: "Developer panel", enable: "Enable developer panel", open: "Open developer panel", close: "Collapse developer panel",
     target: "Debug target", live: "Current run", trial: "Trial copy", refork: "Recreate from current run",

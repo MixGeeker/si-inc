@@ -126,7 +126,8 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
     case "set-developer-open": {
       if (!state.developer.enabled || typeof event.open !== "boolean") return state
       const fromMenu = (scene.kind === "preview" || scene.kind === "campaign") && scene.panel === "menu"
-      if (event.open && (scene.kind === "setup" || ((scene.kind === "preview" || scene.kind === "campaign") && scene.panel && !fromMenu))) return state
+      if (event.open && (scene.kind === "start" || scene.kind === "settings" || scene.kind === "setup" || scene.kind === "difficulty"
+        || ((scene.kind === "preview" || scene.kind === "campaign") && scene.panel && !fromMenu))) return state
       if (state.developer.open === event.open && !(event.open && fromMenu)) return state
       return { ...state, developer: { enabled: true, open: event.open },
         scene: event.open && fromMenu ? sceneReducer(scene, { type: "back" }) : scene }
@@ -202,7 +203,8 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
         return { ...state, scene: next, developer: { ...state.developer, open: false }, populationPreview: null, selection: marketFocus(next.run.setup.startRegionId) }
       }
       if (event.type === "return-to-preview") return { ...state, scene: next, developer: { ...state.developer, open: false }, selection: previewSelection }
-      if (event.type === "open-setup" && state.developer.open) return { ...state, scene: next, developer: { ...state.developer, open: false } }
+      if ((event.type === "open-start" || event.type === "open-settings" || event.type === "open-setup"
+        || event.type === "open-difficulty") && state.developer.open) return { ...state, scene: next, developer: { ...state.developer, open: false } }
       return { ...state, scene: next }
     }
   }
@@ -278,14 +280,15 @@ export function gamePlaybackSpeed(state: GameState) {
 export function pauseReasons(state: GameState) {
   const reasons: string[] = []
   const { scene } = state
-  const map = scene.kind === "decision" ? scene.back : scene
+  const map = scene.kind === "decision" || scene.kind === "settings" ? scene.back : scene
   if ((map.kind === "preview" || map.kind === "campaign") && map.manualPaused) reasons.push("manual")
   if (map.kind === "preview" || map.kind === "campaign") {
     if (map.panel === "menu") reasons.push("menu")
     if (map.panel === "overview") reasons.push("research")
     if (map.panel === "confirm-exit") reasons.push("confirm-exit")
   }
-  if (scene.kind === "decision" || scene.kind === "setup" || scene.kind === "ending") reasons.push(scene.kind)
+  if (scene.kind === "start" || scene.kind === "settings" || scene.kind === "setup" || scene.kind === "difficulty"
+    || scene.kind === "decision" || scene.kind === "ending") reasons.push(scene.kind)
   if (state.developer.open) reasons.push("developer")
   if (!state.environment.visible) reasons.push("hidden")
   if (state.environment.suspended) reasons.push("suspended")

@@ -4,7 +4,7 @@ import { endings, type Outcome } from "../../../../packages/rules/v0.1/endings/s
 import { researchNode, trees, type SkillId } from "../../../../packages/rules/v0.1/evolution/trees.ts"
 import { researchBuild, type BuildId } from "../../../../packages/rules/v0.1/evolution/builds.ts"
 import { completedLevel } from "../../../../packages/game/research.ts"
-import { standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
+import { isFactionId, isRegionId, standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
 
 export type { RunSetup }
 const mapPanels = ["menu", "world", "region", "overview", "news"] as const
@@ -13,6 +13,28 @@ const newsViews = ["archive", "current", "day"] as const
 export type NewsView = typeof newsViews[number]
 type NewsFocus = { newsView?: NewsView; newsItemId?: string }
 type Preview = { kind: "preview"; panel: MapPanel | null; speed: number; manualPaused: boolean } & NewsFocus
+export type RunSelection = Pick<RunSetup, "factionId" | "startRegionId">
+
+interface Start {
+  kind: "start"
+  back: Preview
+}
+
+interface Setup {
+  kind: "setup"
+  back: Preview | Ending | Start
+  selection?: RunSelection
+}
+
+interface Difficulty {
+  kind: "difficulty"
+  back: Setup & { selection: RunSelection }
+}
+
+interface Settings {
+  kind: "settings"
+  back: Start | Preview | Campaign
+}
 
 interface Campaign extends NewsFocus {
   kind: "campaign"
@@ -33,7 +55,10 @@ export interface Ending {
 
 export type Scene =
   | Preview
-  | { kind: "setup"; back: Preview | Ending }
+  | Start
+  | Settings
+  | Setup
+  | Difficulty
   | Campaign
   | { kind: "decision"; id: DecisionId; instanceId?: string; back: Campaign }
   | Ending
@@ -43,7 +68,10 @@ export type SceneEvent =
   | { type: "back" }
   | { type: "set-speed"; speed: number }
   | { type: "set-paused"; paused: boolean }
+  | { type: "open-start" }
+  | { type: "open-settings" }
   | { type: "open-setup" }
+  | { type: "open-difficulty"; factionId: string; startRegionId: string }
   | { type: "start"; factionId: string; startRegionId: string; difficultyId: string; seed?: number; runId?: string }
   | { type: "advance-day"; runId: string; completedDay: number }
   | { type: "select-research"; skillId: SkillId }
@@ -91,7 +119,8 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
       return { ...scene, panel: event.panel }
     }
     case "back":
-      if (scene.kind === "setup" || scene.kind === "decision") return scene.back
+      if (scene.kind === "start" || scene.kind === "settings" || scene.kind === "setup"
+        || scene.kind === "difficulty" || scene.kind === "decision") return scene.back
       if (scene.kind === "campaign" && scene.panel === "confirm-exit") return { ...scene, panel: "menu" }
       if ((scene.kind === "preview" || scene.kind === "campaign") && scene.panel) {
         if (scene.newsView === undefined && scene.newsItemId === undefined) return { ...scene, panel: null }
@@ -101,13 +130,32 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
         return { ...rest, panel: null }
       }
       break
-    case "open-setup":
-      if ((scene.kind === "preview" && scene.panel === "menu") || scene.kind === "ending") {
-        return { kind: "setup", back: scene }
+    case "open-start":
+      if (scene.kind === "preview" && (scene.panel === null || scene.panel === "menu")) {
+        return { kind: "start", back: scene }
       }
       break
+    case "open-settings":
+      if (scene.kind === "start" || ((scene.kind === "preview" || scene.kind === "campaign") && scene.panel === "menu")) {
+        return { kind: "settings", back: scene }
+      }
+      break
+    case "open-setup":
+      if (scene.kind === "start" || (scene.kind === "preview" && scene.panel === "menu") || scene.kind === "ending") {
+        return scene.kind === "ending"
+          ? { kind: "setup", back: scene, selection: { factionId: scene.run.setup.factionId, startRegionId: scene.run.setup.startRegionId } }
+          : { kind: "setup", back: scene }
+      }
+      break
+    case "open-difficulty": {
+      if (scene.kind !== "setup" || !isFactionId(event.factionId) || !isRegionId(event.startRegionId)) return scene
+      const selection: RunSelection = { factionId: event.factionId, startRegionId: event.startRegionId }
+      return { kind: "difficulty", back: { ...scene, selection } }
+    }
     case "start": {
-      if (scene.kind !== "setup") return scene
+      if (scene.kind !== "setup" && scene.kind !== "difficulty") return scene
+      if (scene.kind === "difficulty" && (event.factionId !== scene.back.selection.factionId
+        || event.startRegionId !== scene.back.selection.startRegionId || event.difficultyId !== standardScenario.difficulty.id)) return scene
       const run = createRun(event, event.seed === undefined ? 0 : event.seed, event.runId)
       return run ? { kind: "campaign", run, speed: 1, manualPaused: false, panel: null } : scene
     }
@@ -206,8 +254,11 @@ export function advanceCampaignDay(scene: Scene, runId: string, completedDay: nu
 export function visibleRunState(scene: Scene): RunState | null {
   switch (scene.kind) {
     case "preview": return null
-    case "setup": return scene.back.kind === "ending" ? scene.back.run : null
-    case "decision": return scene.back.run
+    case "start":
+    case "settings":
+    case "setup":
+    case "difficulty":
+    case "decision": return visibleRunState(scene.back)
     default: return scene.run
   }
 }

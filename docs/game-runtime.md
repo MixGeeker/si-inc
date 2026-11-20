@@ -2,6 +2,14 @@
 
 一个浏览器应用根共享一个 `GameStore`。每次有效的 `start` 都创建新的 `RunState`。结算保留该局的最终快照，重开时重新初始化日数、余额、事件池和操作日志。独立测试、回放或服务端请求各自持有实例。[应用入口](../apps/web/src/main.tsx) · [store 与事件类型](../apps/web/src/scenes/store.ts) · [共享规则引擎](../packages/game/run.ts)
 
+## 前台入口与设置
+
+`createGameStore()` 默认处于地图预览，`GameProvider` 创建浏览器应用根时发送 `open-start` 进入开始页。界面依次通过 `open-setup` 选择阵营和起始大洲、`open-difficulty` 确认选择并进入难度页，最后发送 `start` 创建对局。难度页返回选择页时保留 `setup.selection`，再次进入难度页沿用该选择；从难度页开局必须与已确认的阵营、起点和标准难度一致。有效开局仅发出一次 `run-started`，重复或不匹配的输入不创建新局。测试和工具仍可在 `setup` 场景直接发送完整的开局输入。[前台场景](../apps/web/src/scenes/machine.ts) · [应用根初始化](../apps/web/src/scenes/GameContext.tsx)
+
+开始页、预览菜单和局内菜单通过 `open-settings` 打开同一设置场景。设置保存原场景作为 `back`，返回时恢复该场景；从局内菜单进入设置，第一次返回仍是原菜单，第二次返回才回到地图。开始页、选择页、难度页和设置均暂停时间。设置期间可通过现有事件修改语言、音效和显示图层，局内日数、研究、事件与操作日志不变；菜单和设置保留当前日的剩余计时、所选倍速和手动暂停。
+
+设置即时提交到当前应用根的 store。浏览器适配器把语言、音效静音、音量和开发者功能启用偏好写入本机 `localStorage`，下次打开时读取；存储不可用时，本次页面仍使用已提交的选择。显示图层在当前 store 内跨场景、跨新局沿用，刷新后恢复默认值。前台场景、选局草稿、倍速、手动暂停和日内计时没有持久化；设置页返回和时钟重挂不代表已实现对局存读档。[语言偏好](../apps/web/src/i18n/preferences.ts) · [音效偏好](../apps/web/src/audio/settings.ts) · [开发者偏好](../apps/web/src/scenes/developer.ts)
+
 ## 数据归属
 
 | 要使用的数据 | 唯一来源 | 读写方式 |
@@ -12,6 +20,7 @@
 | 玩家语料、已解锁的研究槽位、研究项目 | `RunState.research` | 项目保存科技 ID、槽号和开题日。等级、空槽、前置、每日语料和完工日都从快照读取。 |
 | 东亚人口示例的两项比例 | `GameState.populationPreview` | 预览地图用 `open-population-preview`、`set-preview-population`、`close-population-preview` 操作。开局清空示例。 |
 | 场景、当前面板、选择的倍速和手动暂停 | `GameState.scene` | 用场景事件更新。`speed` 只保存正倍速，`manualPaused` 保存玩家的暂停选择；显示和时钟都用 `gamePlaybackSpeed(snapshot)` 读取有效速度。 |
+| 已确认的开局阵营和起始大洲 | `setup.selection`，难度页通过 `difficulty.back` 保留 | `open-difficulty` 校验并保存选择，返回选择页时读取。尚未确认的表单草稿由组件持有。 |
 | 页面可见性与冻结状态 | `GameState.environment` | 浏览器适配器发送 `set-page-visible` 和 `set-page-suspended`。环境与场景一起参与暂停判定，不写入局内经营状态。 |
 | 地图选区、昼夜、云层、洋流 | `GameState.selection` 和 `layers` | 地图拾取发 `pick-location`。点中可经营的大洲时保存市场 ID，点中站点或群岛标记时，地图点携带 `siteId` 或 `islandId`，显示名称按当前语言读取。其他经营范围以外的位置保存坐标。市场栏和地区目录用 `focus-place` 定位，全球用 `null`。镜头预设和图层分别走 `map-preset` 和 `set-layer`。 |
 | 界面语言 | `GameState.locale` | `set-locale` 接受 `zh-CN` 或 `en`。首次打开匹配浏览器语言，默认简体中文。玩家选择的语言在本机保存，重开对局时沿用。 |
@@ -24,7 +33,7 @@
 
 标准规则默认常速每 4 秒推进一天，允许 1、2、5 倍速，分别为每 4 秒、2 秒和 0.8 秒一天。新局没有第 120 天或其他固定日期的超时结局；实际对局时长由玩家行动与局势决定。当前已有的收入、研究和叙事结算按天运行，多阵营经营与完整局势胜负仍待接入。
 
-`set-speed` 只设置正倍速，`set-paused` 单独设置手动暂停。暂停期间可以调整所选速度，调整速度不会解除暂停。场景和页面环境决定自动暂停原因；菜单、研究、决策、退出确认、开发者面板和后台均暂停，世界、地区及新闻面板继续运行。`pauseReasons(snapshot)` 从已有事实推导原因，`gamePlaybackSpeed(snapshot)` 在全部原因解除后才恢复所选倍速。关闭菜单不会解除手动暂停，回到前台也不会解除尚未处理的决策暂停。
+`set-speed` 只设置正倍速，`set-paused` 单独设置手动暂停。在地图面板或决策窗暂停期间可以调整所选速度，调整速度不会解除暂停。场景和页面环境决定自动暂停原因；开始页、选择页、难度页、设置、菜单、研究、决策、退出确认、开发者面板和后台均暂停，世界、地区及新闻面板继续运行。`pauseReasons(snapshot)` 从已有事实推导原因，`gamePlaybackSpeed(snapshot)` 在全部原因解除后才恢复所选倍速。关闭设置不会解除原菜单暂停，关闭菜单不会解除手动暂停，回到前台也不会解除尚未处理的决策暂停。
 
 `GameProvider` 为每个应用根持有一个 `createDayClock` 适配器。计时基于 `performance.now()`，日内进度以 1 倍等效毫秒保存在适配器中；取消订阅或重挂同一个适配器时保留进度。页面可见性与冻结、恢复通过有类型的环境事件写入 store，隐藏期间不增加进度，也不补算关闭或后台经过的天数。页面重新载入后的对局存读档尚未接入，不能把同一适配器的重挂恢复视为持久化恢复。
 
