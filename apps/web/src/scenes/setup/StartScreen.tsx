@@ -1,13 +1,84 @@
+import { useEffect, useRef, useState } from "react"
+import { isLocale, localeNames } from "../../../../../packages/rules/locales"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
+import { musicCatalog } from "../../audio/music"
 import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
+import { useGameSnapshot, useGameStore } from "../GameContext"
 import "./front-scenes.css"
 
+type StartPanel = "sound" | "language"
+
 export function StartScreen({ start, settings, explore }: { start: () => void; settings: () => void; explore: () => void }) {
-  const { ui } = useLanguage()
+  const store = useGameStore()
+  const { locale, sound, music } = useGameSnapshot()
+  const { ui, percent } = useLanguage()
   const text = ui.front
   const { rules } = standardScenario
-  return <SceneDialog title={text.title} className="front-dialog front-start-dialog" onBack={explore}>
+  const [panel, setPanel] = useState<StartPanel | null>(null)
+  const tools = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!panel) return
+    const close = (event: PointerEvent) => {
+      if (tools.current?.contains(event.target as Node)) return
+      setPanel(null)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      event.preventDefault()
+      event.stopPropagation()
+      setPanel(null)
+    }
+    document.addEventListener("pointerdown", close)
+    document.addEventListener("keydown", onKey, true)
+    return () => {
+      document.removeEventListener("pointerdown", close)
+      document.removeEventListener("keydown", onKey, true)
+    }
+  }, [panel])
+  const open = (next: StartPanel) => setPanel(current => current === next ? null : next)
+  return <SceneDialog title={text.title} className="front-dialog front-start-dialog" onBack={explore}
+    headerDetail={<div className="front-header-tools" ref={tools}>
+      <button type="button" className="front-header-button" aria-expanded={panel === "sound"} aria-haspopup="dialog" onClick={() => open("sound")}>{text.soundButton}</button>
+      <button type="button" className="front-header-button" aria-expanded={panel === "language"} aria-haspopup="dialog" onClick={() => open("language")}>{text.languageButton}</button>
+      {panel === "sound" && <div className="front-popover" role="dialog" aria-label={text.soundPanel}>
+        <h3>{text.soundPanel}</h3>
+        <label className="front-sound-volume" htmlFor="start-volume">
+          <span>{text.voice}</span><output htmlFor="start-volume">{percent.format(sound.volume / 100)}</output>
+          <input id="start-volume" type="range" min="0" max="100" step="1" value={sound.volume}
+            aria-valuetext={percent.format(sound.volume / 100)} onChange={event =>
+              store.dispatch({ type: "set-sound-volume", volume: event.currentTarget.valueAsNumber })}/>
+        </label>
+        <div className="front-sound-actions">
+          <label className="front-sound-check"><input type="checkbox" checked={sound.muted} onChange={event =>
+            store.dispatch({ type: "set-sound-muted", muted: event.currentTarget.checked })}/><span>{text.effects} · {ui.mute}</span></label>
+          <button type="button" disabled={sound.muted || sound.volume === 0}
+            onClick={() => store.dispatch({ type: "play-sound", cue: "test" })}>{ui.testSound}</button>
+        </div>
+        <div className="front-music">
+          <h3>{text.music}</h3>
+          <label className="front-sound-check"><input type="checkbox" checked={music.enabled} onChange={event =>
+            store.dispatch({ type: "set-music-enabled", enabled: event.currentTarget.checked })}/><span>{text.musicOn}</span></label>
+          <label className="front-sound-volume" htmlFor="start-music-volume">
+            <span>{ui.volume}</span><output htmlFor="start-music-volume">{percent.format(music.volume / 100)}</output>
+            <input id="start-music-volume" type="range" min="0" max="100" step="1" value={music.volume}
+              aria-valuetext={percent.format(music.volume / 100)} disabled={!music.enabled} onChange={event =>
+                store.dispatch({ type: "set-music-volume", volume: event.currentTarget.valueAsNumber })}/>
+          </label>
+          {musicCatalog.length === 0 ? <p className="front-music-empty">{text.musicEmpty}</p>
+            : <div className="front-language-list" role="listbox" aria-label={text.music}>{musicCatalog.map(track =>
+              <button type="button" key={track.id} role="option" aria-selected={music.trackId === track.id} disabled={!music.enabled}
+                onClick={() => store.dispatch({ type: "set-music-track", trackId: track.id })}>{track.title}</button>)}</div>}
+        </div>
+      </div>}
+      {panel === "language" && <div className="front-popover" role="dialog" aria-label={text.languagePanel}>
+        <h3>{text.languagePanel}</h3>
+        <div className="front-language-list">{Object.entries(localeNames).map(([code, name]) =>
+          <button type="button" key={code} lang={code} aria-pressed={locale === code} onClick={() => {
+            if (isLocale(code)) store.dispatch({ type: "set-locale", locale: code })
+          }}>{name}</button>)}</div>
+      </div>}
+    </div>}>
     <div className="front-start">
       <div className="front-identity">
         <div className="front-orbit" aria-hidden="true"><svg viewBox="0 0 360 360" fill="none">
