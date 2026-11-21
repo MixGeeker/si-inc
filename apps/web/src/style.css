@@ -17,6 +17,11 @@ button,select,input { font: inherit; }
 .game { position: absolute; inset: 0; width: 100%; height: 100%; height: 100dvh; overflow: hidden; isolation: isolate; color: var(--ui-ink); background: var(--ui-bg); user-select: none; container-type: size; }
 .map-viewport,.flat-map,.geo-marks,.hud,.hud-layer { position: absolute; inset: 0; width: 100%; height: 100%; }
 .hud-layer { z-index: 4; pointer-events: none; }
+.hud-music-backdrop { position: absolute; inset: 0; z-index: 5; border: 0; padding: 0; background: transparent; pointer-events: auto; cursor: default; }
+.hud-music-label { display: flex; align-items: center; gap: 8px; height: 100%; width: max-content; color: inherit; font-family: var(--font-title); font-size: 26px; line-height: 1; white-space: nowrap; pointer-events: none; }
+.hud-music { position: absolute; z-index: 6; display: grid; gap: 4px; max-height: min(52vh, 440px); overflow: auto; padding: 8px; color: var(--ui-ink); background: var(--ui-panel-bg); box-shadow: var(--ui-panel-shadow); pointer-events: auto; clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px); }
+.hud-music [role="option"] { text-align: left; padding: 7px 8px; border: 0; background: transparent; color: var(--ui-ink-soft); cursor: pointer; }
+.hud-music [role="option"][aria-selected="true"] { color: var(--ui-ink); background: var(--ui-cyan-glow); }
 .frame-frost { position: absolute; inset: 0; z-index: 1; pointer-events: none; backdrop-filter: var(--ui-frost-filter); -webkit-backdrop-filter: var(--ui-frost-filter); background: var(--ui-frost-bg); }
 .map-viewport { touch-action: none; outline: 0; cursor: grab; }
 .flat-population { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }

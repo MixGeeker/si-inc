@@ -4,6 +4,13 @@
   max-height: calc(100dvh - 36px);
   transform: none;
 }
+.front-start-dialog {
+  filter:
+    drop-shadow(0 0 6px rgba(232, 255, 255, .95))
+    drop-shadow(0 0 16px rgba(127, 248, 255, .8))
+    drop-shadow(0 0 36px rgba(28, 242, 255, .62))
+    drop-shadow(0 0 68px rgba(28, 242, 255, .34));
+}
 .front-dialog::backdrop { background: var(--ui-front-backdrop); backdrop-filter: blur(4px); }
 .front-dialog .window-body {
   display: flex;
@@ -65,7 +72,20 @@
 .front-dialog .front-menu { align-self: center; display: grid; gap: 13px; padding: 9px 0; }
 .front-dialog .front-menu-kicker { display: flex; justify-content: space-between; margin-bottom: 7px; color: var(--front-muted); font-size: 10px; letter-spacing: .14em; }
 .front-dialog .front-menu-kicker > span { color: var(--front-dim); letter-spacing: 0; }
-.front-dialog .front-menu-action { display: flex; align-items: center; gap: 14px; min-height: 67px; text-align: left; font-size: 16px; }
+.front-dialog .front-menu-action { position: relative; display: flex; align-items: center; gap: 14px; min-height: 67px; text-align: left; font-size: 16px; }
+.front-sheen { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.front-sheen::before {
+  content: ""; position: absolute; inset: -40% -70%; pointer-events: none;
+  background: linear-gradient(108deg, transparent 42%, rgba(255, 255, 255, .62) 50%, transparent 58%);
+  transform: translateX(-62%);
+}
+.front-dialog .front-primary:hover .front-sheen::before,
+.front-dialog .front-secondary:hover .front-sheen::before { animation: front-sheen .62s ease-out; }
+@keyframes front-sheen { to { transform: translateX(62%); } }
+.front-dialog .front-menu-action.is-burst { border-color: #ff4da6; box-shadow: 0 0 0 1px rgba(255, 77, 166, .95), 0 0 18px rgba(255, 46, 136, .8), inset 0 0 14px rgba(255, 46, 136, .35); }
+.front-burst { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.front-burst i { position: absolute; background: #ff4da6; box-shadow: 0 0 5px #ff7cc4; animation: front-spark .64s cubic-bezier(.16, .72, .28, 1) forwards; }
+@keyframes front-spark { to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
 .front-dialog .front-action-index { font-size: 10px; font-weight: 400; letter-spacing: .04em; opacity: .65; font-variant-numeric: tabular-nums; }
 .front-dialog .front-menu-note { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; color: var(--front-muted); font-size: 11px; }
 .front-dialog .front-menu-note > span { width: 4px; height: 4px; background: var(--ui-cyan); }
@@ -199,4 +219,8 @@
   .front-dialog .front-run-summary { flex-wrap: nowrap; gap: 20px; }
   .front-dialog .front-summary-resources { width: auto; margin-left: auto; padding-top: 0; border-top: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .front-dialog .front-card-body { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .front-dialog .front-card-body { transition: none; }
+  .front-sheen::before,
+  .front-burst i { animation: none; }
+}
