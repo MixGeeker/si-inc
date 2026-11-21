@@ -20,7 +20,7 @@
 .front-header-tools { position: absolute; z-index: 3; top: 0; right: 42px; display: flex; gap: 8px; }
 .front-header-tools .front-header-button { min-height: 30px; height: 30px; padding: 0 12px; color: var(--ui-ink); border: 1px solid var(--front-btn-border); background: transparent; box-shadow: none; font-family: var(--font-title); font-size: 12px; font-weight: 400; font-synthesis: none; letter-spacing: .04em; -webkit-font-smoothing: none; }
 .front-header-tools .front-header-button[aria-expanded="true"] { color: var(--front-primary-ink); border-color: var(--front-primary-border); background: var(--front-primary-bg); }
-.front-popover { position: absolute; top: 38px; right: 0; display: grid; gap: 12px; width: 240px; padding: 14px; color: var(--ui-ink-soft); background: var(--front-popover-bg); border: 1px solid var(--front-popover-border); box-shadow: 0 16px 40px rgba(0, 0, 0, .75); }
+.front-popover { position: absolute; top: 38px; right: 0; display: grid; gap: 12px; width: 268px; padding: 14px; color: var(--ui-ink-soft); background: var(--front-popover-bg); border: 1px solid var(--front-popover-border); box-shadow: 0 16px 40px rgba(0, 0, 0, .75); }
 .front-popover h3 { margin: 0; color: var(--ui-ink); font-family: var(--font-title); font-size: 12px; font-weight: 400; font-synthesis: none; letter-spacing: .04em; -webkit-font-smoothing: none; }
 .front-sound-volume { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; color: var(--ui-ink-muted); font-size: 13px; }
 .front-sound-volume output { color: var(--front-amber); font-variant-numeric: tabular-nums; }
@@ -29,6 +29,7 @@
 .front-sound-check { display: flex; align-items: center; gap: 8px; color: var(--ui-ink-soft); font-size: 13px; }
 .front-sound-actions button, .front-language-list button { min-height: 30px; padding: 0 10px; font-size: 13px; }
 .front-music { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid var(--front-line); }
+.front-music .front-language-list { max-height: 210px; overflow-y: auto; padding-right: 2px; scrollbar-width: thin; scrollbar-color: var(--front-scroll-thumb) transparent; }
 .front-music-empty { margin: 0; color: var(--front-muted); font-size: 12px; line-height: 1.5; }
 .front-language-list { display: grid; gap: 8px; }
 .front-language-list button[aria-pressed="true"], .front-language-list button[aria-selected="true"] { color: var(--front-primary-ink); border-color: var(--front-primary-border); background: var(--front-primary-bg); }

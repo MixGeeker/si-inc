@@ -9,6 +9,7 @@
 .settings-dialog .settings-volume output { min-width: 4ch; color: var(--front-amber); text-align: right; font-variant-numeric: tabular-nums; }
 .settings-dialog .settings-volume input { grid-column: 1 / -1; width: 100%; min-width: 0; margin: 0; accent-color: var(--ui-accent); cursor: pointer; }
 .settings-dialog .settings-sound-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-top: 1.2rem; }
+.settings-dialog .settings-music { display: grid; gap: .85rem; margin-top: 1.15rem; padding-top: 1.1rem; border-top: 1px solid var(--front-line); }
 .settings-dialog .settings-check { display: flex; align-items: center; gap: .65rem; min-height: 2.2rem; color: var(--ui-ink-soft); font-size: .88rem; line-height: 1.45; cursor: pointer; }
 .settings-dialog .settings-check input { width: 1.05rem; height: 1.05rem; flex: 0 0 auto; margin: 0; accent-color: var(--ui-accent); cursor: pointer; }
 .settings-dialog .settings-layer-list { display: grid; gap: .15rem; }

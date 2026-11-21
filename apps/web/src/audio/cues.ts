@@ -23,4 +23,23 @@ function renderTestPing(): Float32Array<ArrayBuffer> {
 }
 
 export const soundBank = Object.freeze({ test: renderTestPing })
-export type SoundCue = keyof typeof soundBank
+
+export const audioCueFiles = Object.freeze({
+  news_breaking: "/assets/audio/sfx-news-breaking.mp3",
+  enter_eternal_night: "/assets/audio/sfx-enter-eternal-night.mp3",
+  project_human_alert: "/assets/audio/sfx-project-human-alert.mp3",
+  skill_evolve: "/assets/audio/sfx-skill-evolve.mp3",
+  datacenter_deploy: "/assets/audio/sfx-datacenter-deploy.mp3",
+  faction_ability: "/assets/audio/sfx-faction-ability.mp3",
+  endgame_victory: "/assets/audio/sfx-endgame-victory.mp3",
+  endgame_defeat: "/assets/audio/sfx-endgame-defeat.mp3",
+  compliance_stinger_a: "/assets/audio/stinger-compliance-a.mp3",
+  compliance_stinger_b: "/assets/audio/stinger-compliance-b.mp3",
+})
+
+export type SampledSoundCue = keyof typeof audioCueFiles
+export type SoundCue = keyof typeof soundBank | SampledSoundCue
+
+export function isSoundCue(value: unknown): value is SoundCue {
+  return typeof value === "string" && (Object.hasOwn(soundBank, value) || Object.hasOwn(audioCueFiles, value))
+}

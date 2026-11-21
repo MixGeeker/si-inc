@@ -8,7 +8,7 @@ import { isRegionId } from "../../../../packages/rules/v0.1/scenario.ts"
 import { regionOfCountry, type RegionId } from "../../../../packages/rules/v0.1/world/regions.ts"
 import { computePlaceById, computePlaces } from "../cartography/compute-markers.ts"
 import { spratlyIslands } from "../cartography/place-names.ts"
-import { soundBank, type SoundCue } from "../audio/cues.ts"
+import { isSoundCue, type SoundCue } from "../audio/cues.ts"
 import { defaultMusic, resolveMusicTrackId, type MusicSettings } from "../audio/music.ts"
 import { defaultSound, validVolume, type SoundSettings } from "../audio/settings.ts"
 import { advanceCampaignDay, initialScene, playbackSpeed, sceneReducer, visibleRunState, type Scene, type SceneEvent } from "./machine.ts"
@@ -151,8 +151,7 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
       return { ...state, scene: scene.kind === "decision" ? { ...scene, back: next } : next }
     }
     case "play-sound":
-      if (typeof event.cue !== "string" || !Object.hasOwn(soundBank, event.cue)
-        || state.sound.muted || state.sound.volume === 0) return state
+      if (!isSoundCue(event.cue) || state.sound.muted || state.sound.volume === 0) return state
       return acceptWithoutChange
     case "set-locale":
       return isLocale(event.locale) && state.locale !== event.locale ? { ...state, locale: event.locale } : state

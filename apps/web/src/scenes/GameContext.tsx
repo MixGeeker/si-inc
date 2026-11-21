@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useState, useSyn
 import { attachLocale, readLocale } from "../i18n/preferences"
 import { attachGameSound } from "../audio/game-sound"
 import { attachMusicPreference, readMusicSettings } from "../audio/music"
+import { attachGameMusic } from "../audio/music-player"
 import { readSoundSettings } from "../audio/settings"
 import { createDayClock } from "./clock"
 import { attachDeveloperPreference, readDeveloperEnabled } from "./developer"
@@ -18,6 +19,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [clock] = useState(() => createDayClock(store))
   useLayoutEffect(() => attachLocale(store), [store])
   useEffect(() => attachGameSound(store), [store])
+  useEffect(() => attachGameMusic(store), [store])
   useEffect(() => {
     const stops = attachMusicPreference(store)
     return () => stops.forEach(stop => stop())
