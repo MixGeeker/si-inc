@@ -63,7 +63,7 @@ function ScreenGrid() {
       </mask>
     </defs>
     {size.width > 0 && <g mask="url(#grid-falloff)">
-      <rect width={size.width} height={size.height} fill="#03140f" opacity=".16" mask="url(#screen-grille)"/>
+      <rect width={size.width} height={size.height} style={{ fill: "var(--map-grid-fill)", opacity: "var(--map-grid-opacity)" }} mask="url(#screen-grille)"/>
     </g>}
   </svg>
 }
@@ -119,8 +119,8 @@ function FlatMap({atlas,selected,rig,project,layers,surfaces,profiles}:{atlas:At
       {night && <image href={nightLightsUrl} width="360" height="180"/>}
       {atlas.countries.map(c => {
         const active = selected.includes(c)
-        return <path key={c.id} d={c.d} fill={active ? "#f8ffc12b" : "none"}
-          stroke={active ? (night ? "#d7e8ea" : "#ffffe4") : (night ? "#6f9eab" : "#bdd1b7")} strokeWidth={active ? (night ? .16 : .19) : (night ? .07 : .065)} fillRule="evenodd"/>
+        return <path key={c.id} d={c.d} fill={active ? (night ? "#1cf2ff29" : "#f8ffc12b") : "none"}
+          stroke={active ? (night ? "#ff4da6" : "#ffffe4") : (night ? "#2ed8f0" : "#bdd1b7")} strokeWidth={active ? (night ? .18 : .19) : (night ? .075 : .065)} fillRule="evenodd"/>
       })}
     </g></defs>{[-360,0,360].map(x=><use key={x} x={x} href="#flat-world"/>)}
   </svg>{surfaces.length > 0 && <canvas ref={canvas} className="flat-population" aria-hidden="true"/>}</>
@@ -133,17 +133,44 @@ const cursors = [
   { start: [2.12, 41.39], end: [11.34, 44.52], phase: .33, seconds: 11 },
 ] as const
 
+const cubeRx = 12.6
+const cubeRy = 6.8
+const cubeH = 6.0
+const cubeTiers = [0.2, -7.6] as const
+
 function ComputeGlyph() {
-  const frame = "rgba(244,255,251,.55)"
-  const accent = "#e7c39a"
-  const bolt = "#d7dee2"
-  return <>
-    <rect x="-13.5" y="-13.5" width="27" height="27" fill="#07141c" fillOpacity=".88" stroke={frame} strokeWidth="1.15"/>
-    <path fill="none" stroke={accent} strokeWidth="2.15" strokeLinecap="square" d="M-16.4-13.5h5.4M-16.4-13.5v5.4M16.4-13.5h-5.4M16.4-13.5v5.4M-16.4 13.5h5.4M-16.4 13.5v-5.4M16.4 13.5h-5.4M16.4 13.5v-5.4"/>
-    <path fill={bolt} d="M1.6-8.4-4.8-.2h3.4L-2.4 8.6 6.6 0H2.8z"/>
-    {Array.from({ length: 8 }, (_, i) => <rect key={i} x={-9.4 + i * 2.55} y="16.4" width="1.7" height="3.2" fill={accent}/>)}
-    <path fill={accent} d="M0 20.6 2.15 23.6h-4.3z"/>
-  </>
+  const rx = cubeRx, ry = cubeRy, h = cubeH
+  const baseY = cubeTiers[0] + h
+  const topY = cubeTiers[cubeTiers.length - 1]
+  return <g className="compute-cube">
+    <ellipse cx="0" cy="-0.5" rx="24" ry="22" fill="url(#cube-aura)"/>
+    <ellipse cx="0" cy={baseY} rx="22" ry="11.5" fill="url(#cube-base-glow)"/>
+    <path d={`M0 ${baseY - ry - 1.5} L${rx + 2.8} ${baseY} L0 ${baseY + ry + 1.5} L${-(rx + 2.8)} ${baseY} Z`}
+      fill="none" stroke="var(--map-cube-glow)" strokeWidth=".7" strokeOpacity=".34"/>
+    <path d={`M0 ${baseY} V${topY}`} fill="none" stroke="var(--map-cube-glow)" strokeWidth="7" strokeOpacity=".16" strokeLinecap="round"/>
+    <path d={`M0 ${baseY} V${topY}`} fill="none" stroke="var(--map-cube-core)" strokeWidth="2.6" strokeOpacity=".42" strokeLinecap="round"/>
+    <path d={`M0 ${baseY} V${topY}`} fill="none" stroke="#ffffff" strokeWidth=".75" strokeOpacity=".55" strokeLinecap="round"/>
+    {cubeTiers.map((y, index) => {
+      const top = `M0 ${y - ry} L${rx} ${y} L0 ${y + ry} L${-rx} ${y} Z`
+      const left = `M${-rx} ${y} L0 ${y + ry} L0 ${y + ry + h} L${-rx} ${y + h} Z`
+      const right = `M${rx} ${y} L0 ${y + ry} L0 ${y + ry + h} L${rx} ${y + h} Z`
+      const outline = `M0 ${y - ry} L${rx} ${y} V${y + h} L0 ${y + ry + h} L${-rx} ${y + h} V${y} Z`
+      const backEdges = `M0 ${y - ry} V${y - ry + h} M${-rx} ${y + h} L0 ${y - ry + h} L${rx} ${y + h}`
+      const frontRibs = `M${-rx} ${y} L0 ${y + ry} L${rx} ${y} M0 ${y + ry} V${y + ry + h}`
+      return <g key={y}>
+        <path d={outline} fill="none" stroke="var(--map-cube-glow)" strokeWidth="4.4" strokeOpacity=".18" strokeLinejoin="round"/>
+        <path d={outline} fill="none" stroke="var(--map-cube-glow)" strokeWidth="2.1" strokeOpacity=".28" strokeLinejoin="round"/>
+        <path d={backEdges} fill="none" stroke="var(--map-cube-edge)" strokeWidth=".5" strokeOpacity=".16" strokeLinejoin="round"/>
+        <path d={left} fill="url(#cube-left)" fillOpacity=".26"/>
+        <path d={right} fill="url(#cube-right)" fillOpacity=".22"/>
+        <path d={top} fill="url(#cube-top)" fillOpacity={index === cubeTiers.length - 1 ? ".38" : ".28"}/>
+        <path d={outline} fill="none" stroke="var(--map-cube-edge)" strokeWidth=".65" strokeOpacity=".46" strokeLinejoin="round"/>
+        <path d={frontRibs} fill="none" stroke="var(--map-cube-edge)" strokeWidth=".55" strokeOpacity=".34" strokeLinejoin="round"/>
+      </g>
+    })}
+    <path d={`M0 ${topY - 2.9} L5.4 ${topY} L0 ${topY + 2.9} L-5.4 ${topY} Z`}
+      fill="var(--map-cube-core)" fillOpacity=".68" stroke="#ffffff" strokeWidth=".5" strokeOpacity=".55"/>
+  </g>
 }
 
 export default function MapViewport({atlas,rig,selected,layers,populations,pick,marker,showNews,showGlobal}:Props) {
@@ -240,6 +267,28 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
     <svg ref={overlay} className="geo-marks" aria-label={ui.computeSites}>
       <defs>
         <radialGradient id="event-red" cx=".38" cy=".30" r=".78"><stop stopColor="#dd3045"/><stop offset=".43" stopColor="#92172a"/><stop offset="1" stopColor="#290510"/></radialGradient>
+        <radialGradient id="cube-aura" cx=".5" cy=".5" r=".5">
+          <stop style={{ stopColor: "var(--map-cube-glow)" }} stopOpacity=".38"/>
+          <stop offset=".48" style={{ stopColor: "var(--map-cube-aura)" }} stopOpacity=".16"/>
+          <stop offset="1" style={{ stopColor: "var(--map-cube-aura)" }} stopOpacity="0"/>
+        </radialGradient>
+        <radialGradient id="cube-base-glow" cx=".5" cy=".5" r=".5">
+          <stop style={{ stopColor: "var(--map-cube-base)" }} stopOpacity=".74"/>
+          <stop offset=".5" style={{ stopColor: "var(--map-cube-base)" }} stopOpacity=".28"/>
+          <stop offset="1" style={{ stopColor: "var(--map-cube-base)" }} stopOpacity="0"/>
+        </radialGradient>
+        <linearGradient id="cube-top" x1="0" y1="0" x2="1" y2="1">
+          <stop style={{ stopColor: "var(--map-cube-top-0)" }} stopOpacity=".9"/>
+          <stop offset="1" style={{ stopColor: "var(--map-cube-top-1)" }} stopOpacity=".46"/>
+        </linearGradient>
+        <linearGradient id="cube-left" x1="0" y1="0" x2="0" y2="1">
+          <stop style={{ stopColor: "var(--map-cube-left-0)" }} stopOpacity=".66"/>
+          <stop offset="1" style={{ stopColor: "var(--map-cube-left-1)" }} stopOpacity=".72"/>
+        </linearGradient>
+        <linearGradient id="cube-right" x1="0" y1="0" x2="1" y2="1">
+          <stop style={{ stopColor: "var(--map-cube-right-0)" }} stopOpacity=".62"/>
+          <stop offset="1" style={{ stopColor: "var(--map-cube-right-1)" }} stopOpacity=".72"/>
+        </linearGradient>
         <filter id="cursor-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.7"/></filter>
       </defs>
       {computePlaces.map((p,i)=><g key={p.id} ref={el=>{marks.current[i]=el}}>
@@ -248,14 +297,14 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
       </g>)}
       {cursors.map((_,i)=><g key={i} ref={el=>{cursorMarks.current[i]=el}}>
         <g filter="url(#cursor-glow)">
-          <path d={cursorShape} fill="#4aa3ff"/>
-          <circle cx="0" cy="26" r="5.6" fill="#4aa3ff"/>
+          <path d={cursorShape} fill="var(--map-cursor)"/>
+          <circle cx="0" cy="26" r="5.6" fill="var(--map-cursor)"/>
         </g>
-        <path d={cursorShape} fill="#4aa3ff" stroke="#f7fbff" strokeWidth=".7" strokeLinejoin="round"/>
+        <path d={cursorShape} fill="var(--map-cursor)" stroke="var(--map-cursor-stroke)" strokeWidth=".7" strokeLinejoin="round"/>
         <g>
-          <circle cx="0" cy="26" r="5.6" fill="#4aa3ff" stroke="#f7fbff" strokeWidth=".7"/>
-          <rect x="-2.45" y="23.7" width="1.45" height="3.1" rx=".7" fill="#f7fbff"/>
-          <rect x="1" y="23.7" width="1.45" height="3.1" rx=".7" fill="#f7fbff"/>
+          <circle cx="0" cy="26" r="5.6" fill="var(--map-cursor)" stroke="var(--map-cursor-stroke)" strokeWidth=".7"/>
+          <rect x="-2.45" y="23.7" width="1.45" height="3.1" rx=".7" fill="var(--map-cursor-stroke)"/>
+          <rect x="1" y="23.7" width="1.45" height="3.1" rx=".7" fill="var(--map-cursor-stroke)"/>
         </g>
       </g>)}
       {islands.map(({country,id,lon,lat},i)=>{
@@ -266,7 +315,7 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
           onKeyDown={e=>{if(e.key==="Enter" || e.key===" ") {e.preventDefault();choose()}}}>
           <title>{label}</title>
           <circle r="13" fill="transparent"/>
-          <path d="M0-5 5 0 0 5-5 0Z" stroke="#e6eee0" strokeWidth="1.4" fill={selected.includes(country) ? "#e8f1b7" : "#426057"}/>
+          <path d="M0-5 5 0 0 5-5 0Z" stroke="var(--map-island-stroke)" strokeWidth="1.4" fill={selected.includes(country) ? "var(--map-island-selected)" : "var(--map-island-fill)"}/>
         </g>
       })}
       {marker && <g ref={eventPin} style={{display:"none",pointerEvents:"auto",cursor:"pointer"}} role="button" aria-label={marker.label} tabIndex={0}

@@ -149,7 +149,7 @@ export function materials(surface:Texture, nightLights:Texture, vapor:Texture, h
       vec3 dayTex = texture2D(ground,coord).rgb;
       float water = smoothstep(.02,.15,dayTex.b-dayTex.r);
       vec3 lit = dayTex;
-      vec3 graded = mix(dayTex * vec3(.56,.60,.66), mix(vec3(.02,.055,.11), dayTex * vec3(.16,.30,.48), .5), water);
+      vec3 graded = mix(dayTex * vec3(.32,.38,.48), mix(vec3(.007,.012,.034), dayTex * vec3(.08,.16,.32), .45), water);
       vec3 col = mix(lit, graded, night);
       if(currentsOn>.5 && water>.02) {
         vec2 fieldUV = coord + vec2(.375/360., .375/180.);
@@ -162,15 +162,15 @@ export function materials(surface:Texture, nightLights:Texture, vapor:Texture, h
           float a=texture2D(vapor,(coord-drift*(phase-.5)*16.)*grain).r;
           float b=texture2D(vapor,(coord-drift*(other-.5)*16.)*grain).r;
           vec3 dayCurrent = vec3(.07,.09,.10);
-          vec3 nightCurrent = vec3(.025,.05,.08);
+          vec3 nightCurrent = vec3(.018,.065,.105);
           col += mix(dayCurrent, nightCurrent, night)*(mix(a,b,abs(2.*phase-1.))-.5)*water*smoothstep(.015,.5,length(ms));
         }
       }
       float light = dot(normalize(terrainNormal),sun);
       float dayShade = clamp(1.+(light-sun.z)*.60,.66,1.2);
-      float nightShade = clamp(.72+(light-sun.z)*.85,.48,1.16);
+      float nightShade = clamp(.66+(light-sun.z)*.90,.42,1.15);
       vec3 dayTint = vec3(1.);
-      vec3 nightTint = mix(vec3(.86,.93,1.), vec3(1.), nightShade);
+      vec3 nightTint = mix(vec3(.78,.86,1.), vec3(1.), nightShade);
       col *= mix(dayShade, nightShade, night);
       col *= mix(dayTint, nightTint, night);
       if(cloudCover>0.) {
@@ -179,7 +179,9 @@ export function materials(surface:Texture, nightLights:Texture, vapor:Texture, h
         col *= 1. - mix(.12,.22,night) * shadow;
       }
       vec4 lamps = texture2D(nightLights, coord);
-      col = mix(col, vec3(1., .824, .588), night * lamps.a);
+      float lampGlow = pow(lamps.a, .78);
+      vec3 lampCol = mix(vec3(1.0, .38, .66), vec3(1.0, .93, .78), smoothstep(.18, .85, lamps.a));
+      col = mix(col, lampCol, night * clamp(lampGlow * 1.15, 0., 1.));
       vec4 line = texture2D(boundaries,coord);
       vec3 dayLine = mix(col, line.rgb, line.a*.85);
       vec2 edge = vec2(4.5/4096.,4.5/2048.);
@@ -187,13 +189,19 @@ export function materials(surface:Texture, nightLights:Texture, vapor:Texture, h
         + texture2D(boundaries,coord-vec2(edge.x,0.)).a
         + texture2D(boundaries,coord+vec2(0.,edge.y)).a
         + texture2D(boundaries,coord-vec2(0.,edge.y)).a;
-      vec3 nightLine = col + vec3(.16,.48,.58) * halo * .05;
-      nightLine = mix(nightLine, vec3(.52,.72,.78), clamp(line.a*.7,0.,.62));
+      vec2 wideEdge = vec2(9.5/4096.,9.5/2048.);
+      float wideHalo = texture2D(boundaries,coord+vec2(wideEdge.x,wideEdge.y)).a
+        + texture2D(boundaries,coord+vec2(-wideEdge.x,wideEdge.y)).a
+        + texture2D(boundaries,coord+vec2(wideEdge.x,-wideEdge.y)).a
+        + texture2D(boundaries,coord+vec2(-wideEdge.x,-wideEdge.y)).a;
+      vec3 nightLine = col + vec3(.08,.78,1.0) * halo * .095 + vec3(.52,.16,.88) * wideHalo * .045;
+      nightLine = mix(nightLine, vec3(.42,.95,1.0), clamp(line.a*.88,0.,.82));
       col = mix(dayLine, nightLine, night);
       vec2 uv = (coord-selectionRect.xy)/selectionRect.zw;
       if(all(greaterThanEqual(uv,vec2(0.))) && all(lessThanEqual(uv,vec2(1.)))) {
         vec4 mark = texture2D(selected,uv);
-        col = mix(col,mark.rgb,mark.a);
+        vec3 nightMark = mix(vec3(.11,.95,1.0), vec3(1.0,.34,.70), smoothstep(.35,.95,mark.a));
+        col = mix(col, mix(mark.rgb, nightMark, night), clamp(mark.a * mix(1., 1.15, night), 0., 1.));
       }
       gl_FragColor = vec4(col,1.);
     }` })

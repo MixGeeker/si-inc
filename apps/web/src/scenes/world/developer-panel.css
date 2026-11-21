@@ -3,10 +3,10 @@
   z-index: 6;
   top: clamp(48px, 9cqh, 98px);
   right: max(12px, 2cqw);
-  color: #edf8f0;
-  background: #0c1c18f5;
-  border: 1px solid #8eaa9b78;
-  border-top: 2px solid #eda15f;
+  color: var(--ui-ink);
+  background: var(--dev-bg);
+  border: 1px solid var(--dev-border);
+  border-top: 2px solid var(--dev-top);
   font: inherit;
 }
 .dev-launcher { cursor: pointer; padding: .45em .85em; font-size: clamp(12px, 1.2cqw, 15px); }
@@ -16,15 +16,15 @@
   overflow: auto;
   overscroll-behavior: contain;
   user-select: text;
-  box-shadow: 0 12px 32px #020a08aa;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .75);
   font-size: clamp(13px, 1.1cqw, 15px);
   line-height: 1.4;
 }
-.dev-header { display: flex; align-items: start; justify-content: space-between; gap: .75em; padding: .8em 1em; background: #1b3029; }
+.dev-header { display: flex; align-items: start; justify-content: space-between; gap: .75em; padding: .8em 1em; background: var(--dev-header-bg); }
 .dev-drawer h2, .dev-drawer h3, .dev-drawer p, .dev-drawer dl, .dev-drawer dd { margin: 0; }
 .dev-drawer h2 { font-size: 1.2em; }
 .dev-drawer h3, .dev-drawer legend { font-size: 1em; font-weight: 600; }
-.dev-drawer small, .dev-drawer dt { color: #abc4b6; }
+.dev-drawer small, .dev-drawer dt { color: var(--ui-ink-muted); }
 .dev-body { display: grid; gap: .8em; padding: .85em 1em; }
 .dev-body > button { justify-self: start; }
 .dev-drawer fieldset { min-inline-size: 0; padding: 0; margin: 0; border: 0; }
@@ -32,40 +32,40 @@
 .dev-actions, .dev-tabs, .dev-replay { display: flex; align-items: center; flex-wrap: wrap; gap: .4em; }
 .dev-actions small { margin-inline-end: auto; }
 .dev-drawer button, .dev-drawer input, .dev-drawer textarea {
-  padding: .35em .65em; border: 1px solid #637d70; border-radius: 3px;
-  color: inherit; background: #172b24; font: inherit;
+  padding: .35em .65em; border: 1px solid var(--dev-btn-border); border-radius: 3px;
+  color: inherit; background: var(--dev-btn-bg); font: inherit;
 }
 .dev-drawer button, .dev-timeline summary { cursor: pointer; }
-.dev-drawer button:hover, .dev-launcher:hover { background: #294336; }
-.dev-drawer button[aria-pressed="true"] { color: #ffd2a8; border-color: #e8a361; background: #38291b; }
-.dev-drawer :focus-visible, .dev-launcher:focus-visible { outline: 2px solid #ffd2a8; outline-offset: 1px; }
+.dev-drawer button:hover, .dev-launcher:hover { background: var(--dev-btn-hover); }
+.dev-drawer button[aria-pressed="true"] { color: var(--dev-btn-pressed-ink); border-color: var(--dev-btn-pressed-border); background: var(--dev-btn-pressed-bg); }
+.dev-drawer :focus-visible, .dev-launcher:focus-visible { outline: 2px solid var(--front-focus); outline-offset: 1px; }
 .dev-drawer button:disabled { opacity: .55; cursor: default; }
 .dev-header > button { padding: 0 .4em; font-size: 1.25em; }
-.dev-drawer .dev-link { padding-inline: .2em; border-color: transparent; background: transparent; color: #9cdac2; }
+.dev-drawer .dev-link { padding-inline: .2em; border-color: transparent; background: transparent; color: var(--ui-cyan-soft); }
 .dev-target .dev-link { margin-inline-start: auto; font-size: .9em; }
 .dev-meters { display: grid; grid-template-columns: minmax(0,.85fr) minmax(0,1.2fr) minmax(0,1fr); gap: .5em; font-variant-numeric: tabular-nums; }
-.dev-meters > div + div { border-left: 1px solid #3c5347; padding-left: .65em; }
+.dev-meters > div + div { border-left: 1px solid var(--dev-divider); padding-left: .65em; }
 .dev-meters dt { font-size: .85em; } .dev-meters dd { font-weight: 600; overflow-wrap: anywhere; }
 .dev-grants form { display: inline-flex; gap: .3em; }
-.dev-grants input { width: 7.8em; background: #0a1511; }
-.dev-grants input::placeholder { color: #a6b5aa; } .dev-grants [role="alert"] { color: #ffb69e; }
-.dev-decision { padding: .6em .8em; background: #1d3027; border-left: 2px solid #e8a361; }
+.dev-grants input { width: 7.8em; background: var(--dev-input-bg); }
+.dev-grants input::placeholder { color: var(--ui-ink-dim); } .dev-grants [role="alert"] { color: var(--ui-risk); }
+.dev-decision { padding: .6em .8em; background: var(--dev-decision-bg); border-left: 2px solid var(--dev-top); }
 .dev-decision .window-actions { margin: .45em 0 0; }
-.dev-tabs { gap: .75em; border-bottom: 1px solid #42594d; }
+.dev-tabs { gap: .75em; border-bottom: 1px solid var(--dev-divider); }
 .dev-tabs button, .dev-tabs button[aria-pressed="true"] { background: transparent; padding: .35em .1em; border: 0; border-radius: 0; border-bottom: 2px solid transparent; }
-.dev-tabs button[aria-pressed="true"] { border-bottom-color: #e8a361; }
+.dev-tabs button[aria-pressed="true"] { border-bottom-color: var(--dev-top); }
 .dev-timeline { margin: 0; padding: 0; list-style: none; }
-.dev-timeline li + li { border-top: 1px solid #34483d; }
+.dev-timeline li + li { border-top: 1px solid var(--dev-divider); }
 .dev-timeline summary { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; gap: .5em; align-items: baseline; padding: .5em .2em; }
-.dev-timeline summary::after { content: "›"; color: #abc4b6; }
+.dev-timeline summary::after { content: "›"; color: var(--ui-ink-muted); }
 .dev-timeline details[open] summary::after { transform: rotate(90deg); }
-.dev-timeline summary:hover, .dev-timeline details[open] { background: #192d24; }
+.dev-timeline summary:hover, .dev-timeline details[open] { background: var(--dev-hover); }
 .dev-timeline strong { font-weight: 500; } .dev-timeline summary > span { font-variant-numeric: tabular-nums; }
-.dev-credit { color: #95dfba; } .dev-debit { color: #ffb093; }
-.dev-entry-detail { padding: .2em .5em .65em; overflow-wrap: anywhere; color: #b9cfc1; font-size: .9em; }
+.dev-credit { color: var(--ui-gain); } .dev-debit { color: var(--ui-risk); }
+.dev-entry-detail { padding: .2em .5em .65em; overflow-wrap: anywhere; color: var(--ui-ink-soft); font-size: .9em; }
 .dev-inspect > div { display: flex; justify-content: space-between; gap: .5em; padding: .25em 0; }
 .dev-replay label { flex: 0 0 100%; }
-.dev-replay textarea { width: 100%; box-sizing: border-box; margin-top: .35em; resize: vertical; background: #081410; font: .9em/1.4 Consolas, monospace; }
+.dev-replay textarea { width: 100%; box-sizing: border-box; margin-top: .35em; resize: vertical; background: var(--dev-input-bg); font: .9em/1.4 Consolas, monospace; }
 @media (pointer: coarse) {
   .dev-drawer button, .dev-drawer input, .dev-timeline summary, .dev-launcher { min-height: 42px; }
 }

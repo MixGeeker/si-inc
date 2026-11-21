@@ -27,7 +27,7 @@ export default function TerrainScene({terrainLabel,atlas,rig,selected,layers,sur
   const blank = useMemo(()=>selectionTexture(),[])
   const mark = useMemo(()=>selected.length ? selectionTexture(selected) : blank,[selected,blank])
   const mat = useMemo(()=>materials(surface,nightLights,vapor,humidity,wind,bordersMap,blank),[surface,nightLights,vapor,humidity,wind,bordersMap,blank])
-  const backdrop = useMemo(()=>({ day:new Color(0x164458), night:new Color(0x04060f), color:new Color() }),[])
+  const backdrop = useMemo(()=>({ day:new Color(0x164458), night:new Color(0x020207), color:new Color() }),[])
   const previousNight = useRef(layers.night)
   const sweep = useRef<LightTransition | null>(null)
   const traces = useMemo(()=>new CurrentTraces(atlas),[atlas])

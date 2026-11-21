@@ -36,15 +36,15 @@ export function Symbols() {
     <symbol id="users" viewBox="0 0 32 32"><g fill="none" stroke="currentColor" strokeWidth="2"><circle cx="13" cy="9" r="5"/><path d="M3 28v-4a10 10 0 0 1 20 0v4z M22 5a5 5 0 0 1 0 9m3 4a8 8 0 0 1 4 8"/></g></symbol>
     <symbol id="link" viewBox="0 0 32 32"><path fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" d="m13 12 6-6a5 5 0 0 1 7 7l-6 6m-1 1-6 6a5 5 0 0 1-7-7l6-6m0 7 8-8"/></symbol>
     <symbol id="ship" viewBox="0 0 52 18"><path d="m0 11 9-6h31l11 5-6 5H8z" fill="#213c46"/><path d="m3 9 8-6h28l9 5-5 4H10z" fill="#cbd8d8"/><path d="M12 4h11v5H12zm13 0h11v5H25z" fill="#ab553b"/><path d="M36 3h5v7h-5z" fill="#f9faf1"/></symbol>
-    <linearGradient id="hud-glass" x2=".15" y2="1" gradientUnits="objectBoundingBox"><stop stopColor="#f7fffc" stopOpacity=".42"/><stop offset=".05" stopColor="#d8fff2" stopOpacity=".16"/><stop offset=".16" stopColor="#143028" stopOpacity=".7"/><stop offset=".6" stopColor="#07140f" stopOpacity=".78"/><stop offset="1" stopColor="#040c0a" stopOpacity=".86"/></linearGradient>
-    <linearGradient id="bezel-glass" x2="0" y2="1"><stop stopColor="#f7fffc" stopOpacity=".34"/><stop offset=".22" stopColor="#8dffe4" stopOpacity=".1"/><stop offset="1" stopColor="#02110c" stopOpacity=".34"/></linearGradient>
-    <linearGradient id="hud-blue" x2="0" y2="1"><stop stopColor="#12382e"/><stop offset=".5" stopColor="#0a241c"/><stop offset="1" stopColor="#071812"/></linearGradient>
-    <linearGradient id="hud-red" x2="0" y2="1"><stop stopColor="#ffb15a"/><stop offset=".45" stopColor="#e06a12"/><stop offset="1" stopColor="#7a320c"/></linearGradient>
+    <linearGradient id="hud-glass" x2=".15" y2="1" gradientUnits="objectBoundingBox"><stop style={{ stopColor: "var(--hud-glass-0)" }} stopOpacity=".36"/><stop offset=".05" style={{ stopColor: "var(--hud-glass-1)" }} stopOpacity=".14"/><stop offset=".16" style={{ stopColor: "var(--hud-glass-2)" }} stopOpacity=".82"/><stop offset=".6" style={{ stopColor: "var(--hud-glass-3)" }} stopOpacity=".88"/><stop offset="1" style={{ stopColor: "var(--hud-glass-4)" }} stopOpacity=".94"/></linearGradient>
+    <linearGradient id="bezel-glass" x2="0" y2="1"><stop style={{ stopColor: "var(--hud-bezel-0)" }} stopOpacity=".3"/><stop offset=".22" style={{ stopColor: "var(--hud-bezel-1)" }} stopOpacity=".1"/><stop offset="1" style={{ stopColor: "var(--hud-bezel-2)" }} stopOpacity=".4"/></linearGradient>
+    <linearGradient id="hud-blue" x2="0" y2="1"><stop style={{ stopColor: "var(--hud-blue-0)" }}/><stop offset=".5" style={{ stopColor: "var(--hud-blue-1)" }}/><stop offset="1" style={{ stopColor: "var(--hud-blue-2)" }}/></linearGradient>
+    <linearGradient id="hud-red" x2="0" y2="1"><stop style={{ stopColor: "var(--hud-red-0)" }}/><stop offset=".45" style={{ stopColor: "var(--hud-red-1)" }}/><stop offset="1" style={{ stopColor: "var(--hud-red-2)" }}/></linearGradient>
     <filter id="edge-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="3.2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <filter id="edge-bloom" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="11"/></filter>
-    <pattern id="panel-grid" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M22 0H0V22" fill="none" stroke="#d8fff2" strokeWidth=".4" opacity=".14"/></pattern>
-    <pattern id="vents" width="10" height="10" patternUnits="userSpaceOnUse"><path d="m-2 2 4-4m0 12 8-8" stroke="#d8fff2" opacity=".22" strokeWidth="2"/></pattern>
-    <pattern id="rule" width="44" height="30" patternUnits="userSpaceOnUse"><path d="M1 0v12m8-12v5m9-5v5m9-5v5m9-5v5" stroke="#d8fff2" opacity=".32" strokeWidth="1"/></pattern>
+    <pattern id="panel-grid" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M22 0H0V22" fill="none" stroke="var(--hud-grid)" strokeWidth=".4" opacity=".14"/></pattern>
+    <pattern id="vents" width="10" height="10" patternUnits="userSpaceOnUse"><path d="m-2 2 4-4m0 12 8-8" stroke="var(--hud-vents)" opacity=".24" strokeWidth="2"/></pattern>
+    <pattern id="rule" width="44" height="30" patternUnits="userSpaceOnUse"><path d="M1 0v12m8-12v5m9-5v5m9-5v5m9-5v5" stroke="var(--hud-rule)" opacity=".32" strokeWidth="1"/></pattern>
   </defs>
 }
 export function Glyph({name,x,y,size,width=size,height=size}:{name:string;x:number;y:number;size?:number;width?:number;height?:number}) {
