@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { isLocale, localeNames } from "../../../../../packages/rules/locales"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
-import { musicCatalog } from "../../audio/music"
+import { musicCatalog, musicTrackTitle } from "../../audio/music"
 import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
 import { useGameSnapshot, useGameStore } from "../GameContext"
@@ -66,9 +66,13 @@ export function StartScreen({ start, settings, explore }: { start: () => void; s
                 store.dispatch({ type: "set-music-volume", volume: event.currentTarget.valueAsNumber })}/>
           </label>
           {musicCatalog.length === 0 ? <p className="front-music-empty">{text.musicEmpty}</p>
-            : <div className="front-language-list" role="listbox" aria-label={text.music}>{musicCatalog.map(track =>
-              <button type="button" key={track.id} role="option" aria-selected={music.trackId === track.id} disabled={!music.enabled}
-                onClick={() => store.dispatch({ type: "set-music-track", trackId: track.id })}>{track.title}</button>)}</div>}
+            : <div className="front-language-list" role="listbox" aria-label={text.music}>
+              <button type="button" role="option" aria-selected={music.trackId === null} disabled={!music.enabled}
+                onClick={() => store.dispatch({ type: "set-music-track", trackId: null })}>{text.musicAuto}</button>
+              {musicCatalog.map(track =>
+                <button type="button" key={track.id} role="option" aria-selected={music.trackId === track.id} disabled={!music.enabled}
+                  onClick={() => store.dispatch({ type: "set-music-track", trackId: track.id })}>{musicTrackTitle(track, locale)}</button>)}
+            </div>}
         </div>
       </div>}
       {panel === "language" && <div className="front-popover" role="dialog" aria-label={text.languagePanel}>

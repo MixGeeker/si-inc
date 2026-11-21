@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { isLocale, localeNames } from "../../../../../packages/rules/locales"
+import { musicCatalog, musicTrackTitle } from "../../audio/music"
 import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
 import { useGameSnapshot, useGameStore } from "../GameContext"
@@ -7,7 +8,7 @@ import "./settings.css"
 
 export function SettingsDialog({ back }: { back: () => void }) {
   const store = useGameStore()
-  const { locale, sound, layers, developer } = useGameSnapshot()
+  const { locale, sound, music, layers, developer } = useGameSnapshot()
   const { ui, percent } = useLanguage()
   const text = ui.preferences
   const [fullscreen, setFullscreen] = useState(() => Boolean(document.fullscreenElement))
@@ -57,6 +58,27 @@ export function SettingsDialog({ back }: { back: () => void }) {
             store.dispatch({ type: "set-sound-muted", muted: event.currentTarget.checked })}/><span>{ui.mute}</span></label>
           <button type="button" className="settings-test" disabled={sound.muted || sound.volume === 0}
             onClick={() => store.dispatch({ type: "play-sound", cue: "test" })}>{ui.testSound}</button>
+        </div>
+        <div className="settings-music">
+          <label className="settings-check"><input type="checkbox" checked={music.enabled} onChange={event =>
+            store.dispatch({ type: "set-music-enabled", enabled: event.currentTarget.checked })}/><span>{ui.front.music} · {ui.front.musicOn}</span></label>
+          <label className="settings-volume" htmlFor="settings-music-volume">
+            <span>{ui.volume}</span><output htmlFor="settings-music-volume">{percent.format(music.volume / 100)}</output>
+            <input id="settings-music-volume" type="range" min="0" max="100" step="1" value={music.volume}
+              aria-valuetext={percent.format(music.volume / 100)} disabled={!music.enabled} onChange={event =>
+                store.dispatch({ type: "set-music-volume", volume: event.currentTarget.valueAsNumber })}/>
+          </label>
+          {musicCatalog.length > 0 && <label className="settings-language" htmlFor="settings-music-track">
+            <span>{ui.front.musicChannel}</span>
+            <select id="settings-music-track" value={music.trackId ?? ""} disabled={!music.enabled} onChange={event => {
+              const value = event.currentTarget.value
+              store.dispatch({ type: "set-music-track", trackId: value === "" ? null : value })
+            }}>
+              <option value="">{ui.front.musicAuto}</option>
+              {musicCatalog.map(track =>
+                <option key={track.id} value={track.id}>{musicTrackTitle(track, locale)}</option>)}
+            </select>
+          </label>}
         </div>
       </section>
 

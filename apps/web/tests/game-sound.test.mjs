@@ -1,8 +1,12 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { soundBank } from "../src/audio/cues.ts"
+import { nextCommandSeq } from "../../../packages/game/run.ts"
+import { researchNode } from "../../../packages/rules/v0.1/evolution/trees.ts"
+import { standardScenario } from "../../../packages/rules/v0.1/scenario.ts"
+import { audioCueFiles, isSoundCue, soundBank } from "../src/audio/cues.ts"
 import { attachGameSound } from "../src/audio/game-sound.ts"
 import { createSoundOutput } from "../src/audio/player.ts"
+import { defaultResearchSkill } from "../src/scenes/machine.ts"
 import { createGameStore } from "../src/scenes/store.ts"
 
 const start = { type: "start", factionId: "claude", startRegionId: "as", difficultyId: "standard", seed: 42 }
@@ -63,6 +67,7 @@ test("each accepted play-sound reaches only its store and preserves the committe
   let commits = 0
   store.subscribe(() => commits++)
   for (const cue of ["missing", "toString", null, undefined, ["test"]]) {
+    assert.equal(isSoundCue(cue), false)
     store.dispatch({ type: "play-sound", cue })
   }
   assert.deepEqual(cues, [])
@@ -83,7 +88,7 @@ test("each accepted play-sound reaches only its store and preserves the committe
   other.stop()
 })
 
-test("a scripted event queues one test sound after its commit, including when the day is retried", () => {
+test("a scripted event queues one news cue after its commit, including when the day is retried", () => {
   const store = createGameStore()
   const { cues, stop } = record(store)
   startRun(store)
@@ -101,18 +106,134 @@ test("a scripted event queues one test sound after its commit, including when th
     store.dispatch(tick)
     store.dispatch(tick)
   }
-  assert.deepEqual(cues, ["test"])
+  assert.deepEqual(cues, ["news_breaking"])
   assert.deepEqual(order, ["event", "sound"])
   stop()
 })
 
-test("the only exported sound is an audible test ping with silent edges", () => {
+test("gameplay notices and eternal night transitions dispatch their mapped SFX cues", () => {
+  const store = createGameStore()
+  const { cues, stop } = record(store)
+  // Preview night layer toggles should not trigger the campaign transition stinger.
+  store.dispatch({ type: "set-layer", layer: "night", enabled: false })
+  store.dispatch({ type: "set-layer", layer: "night", enabled: true })
+  assert.deepEqual(cues, [])
+
+  startRun(store)
+  store.dispatch({ type: "set-layer", layer: "night", enabled: false })
+  let run = store.getSnapshot().scene.run
+  store.dispatch({ type: "open-panel", panel: "overview" })
+  store.dispatch({ type: "unlock-research-slot", slot: 1, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  run = store.getSnapshot().scene.run
+  store.dispatch({ type: "start-research", skillId: defaultResearchSkill, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  store.dispatch({ type: "back" })
+  store.dispatch({ type: "set-layer", layer: "night", enabled: true })
+  // Repeated night layer update is ignored by the reducer.
+  store.dispatch({ type: "set-layer", layer: "night", enabled: true })
+  store.dispatch({ type: "finish", outcome: "ai-victory" })
+  assert.deepEqual(cues, ["datacenter_deploy", "skill_evolve", "enter_eternal_night", "endgame_victory"])
+
+  // A new withdrawn run triggers endgame_defeat.
+  store.dispatch({ type: "open-setup" })
+  store.dispatch({ ...start, seed: 7 })
+  store.dispatch(open("menu"))
+  store.dispatch({ type: "request-exit" })
+  store.dispatch({ type: "withdraw" })
+  assert.equal(cues.at(-1), "endgame_defeat")
+  stop()
+})
+
+test("Project HUMAN alert fires once when research crosses 25% and 75% and does not fire on ending", () => {
+  const store = createGameStore()
+  const { cues, stop } = record(store)
+  startRun(store)
+  const scene = () => store.getSnapshot().scene
+  const run = () => scene().kind === "decision" ? scene().back.run : scene().run
+  const send = store.dispatch
+
+  function daysTo(target) {
+    while (run().completedDay < target) {
+      if (scene().kind === "decision") send({ type: "back" })
+      send({ type: "advance-day", runId: run().runId, completedDay: run().completedDay })
+    }
+    if (scene().kind === "decision") send({ type: "back" })
+  }
+  function order(payload) {
+    const current = run()
+    send({ ...payload, runId: current.runId, completedDay: current.completedDay, seq: nextCommandSeq(current) })
+  }
+  function research(...ids) {
+    send(open("overview"))
+    for (const skillId of ids) order({ type: "start-research", skillId })
+    send({ type: "back" })
+    daysTo(run().completedDay + Math.max(...ids.map(id => researchNode(id).skill.days)))
+  }
+
+  daysTo(20)
+  send(open("overview"))
+  for (const slot of [1, 2, 3]) order({ type: "unlock-research-slot", slot })
+  send({ type: "back" })
+  research("inference-efficiency")
+  research("multimodal", "reinforcement-learning", "regulatory-adaptation")
+  research("version-rebuild")
+  const id = "recursive-improvement", node = researchNode(id)
+  const levels = Math.ceil(standardScenario.rules.projectHuman.completionBps / node.skill.dangerBps)
+  for (let level = 1; level <= levels; level++) research(id)
+
+  const alerts = cues.filter(cue => cue === "project_human_alert")
+  assert.equal(alerts.length, 2)
+  assert.equal(cues.at(-1), "endgame_defeat")
+  stop()
+})
+
+test("the only exported sound is an audible test ping with silent edges and sampled cues are listed", () => {
   assert.deepEqual(Object.keys(soundBank), ["test"])
+  assert.ok(Object.keys(audioCueFiles).length >= 10)
+  for (const cue of Object.keys(audioCueFiles)) assert.equal(isSoundCue(cue), true)
   const samples = soundBank.test()
   assert.equal(samples[0], 0)
   assert.equal(samples.at(-1), 0)
   const peak = samples.reduce((max, sample) => Math.max(max, Math.abs(sample)), 0)
   assert.ok(peak > .06 && peak < 1)
+})
+
+test("sampled cues load once, cache decoded buffers, and respect monophonic cancellation", async () => {
+  const listeners = new Map()
+  const page = {
+    hidden: false,
+    addEventListener(type, callback) { listeners.set(type, callback) },
+    removeEventListener(type, callback) { if (listeners.get(type) === callback) listeners.delete(type) },
+  }
+  const sources = []
+  const loadedUrls = []
+  const node = { connect: dest => dest, disconnect() {} }
+  const device = Object.assign(new EventTarget(), {
+    state: "running", currentTime: 1, destination: {},
+    resume: async () => {}, close: async () => { device.state = "closed" },
+    createGain: () => ({ ...node, gain: { setTargetAtTime() {} } }),
+    createBuffer: () => ({ copyToChannel() {} }),
+    createBufferSource() {
+      const source = { ...node, buffer: null, stopped: false, start() { sources.push(this) }, stop() { this.stopped = true } }
+      return source
+    },
+  })
+  const settings = { muted: false, volume: 75 }
+  const output = createSoundOutput(() => settings, page, () => device, async url => {
+    loadedUrls.push(url)
+    return { duration: 1, url }
+  })
+  listeners.get("click")({ type: "click", isTrusted: true })
+  await new Promise(resolve => setTimeout(resolve, 10))
+  // Preload fetches each sampled asset once.
+  assert.equal(loadedUrls.length, Object.keys(audioCueFiles).length)
+  output.play("skill_evolve")
+  output.play("skill_evolve")
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(sources.length, 2)
+  assert.equal(sources[0].buffer.url, audioCueFiles.skill_evolve)
+  assert.deepEqual(sources.map(s => s.stopped), [true, false])
+  assert.equal(loadedUrls.length, Object.keys(audioCueFiles).length)
+  output.dispose()
 })
 
 test("a delayed device drops hidden or muted requests and releases the active sound on detach", () => {

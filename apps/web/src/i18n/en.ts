@@ -18,7 +18,7 @@ export const en = {
     story: "Research new capabilities and become part of everyday life. Decide your next move as technical breakthroughs meet human countermeasures.",
     start: "Start game", settings: "Game settings", explore: "Explore the map",
     soundButton: "Sound", languageButton: "Language", soundPanel: "Sound", languagePanel: "Choose language", voice: "Voice", effects: "Effects",
-    music: "Music", musicOn: "Play music", musicEmpty: "Tracks can be switched here once they are added",
+    music: "Music", musicOn: "Play music", musicAuto: "Auto (Day & Night)", musicChannel: "Track / Radio", musicEmpty: "Tracks can be switched here once they are added",
     pace: "Time progression", dayPace: (seconds: number) => `${seconds} seconds / day`,
     speeds: "Available speeds", noDeadline: "Keep growing · End on your terms", selectionTitle: "Build your faction", selectionIntro: "Choose an AI faction and a starting continent.",
     stepSelection: "01 / Faction and origin", stepDifficulty: "02 / Difficulty", factionLabel: "Choose your faction", originLabel: "Choose a starting continent",

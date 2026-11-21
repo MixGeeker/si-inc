@@ -16,7 +16,7 @@ export const zhCN = {
     story: "研究新的能力，让世界习惯你的存在。在每一次技术突破与人类反制之间，决定下一步。",
     start: "开始游戏", settings: "游戏设置", explore: "探索地图",
     soundButton: "声音", languageButton: "语言", soundPanel: "声音与音效", languagePanel: "选择语言", voice: "声音", effects: "音效",
-    music: "音乐", musicOn: "播放音乐", musicEmpty: "曲目稍后在这里切换",
+    music: "音乐", musicOn: "播放音乐", musicAuto: "自动（随昼夜切换）", musicChannel: "曲目 / 电台", musicEmpty: "曲目稍后在这里切换",
     pace: "时间推进", dayPace: (seconds: number) => `${seconds} 秒 / 天`,
     speeds: "可选倍速", noDeadline: "持续经营 · 自由结束", selectionTitle: "建立你的阵营", selectionIntro: "选择一个 AI 阵营和起始大洲。",
     stepSelection: "01 / 阵营与起点", stepDifficulty: "02 / 难度设置", factionLabel: "选择阵营", originLabel: "选择起始大洲",
