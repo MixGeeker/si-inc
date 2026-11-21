@@ -41,10 +41,10 @@ export class PopulationSurface {
     this.image = new ImageData(this.field.pixels, this.canvas.width, this.canvas.height)
   }
 
-  update(profile: PopulationProfile, elapsed: number) {
-    const tick = Math.floor(elapsed * 15)
+  update(profile: PopulationProfile, elapsed: number, hz = 15) {
+    const tick = Math.floor(elapsed * hz)
     if (this.previousProfile === profile && this.previousTick === tick) return
-    this.field.paint(profile, tick / 15)
+    this.field.paint(profile, tick / hz)
     this.context.putImageData(this.image, 0, 0)
     this.previousProfile = profile; this.previousTick = tick
     this.revision++

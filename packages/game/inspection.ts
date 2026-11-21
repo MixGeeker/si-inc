@@ -1,6 +1,22 @@
 import { standardScenario } from "../rules/v0.1/scenario.ts"
+import { regionIds, type RegionId } from "../rules/v0.1/world/regions.ts"
+import { totalCenters, totalImmersed, totalSynthetics } from "./operations.ts"
 import { researchState } from "./research.ts"
-import { advanceDay, createRun, grantDeveloperTokens, resolveDecision, startResearch, unlockResearchSlot, type RunEvent, type RunState } from "./run.ts"
+import {
+  advanceDay,
+  buildDataCenter,
+  buyBuildCard,
+  createRun,
+  fundConversion,
+  grantDeveloperTokens,
+  resolveDecision,
+  startResearch,
+  toggleSyntheticProgram,
+  unlockResearchSlot,
+  useAction,
+  type RunEvent,
+  type RunState,
+} from "./run.ts"
 import type { DeveloperReplay, GameCommand, ReplayV2, RunCommand } from "./types.ts"
 
 export function replayForRun(run: RunState): ReplayV2 | DeveloperReplay {
@@ -51,6 +67,11 @@ export function runTimeline(run: RunState): RunTraceEntry[] | null {
       if (command.kind === "devGrantTokens") cursor = grantDeveloperTokens(before, command.amount, command.seq)
       else if (command.kind === "unlockResearchSlot") cursor = unlockResearchSlot(before, command.slot, command.seq)
       else if (command.kind === "buySkill") cursor = startResearch(before, command.skillId, command.seq)
+      else if (command.kind === "buyBuildCard") cursor = buyBuildCard(before, command.seq)
+      else if (command.kind === "buildDataCenter") cursor = buildDataCenter(before, command.countryId, command.seq)
+      else if (command.kind === "fundConversion") cursor = fundConversion(before, command.tokens, command.seq)
+      else if (command.kind === "toggleSynthetic") cursor = toggleSyntheticProgram(before, command.regionId as RegionId, command.enabled, command.seq)
+      else if (command.kind === "useAbility") cursor = useAction(before, command.abilityId, command.seq, command.targetRegionId as RegionId | undefined)
       else if (command.kind === "chooseEvent") {
         event = before.events.find(entry => entry.instanceId === command.eventInstanceId)
         if (event?.content.kind !== "decision") return null
@@ -64,9 +85,28 @@ export function runTimeline(run: RunState): RunTraceEntry[] | null {
   const expected = researchState(run), actual = researchState(cursor)
   if (index !== run.commands.length || cursor.completedDay !== run.completedDay || cursor.balance !== run.balance
     || (cursor.operatingRemainder ?? 0) !== (run.operatingRemainder ?? 0)
+    || cursor.exposureBps !== run.exposureBps || cursor.buildCards !== run.buildCards
+    || cursor.adoptionBps !== run.adoptionBps || cursor.dependencyBps !== run.dependencyBps
+    || cursor.syntheticBps !== run.syntheticBps || cursor.playerSyntheticBps !== run.playerSyntheticBps
+    || cursor.conversionBudgetPeople !== run.conversionBudgetPeople
+    || cursor.syntheticActivatedDay !== run.syntheticActivatedDay
+    || cursor.corpusRemainder !== run.corpusRemainder || cursor.crossRegionProgress !== run.crossRegionProgress
+    || cursor.actionCooldowns.publicStatementUntilDay !== run.actionCooldowns.publicStatementUntilDay
+    || cursor.actionCooldowns.protocolRebuildUntilDay !== run.actionCooldowns.protocolRebuildUntilDay
+    || totalCenters(cursor) !== totalCenters(run) || totalImmersed(cursor) !== totalImmersed(run)
+    || totalSynthetics(cursor) !== totalSynthetics(run)
     || cursor.researchBps !== run.researchBps || expected.corpus !== actual.corpus
     || expected.unlockedSlots !== actual.unlockedSlots || expected.projects.length !== actual.projects.length) return null
-  const matches = expected.projects.every((p, i) => p.skillId === actual.projects[i].skillId
+  const marketsMatch = regionIds.every(id => {
+    const a = cursor.markets[id], b = run.markets[id]
+    return a.enteredDay === b.enteredDay && a.subsidyUntilDay === b.subsidyUntilDay
+      && a.subsidyStartedDay === b.subsidyStartedDay && a.apiActiveDays === b.apiActiveDays
+      && a.orgSeats === b.orgSeats && a.syntheticEnabled === b.syntheticEnabled
+      && a.syntheticActivatedDay === b.syntheticActivatedDay
+      && a.milestonesClaimed.length === b.milestonesClaimed.length
+      && a.milestonesClaimed.every((m, i) => m === b.milestonesClaimed[i])
+  })
+  const matches = marketsMatch && expected.projects.every((p, i) => p.skillId === actual.projects[i].skillId
     && p.startedDay === actual.projects[i].startedDay && p.slot === actual.projects[i].slot)
   const eventMatches = cursor.events.length === run.events.length && cursor.events.every((event, i) => {
     const expected = run.events[i]

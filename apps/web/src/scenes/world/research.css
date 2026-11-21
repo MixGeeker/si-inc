@@ -67,13 +67,6 @@ dialog.research-dialog {
 .lab-tabs button[aria-selected="true"] { color: var(--accent); background: linear-gradient(0deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent); }
 .lab-tabs button[aria-selected="true"]::after { content: ""; position: absolute; inset: auto .65em -1px; height: 3px; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
 .lab-tabs button:hover { color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.lab-build { align-self: center; position: relative; display: flex; align-items: center; color: var(--ui-ink-soft); }
-.lab-build > .lab-icon { pointer-events: none; position: absolute; left: .55em; width: .95em; }
-.lab-build::after { content: ""; position: absolute; right: .75em; top: 42%; width: .38em; height: .38em;
-  border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg); pointer-events: none; }
-.lab-build select { appearance: none; width: fit-content; max-width: 17em; padding: .42em 2.1em .42em 1.95em;
-  font-size: .84em; border: 1px solid var(--border); color: var(--ui-ink-soft); background: var(--front-select-bg); }
-.lab-build option { background: var(--lab-panel); }
 .lab-sr { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
 
 .lab-chart {
@@ -115,7 +108,6 @@ dialog.research-dialog {
 .hive-bridge .bridge-lens { fill: url(#hive-bridge); stroke: var(--hive-bridge-stroke); stroke-width: 1.1; }
 .bridge-glint { fill: none; stroke: var(--hive-bridge-glint); stroke-width: 1; opacity: .82; }
 .hive-bridge.inspected .bridge-glint { stroke: var(--hive-bridge-glint-hot); stroke-width: 2; opacity: 1; }
-.hive-bridge.off-route { opacity: .32; }
 .lab-station { pointer-events: none; }
 .research-dialog .lab-node, .research-dialog .lab-node:hover, .research-dialog .lab-node:focus-visible {
   display: block; width: 100%; height: 100%; padding: 0; margin: 0; border: 0; outline: 0; border-radius: 0;
@@ -155,8 +147,6 @@ dialog.research-dialog {
 .lab-node[aria-pressed="true"] .hex-selection-inset, .lab-node:focus-visible .hex-selection,
 .lab-node:focus-visible .hex-selection-inset { opacity: 1; }
 .lab-node:hover .hex-selection { opacity: .85; }
-.lab-node.off-route { opacity: .37; }
-.lab-node.off-route:hover, .lab-node.off-route:focus-visible, .lab-node.off-route[aria-pressed="true"] { opacity: 1; }
 .hive-tooltip { overflow: visible; pointer-events: none; text-align: center; }
 .hive-tooltip > span {
   display: inline-flex; align-items: center; gap: .55em; padding: 3px 9px; white-space: nowrap;

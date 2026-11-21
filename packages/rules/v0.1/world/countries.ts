@@ -1,0 +1,275 @@
+import type { RegionId } from "./regions.ts"
+
+export interface CountrySpec {
+  readonly id: string
+  readonly regionId: RegionId
+  readonly population: number
+  /** Internet penetration in basis points (0..10000). Missing ITU entries default to 5000. */
+  readonly internetBps: number
+  readonly slots: number
+  readonly slotCapacity: number
+}
+
+/** Reference country census and data-center capacity from docs/data-center-capacity.csv. */
+export const countries: Readonly<Record<string, CountrySpec>> = {
+  ABW: { id: "ABW", regionId: "na", population: 107995, internetBps: 5000, slots: 1, slotCapacity: 107995 },
+  AFG: { id: "AFG", regionId: "as", population: 42647492, internetBps: 1609, slots: 2, slotCapacity: 21323746 },
+  AGO: { id: "AGO", regionId: "af", population: 37885849, internetBps: 4070, slots: 2, slotCapacity: 18942925 },
+  ALB: { id: "ALB", regionId: "eu", population: 2377128, internetBps: 8586, slots: 1, slotCapacity: 2377128 },
+  AND: { id: "AND", regionId: "eu", population: 81938, internetBps: 9440, slots: 1, slotCapacity: 81938 },
+  ARE: { id: "ARE", regionId: "as", population: 10986400, internetBps: 10000, slots: 2, slotCapacity: 5493200 },
+  ARG: { id: "ARG", regionId: "sam", population: 45696159, internetBps: 8967, slots: 2, slotCapacity: 22848080 },
+  ARM: { id: "ARM", regionId: "as", population: 3033500, internetBps: 8134, slots: 1, slotCapacity: 3033500 },
+  ASM: { id: "ASM", regionId: "oc", population: 46765, internetBps: 5000, slots: 1, slotCapacity: 46765 },
+  ATG: { id: "ATG", regionId: "na", population: 93772, internetBps: 7273, slots: 1, slotCapacity: 93772 },
+  AUS: { id: "AUS", regionId: "oc", population: 27194286, internetBps: 9613, slots: 2, slotCapacity: 13597143 },
+  AUT: { id: "AUT", regionId: "eu", population: 9177982, internetBps: 9492, slots: 2, slotCapacity: 4588991 },
+  AZE: { id: "AZE", regionId: "as", population: 10202830, internetBps: 9044, slots: 2, slotCapacity: 5101415 },
+  BDI: { id: "BDI", regionId: "af", population: 14047786, internetBps: 860, slots: 1, slotCapacity: 14047786 },
+  BEL: { id: "BEL", regionId: "eu", population: 11858610, internetBps: 9578, slots: 2, slotCapacity: 5929305 },
+  BEN: { id: "BEN", regionId: "af", population: 14462724, internetBps: 3398, slots: 1, slotCapacity: 14462724 },
+  BFA: { id: "BFA", regionId: "af", population: 23548781, internetBps: 2825, slots: 2, slotCapacity: 11774391 },
+  BGD: { id: "BGD", regionId: "as", population: 173562364, internetBps: 5342, slots: 2, slotCapacity: 86781182 },
+  BGR: { id: "BGR", regionId: "eu", population: 6441421, internetBps: 8244, slots: 2, slotCapacity: 3220711 },
+  BHR: { id: "BHR", regionId: "as", population: 1588670, internetBps: 10000, slots: 1, slotCapacity: 1588670 },
+  BHS: { id: "BHS", regionId: "na", population: 401283, internetBps: 9247, slots: 1, slotCapacity: 401283 },
+  BIH: { id: "BIH", regionId: "eu", population: 3164253, internetBps: 8610, slots: 1, slotCapacity: 3164253 },
+  BLR: { id: "BLR", regionId: "eu", population: 9132629, internetBps: 9426, slots: 2, slotCapacity: 4566315 },
+  BLZ: { id: "BLZ", regionId: "na", population: 417072, internetBps: 8001, slots: 1, slotCapacity: 417072 },
+  BMU: { id: "BMU", regionId: "na", population: 64636, internetBps: 5000, slots: 1, slotCapacity: 64636 },
+  BOL: { id: "BOL", regionId: "sam", population: 12413315, internetBps: 7970, slots: 2, slotCapacity: 6206658 },
+  BRA: { id: "BRA", regionId: "sam", population: 211998573, internetBps: 8446, slots: 3, slotCapacity: 70666191 },
+  BRB: { id: "BRB", regionId: "na", population: 282467, internetBps: 7036, slots: 1, slotCapacity: 282467 },
+  BRN: { id: "BRN", regionId: "as", population: 462721, internetBps: 9630, slots: 1, slotCapacity: 462721 },
+  BTN: { id: "BTN", regionId: "as", population: 791524, internetBps: 9128, slots: 1, slotCapacity: 791524 },
+  BWA: { id: "BWA", regionId: "af", population: 2521139, internetBps: 5746, slots: 1, slotCapacity: 2521139 },
+  CAF: { id: "CAF", regionId: "af", population: 5330690, internetBps: 1378, slots: 1, slotCapacity: 5330690 },
+  CAN: { id: "CAN", regionId: "na", population: 41262329, internetBps: 9435, slots: 2, slotCapacity: 20631165 },
+  CHE: { id: "CHE", regionId: "eu", population: 9005582, internetBps: 9734, slots: 2, slotCapacity: 4502791 },
+  CHL: { id: "CHL", regionId: "sam", population: 19764771, internetBps: 9559, slots: 2, slotCapacity: 9882386 },
+  CHN: { id: "CHN", regionId: "as", population: 1408975000, internetBps: 9200, slots: 8, slotCapacity: 176121875 },
+  CIV: { id: "CIV", regionId: "af", population: 31934230, internetBps: 4143, slots: 2, slotCapacity: 15967115 },
+  CMR: { id: "CMR", regionId: "af", population: 29123744, internetBps: 4626, slots: 2, slotCapacity: 14561872 },
+  COD: { id: "COD", regionId: "af", population: 109276265, internetBps: 1967, slots: 2, slotCapacity: 54638133 },
+  COG: { id: "COG", regionId: "af", population: 6332961, internetBps: 4725, slots: 1, slotCapacity: 6332961 },
+  COL: { id: "COL", regionId: "sam", population: 52886363, internetBps: 7935, slots: 2, slotCapacity: 26443182 },
+  COM: { id: "COM", regionId: "af", population: 866628, internetBps: 3252, slots: 1, slotCapacity: 866628 },
+  CPV: { id: "CPV", regionId: "af", population: 524877, internetBps: 7474, slots: 1, slotCapacity: 524877 },
+  CRI: { id: "CRI", regionId: "na", population: 5129910, internetBps: 8717, slots: 1, slotCapacity: 5129910 },
+  CUB: { id: "CUB", regionId: "na", population: 10979783, internetBps: 7048, slots: 2, slotCapacity: 5489892 },
+  CUW: { id: "CUW", regionId: "na", population: 155967, internetBps: 5000, slots: 1, slotCapacity: 155967 },
+  CYM: { id: "CYM", regionId: "na", population: 74457, internetBps: 5000, slots: 1, slotCapacity: 74457 },
+  CYP: { id: "CYP", regionId: "as", population: 1358282, internetBps: 8960, slots: 1, slotCapacity: 1358282 },
+  CZE: { id: "CZE", regionId: "eu", population: 10905028, internetBps: 8769, slots: 2, slotCapacity: 5452514 },
+  DEU: { id: "DEU", regionId: "eu", population: 83516593, internetBps: 9350, slots: 2, slotCapacity: 41758297 },
+  DJI: { id: "DJI", regionId: "af", population: 1168722, internetBps: 6530, slots: 1, slotCapacity: 1168722 },
+  DMA: { id: "DMA", regionId: "na", population: 66205, internetBps: 8205, slots: 1, slotCapacity: 66205 },
+  DNK: { id: "DNK", regionId: "eu", population: 5976992, internetBps: 9977, slots: 2, slotCapacity: 2988496 },
+  DOM: { id: "DOM", regionId: "na", population: 11427557, internetBps: 9100, slots: 2, slotCapacity: 5713779 },
+  DZA: { id: "DZA", regionId: "af", population: 46814308, internetBps: 7742, slots: 2, slotCapacity: 23407154 },
+  ECU: { id: "ECU", regionId: "sam", population: 18135478, internetBps: 7717, slots: 2, slotCapacity: 9067739 },
+  EGY: { id: "EGY", regionId: "af", population: 116538258, internetBps: 7465, slots: 2, slotCapacity: 58269129 },
+  ERI: { id: "ERI", regionId: "af", population: 3535603, internetBps: 5000, slots: 1, slotCapacity: 3535603 },
+  ESP: { id: "ESP", regionId: "eu", population: 48848840, internetBps: 9576, slots: 2, slotCapacity: 24424420 },
+  EST: { id: "EST", regionId: "eu", population: 1372341, internetBps: 9224, slots: 1, slotCapacity: 1372341 },
+  ETH: { id: "ETH", regionId: "af", population: 132059767, internetBps: 2194, slots: 2, slotCapacity: 66029884 },
+  FIN: { id: "FIN", regionId: "eu", population: 5619911, internetBps: 9372, slots: 2, slotCapacity: 2809956 },
+  FJI: { id: "FJI", regionId: "oc", population: 928784, internetBps: 7471, slots: 1, slotCapacity: 928784 },
+  FRA: { id: "FRA", regionId: "eu", population: 68551653, internetBps: 8865, slots: 2, slotCapacity: 34275827 },
+  FRO: { id: "FRO", regionId: "eu", population: 54640, internetBps: 5000, slots: 1, slotCapacity: 54640 },
+  FSM: { id: "FSM", regionId: "oc", population: 113160, internetBps: 3952, slots: 1, slotCapacity: 113160 },
+  GAB: { id: "GAB", regionId: "af", population: 2538952, internetBps: 6872, slots: 1, slotCapacity: 2538952 },
+  GBR: { id: "GBR", regionId: "eu", population: 69281000, internetBps: 9547, slots: 2, slotCapacity: 34640500 },
+  GEO: { id: "GEO", regionId: "as", population: 3812518, internetBps: 8380, slots: 1, slotCapacity: 3812518 },
+  GHA: { id: "GHA", regionId: "af", population: 34427414, internetBps: 7218, slots: 2, slotCapacity: 17213707 },
+  GIN: { id: "GIN", regionId: "af", population: 14754785, internetBps: 3330, slots: 1, slotCapacity: 14754785 },
+  GMB: { id: "GMB", regionId: "af", population: 2759988, internetBps: 4949, slots: 1, slotCapacity: 2759988 },
+  GNB: { id: "GNB", regionId: "af", population: 2201352, internetBps: 2978, slots: 1, slotCapacity: 2201352 },
+  GNQ: { id: "GNQ", regionId: "af", population: 1892516, internetBps: 6330, slots: 1, slotCapacity: 1892516 },
+  GRC: { id: "GRC", regionId: "eu", population: 10405134, internetBps: 8627, slots: 2, slotCapacity: 5202567 },
+  GRD: { id: "GRD", regionId: "na", population: 117207, internetBps: 7016, slots: 1, slotCapacity: 117207 },
+  GRL: { id: "GRL", regionId: "na", population: 56836, internetBps: 5000, slots: 1, slotCapacity: 56836 },
+  GTM: { id: "GTM", regionId: "na", population: 18406359, internetBps: 6022, slots: 2, slotCapacity: 9203180 },
+  GUM: { id: "GUM", regionId: "oc", population: 167777, internetBps: 5000, slots: 1, slotCapacity: 167777 },
+  GUY: { id: "GUY", regionId: "sam", population: 831087, internetBps: 8300, slots: 1, slotCapacity: 831087 },
+  HKG: { id: "HKG", regionId: "as", population: 7524100, internetBps: 9576, slots: 2, slotCapacity: 3762050 },
+  HND: { id: "HND", regionId: "na", population: 10825703, internetBps: 5862, slots: 2, slotCapacity: 5412852 },
+  HRV: { id: "HRV", regionId: "eu", population: 3866200, internetBps: 8363, slots: 1, slotCapacity: 3866200 },
+  HTI: { id: "HTI", regionId: "na", population: 11772557, internetBps: 4786, slots: 2, slotCapacity: 5886279 },
+  HUN: { id: "HUN", regionId: "eu", population: 9562065, internetBps: 9378, slots: 2, slotCapacity: 4781033 },
+  IDN: { id: "IDN", regionId: "as", population: 283487931, internetBps: 7278, slots: 4, slotCapacity: 70871983 },
+  IMN: { id: "IMN", regionId: "eu", population: 84160, internetBps: 5000, slots: 1, slotCapacity: 84160 },
+  IND: { id: "IND", regionId: "as", population: 1450935791, internetBps: 6494, slots: 7, slotCapacity: 207276542 },
+  IRL: { id: "IRL", regionId: "eu", population: 5395790, internetBps: 9719, slots: 3, slotCapacity: 2697895 },
+  IRN: { id: "IRN", regionId: "as", population: 91567738, internetBps: 8534, slots: 2, slotCapacity: 45783869 },
+  IRQ: { id: "IRQ", regionId: "as", population: 46042015, internetBps: 8147, slots: 2, slotCapacity: 23021008 },
+  ISL: { id: "ISL", regionId: "eu", population: 386506, internetBps: 9821, slots: 1, slotCapacity: 386506 },
+  ISR: { id: "ISR", regionId: "as", population: 10002200, internetBps: 8818, slots: 2, slotCapacity: 5001100 },
+  ITA: { id: "ITA", regionId: "eu", population: 58952704, internetBps: 8922, slots: 2, slotCapacity: 29476352 },
+  JAM: { id: "JAM", regionId: "na", population: 2839175, internetBps: 9011, slots: 1, slotCapacity: 2839175 },
+  JOR: { id: "JOR", regionId: "as", population: 11552876, internetBps: 9562, slots: 2, slotCapacity: 5776438 },
+  JPN: { id: "JPN", regionId: "as", population: 123975371, internetBps: 8554, slots: 2, slotCapacity: 61987686 },
+  KAZ: { id: "KAZ", regionId: "as", population: 20592571, internetBps: 9339, slots: 2, slotCapacity: 10296286 },
+  KEN: { id: "KEN", regionId: "af", population: 56432944, internetBps: 3498, slots: 2, slotCapacity: 28216472 },
+  KGZ: { id: "KGZ", regionId: "as", population: 7221868, internetBps: 9203, slots: 2, slotCapacity: 3610934 },
+  KHM: { id: "KHM", regionId: "as", population: 17638801, internetBps: 6848, slots: 2, slotCapacity: 8819401 },
+  KIR: { id: "KIR", regionId: "oc", population: 134518, internetBps: 8944, slots: 1, slotCapacity: 134518 },
+  KNA: { id: "KNA", regionId: "na", population: 46843, internetBps: 7688, slots: 1, slotCapacity: 46843 },
+  KOR: { id: "KOR", regionId: "as", population: 51751065, internetBps: 9790, slots: 2, slotCapacity: 25875533 },
+  KOS: { id: "KOS", regionId: "eu", population: 1594353, internetBps: 5000, slots: 1, slotCapacity: 1594353 },
+  KWT: { id: "KWT", regionId: "as", population: 4897263, internetBps: 9975, slots: 1, slotCapacity: 4897263 },
+  LAO: { id: "LAO", regionId: "as", population: 7769819, internetBps: 6559, slots: 2, slotCapacity: 3884910 },
+  LBN: { id: "LBN", regionId: "as", population: 5805962, internetBps: 8063, slots: 1, slotCapacity: 5805962 },
+  LBR: { id: "LBR", regionId: "af", population: 5612817, internetBps: 3223, slots: 1, slotCapacity: 5612817 },
+  LBY: { id: "LBY", regionId: "af", population: 7381023, internetBps: 8195, slots: 2, slotCapacity: 3690512 },
+  LCA: { id: "LCA", regionId: "na", population: 179744, internetBps: 6821, slots: 1, slotCapacity: 179744 },
+  LIE: { id: "LIE", regionId: "eu", population: 40450, internetBps: 9826, slots: 1, slotCapacity: 40450 },
+  LKA: { id: "LKA", regionId: "as", population: 21916000, internetBps: 5459, slots: 2, slotCapacity: 10958000 },
+  LSO: { id: "LSO", regionId: "af", population: 2337423, internetBps: 5180, slots: 1, slotCapacity: 2337423 },
+  LTU: { id: "LTU", regionId: "eu", population: 2888278, internetBps: 8916, slots: 1, slotCapacity: 2888278 },
+  LUX: { id: "LUX", regionId: "eu", population: 677012, internetBps: 9876, slots: 1, slotCapacity: 677012 },
+  LVA: { id: "LVA", regionId: "eu", population: 1866124, internetBps: 9271, slots: 1, slotCapacity: 1866124 },
+  MAC: { id: "MAC", regionId: "as", population: 687000, internetBps: 8983, slots: 1, slotCapacity: 687000 },
+  MAF: { id: "MAF", regionId: "na", population: 26129, internetBps: 5000, slots: 1, slotCapacity: 26129 },
+  MAR: { id: "MAR", regionId: "af", population: 38081173, internetBps: 9120, slots: 2, slotCapacity: 19040587 },
+  MCO: { id: "MCO", regionId: "eu", population: 38631, internetBps: 9904, slots: 1, slotCapacity: 38631 },
+  MDA: { id: "MDA", regionId: "eu", population: 2402306, internetBps: 7737, slots: 1, slotCapacity: 2402306 },
+  MDG: { id: "MDG", regionId: "af", population: 31964956, internetBps: 1868, slots: 2, slotCapacity: 15982478 },
+  MDV: { id: "MDV", regionId: "as", population: 527799, internetBps: 8524, slots: 1, slotCapacity: 527799 },
+  MEX: { id: "MEX", regionId: "na", population: 130861007, internetBps: 8312, slots: 2, slotCapacity: 65430504 },
+  MHL: { id: "MHL", regionId: "oc", population: 37548, internetBps: 6592, slots: 1, slotCapacity: 37548 },
+  MKD: { id: "MKD", regionId: "eu", population: 1824359, internetBps: 9360, slots: 1, slotCapacity: 1824359 },
+  MLI: { id: "MLI", regionId: "af", population: 24478595, internetBps: 3680, slots: 2, slotCapacity: 12239298 },
+  MLT: { id: "MLT", regionId: "eu", population: 568847, internetBps: 9386, slots: 1, slotCapacity: 568847 },
+  MMR: { id: "MMR", regionId: "as", population: 54500091, internetBps: 5000, slots: 2, slotCapacity: 27250046 },
+  MNE: { id: "MNE", regionId: "eu", population: 623525, internetBps: 8888, slots: 1, slotCapacity: 623525 },
+  MNG: { id: "MNG", regionId: "as", population: 3524788, internetBps: 8512, slots: 1, slotCapacity: 3524788 },
+  MNP: { id: "MNP", regionId: "oc", population: 44278, internetBps: 5000, slots: 1, slotCapacity: 44278 },
+  MOZ: { id: "MOZ", regionId: "af", population: 34631766, internetBps: 2053, slots: 2, slotCapacity: 17315883 },
+  MRT: { id: "MRT", regionId: "af", population: 5169395, internetBps: 4578, slots: 1, slotCapacity: 5169395 },
+  MUS: { id: "MUS", regionId: "af", population: 1245779, internetBps: 7331, slots: 1, slotCapacity: 1245779 },
+  MWI: { id: "MWI", regionId: "af", population: 21655286, internetBps: 1896, slots: 1, slotCapacity: 21655286 },
+  MYS: { id: "MYS", regionId: "as", population: 35557673, internetBps: 9802, slots: 2, slotCapacity: 17778837 },
+  NAM: { id: "NAM", regionId: "af", population: 3030131, internetBps: 6487, slots: 1, slotCapacity: 3030131 },
+  NCL: { id: "NCL", regionId: "oc", population: 292639, internetBps: 5000, slots: 1, slotCapacity: 292639 },
+  NER: { id: "NER", regionId: "af", population: 27032412, internetBps: 1556, slots: 1, slotCapacity: 27032412 },
+  NGA: { id: "NGA", regionId: "af", population: 232679478, internetBps: 4121, slots: 2, slotCapacity: 116339739 },
+  NIC: { id: "NIC", regionId: "na", population: 6916140, internetBps: 6140, slots: 1, slotCapacity: 6916140 },
+  NLD: { id: "NLD", regionId: "eu", population: 17993485, internetBps: 9701, slots: 2, slotCapacity: 8996743 },
+  NOR: { id: "NOR", regionId: "eu", population: 5572279, internetBps: 9900, slots: 2, slotCapacity: 2786140 },
+  NPL: { id: "NPL", regionId: "as", population: 29651054, internetBps: 4632, slots: 2, slotCapacity: 14825527 },
+  NRU: { id: "NRU", regionId: "oc", population: 11947, internetBps: 8301, slots: 1, slotCapacity: 11947 },
+  NZL: { id: "NZL", regionId: "oc", population: 5290000, internetBps: 9352, slots: 1, slotCapacity: 5290000 },
+  OMN: { id: "OMN", regionId: "as", population: 5281538, internetBps: 9525, slots: 2, slotCapacity: 2640769 },
+  PAK: { id: "PAK", regionId: "as", population: 251269164, internetBps: 5725, slots: 3, slotCapacity: 83756388 },
+  PAN: { id: "PAN", regionId: "na", population: 4515577, internetBps: 7277, slots: 1, slotCapacity: 4515577 },
+  PER: { id: "PER", regionId: "sam", population: 34217848, internetBps: 8196, slots: 2, slotCapacity: 17108924 },
+  PHL: { id: "PHL", regionId: "as", population: 115843670, internetBps: 6726, slots: 2, slotCapacity: 57921835 },
+  PLW: { id: "PLW", regionId: "oc", population: 17695, internetBps: 8393, slots: 1, slotCapacity: 17695 },
+  PNG: { id: "PNG", regionId: "oc", population: 10576502, internetBps: 1881, slots: 1, slotCapacity: 10576502 },
+  POL: { id: "POL", regionId: "eu", population: 36559233, internetBps: 8858, slots: 2, slotCapacity: 18279617 },
+  PRI: { id: "PRI", regionId: "na", population: 3202521, internetBps: 5000, slots: 1, slotCapacity: 3202521 },
+  PRK: { id: "PRK", regionId: "as", population: 26498823, internetBps: 5000, slots: 2, slotCapacity: 13249412 },
+  PRT: { id: "PRT", regionId: "eu", population: 10694681, internetBps: 8849, slots: 2, slotCapacity: 5347341 },
+  PRY: { id: "PRY", regionId: "sam", population: 6929153, internetBps: 8158, slots: 2, slotCapacity: 3464577 },
+  PSX: { id: "PSX", regionId: "as", population: 5165775, internetBps: 8664, slots: 1, slotCapacity: 5165775 },
+  PYF: { id: "PYF", regionId: "oc", population: 281807, internetBps: 5000, slots: 1, slotCapacity: 281807 },
+  QAT: { id: "QAT", regionId: "as", population: 2857822, internetBps: 9809, slots: 1, slotCapacity: 2857822 },
+  ROU: { id: "ROU", regionId: "eu", population: 19051804, internetBps: 9129, slots: 2, slotCapacity: 9525902 },
+  RUS: { id: "RUS", regionId: "as", population: 143669648, internetBps: 9436, slots: 3, slotCapacity: 47889883 },
+  RWA: { id: "RWA", regionId: "af", population: 14256567, internetBps: 3170, slots: 1, slotCapacity: 14256567 },
+  SAU: { id: "SAU", regionId: "as", population: 35300280, internetBps: 10000, slots: 2, slotCapacity: 17650140 },
+  SDN: { id: "SDN", regionId: "af", population: 50448963, internetBps: 5000, slots: 2, slotCapacity: 25224482 },
+  SDS: { id: "SDS", regionId: "af", population: 11943408, internetBps: 5000, slots: 2, slotCapacity: 5971704 },
+  SEN: { id: "SEN", regionId: "af", population: 18501984, internetBps: 6012, slots: 2, slotCapacity: 9250992 },
+  SGP: { id: "SGP", regionId: "as", population: 6036860, internetBps: 9438, slots: 3, slotCapacity: 3018430 },
+  SLB: { id: "SLB", regionId: "oc", population: 819198, internetBps: 2904, slots: 1, slotCapacity: 819198 },
+  SLE: { id: "SLE", regionId: "af", population: 8642022, internetBps: 2510, slots: 1, slotCapacity: 8642022 },
+  SLV: { id: "SLV", regionId: "na", population: 6338193, internetBps: 6648, slots: 1, slotCapacity: 6338193 },
+  SMR: { id: "SMR", regionId: "eu", population: 33977, internetBps: 9735, slots: 1, slotCapacity: 33977 },
+  SOM: { id: "SOM", regionId: "af", population: 19009151, internetBps: 2794, slots: 2, slotCapacity: 9504576 },
+  SRB: { id: "SRB", regionId: "eu", population: 6586476, internetBps: 8769, slots: 2, slotCapacity: 3293238 },
+  STP: { id: "STP", regionId: "af", population: 235536, internetBps: 5912, slots: 1, slotCapacity: 235536 },
+  SUR: { id: "SUR", regionId: "sam", population: 628886, internetBps: 8740, slots: 1, slotCapacity: 628886 },
+  SVK: { id: "SVK", regionId: "eu", population: 5422069, internetBps: 8983, slots: 1, slotCapacity: 5422069 },
+  SVN: { id: "SVN", regionId: "eu", population: 2127400, internetBps: 9076, slots: 1, slotCapacity: 2127400 },
+  SWE: { id: "SWE", regionId: "eu", population: 10569709, internetBps: 9553, slots: 2, slotCapacity: 5284855 },
+  SWZ: { id: "SWZ", regionId: "af", population: 1242822, internetBps: 6340, slots: 1, slotCapacity: 1242822 },
+  SXM: { id: "SXM", regionId: "na", population: 43350, internetBps: 5000, slots: 1, slotCapacity: 43350 },
+  SYC: { id: "SYC", regionId: "af", population: 121354, internetBps: 8782, slots: 1, slotCapacity: 121354 },
+  SYR: { id: "SYR", regionId: "as", population: 24672760, internetBps: 5000, slots: 2, slotCapacity: 12336380 },
+  TCA: { id: "TCA", regionId: "na", population: 46535, internetBps: 5000, slots: 1, slotCapacity: 46535 },
+  TCD: { id: "TCD", regionId: "af", population: 20299123, internetBps: 1263, slots: 1, slotCapacity: 20299123 },
+  TGO: { id: "TGO", regionId: "af", population: 8406558, internetBps: 3948, slots: 1, slotCapacity: 8406558 },
+  THA: { id: "THA", regionId: "as", population: 71668011, internetBps: 9087, slots: 2, slotCapacity: 35834006 },
+  TJK: { id: "TJK", regionId: "as", population: 10590927, internetBps: 5579, slots: 2, slotCapacity: 5295464 },
+  TKM: { id: "TKM", regionId: "as", population: 7494498, internetBps: 5000, slots: 2, slotCapacity: 3747249 },
+  TLS: { id: "TLS", regionId: "as", population: 1400638, internetBps: 5000, slots: 1, slotCapacity: 1400638 },
+  TON: { id: "TON", regionId: "oc", population: 104175, internetBps: 6744, slots: 1, slotCapacity: 104175 },
+  TTO: { id: "TTO", regionId: "na", population: 1368333, internetBps: 8216, slots: 1, slotCapacity: 1368333 },
+  TUN: { id: "TUN", regionId: "af", population: 12277109, internetBps: 7650, slots: 2, slotCapacity: 6138555 },
+  TUR: { id: "TUR", regionId: "as", population: 85518661, internetBps: 8731, slots: 2, slotCapacity: 42759331 },
+  TUV: { id: "TUV", regionId: "oc", population: 9646, internetBps: 5000, slots: 1, slotCapacity: 9646 },
+  TZA: { id: "TZA", regionId: "af", population: 68560157, internetBps: 3116, slots: 2, slotCapacity: 34280079 },
+  UGA: { id: "UGA", regionId: "af", population: 50015092, internetBps: 895, slots: 1, slotCapacity: 50015092 },
+  UKR: { id: "UKR", regionId: "eu", population: 37860221, internetBps: 8247, slots: 2, slotCapacity: 18930111 },
+  URY: { id: "URY", regionId: "sam", population: 3386588, internetBps: 9199, slots: 1, slotCapacity: 3386588 },
+  USA: { id: "USA", regionId: "na", population: 340003797, internetBps: 9469, slots: 5, slotCapacity: 68000760 },
+  UZB: { id: "UZB", regionId: "as", population: 36361859, internetBps: 8951, slots: 2, slotCapacity: 18180930 },
+  VCT: { id: "VCT", regionId: "na", population: 100616, internetBps: 7619, slots: 1, slotCapacity: 100616 },
+  VEN: { id: "VEN", regionId: "sam", population: 28405543, internetBps: 7668, slots: 2, slotCapacity: 14202772 },
+  VGB: { id: "VGB", regionId: "na", population: 39471, internetBps: 5000, slots: 1, slotCapacity: 39471 },
+  VIR: { id: "VIR", regionId: "na", population: 104377, internetBps: 5000, slots: 1, slotCapacity: 104377 },
+  VNM: { id: "VNM", regionId: "as", population: 100987686, internetBps: 8415, slots: 2, slotCapacity: 50493843 },
+  VUT: { id: "VUT", regionId: "oc", population: 327777, internetBps: 5000, slots: 1, slotCapacity: 327777 },
+  WSM: { id: "WSM", regionId: "oc", population: 218019, internetBps: 5000, slots: 1, slotCapacity: 218019 },
+  YEM: { id: "YEM", regionId: "as", population: 40583164, internetBps: 5000, slots: 2, slotCapacity: 20291582 },
+  ZAF: { id: "ZAF", regionId: "af", population: 64007187, internetBps: 7836, slots: 2, slotCapacity: 32003594 },
+  ZMB: { id: "ZMB", regionId: "af", population: 21314956, internetBps: 1710, slots: 1, slotCapacity: 21314956 },
+  ZWE: { id: "ZWE", regionId: "af", population: 16634373, internetBps: 4164, slots: 2, slotCapacity: 8317187 },
+}
+
+export type CountryId = keyof typeof countries
+export const countryIds: readonly string[] = Object.keys(countries)
+
+/** Default origin country for each continental starting market. */
+export const originCountries: Readonly<Record<RegionId, string>> = {
+  na: "USA",
+  sam: "BRA",
+  eu: "DEU",
+  as: "CHN",
+  af: "NGA",
+  oc: "AUS",
+}
+
+const byRegion = new Map<RegionId, CountrySpec[]>()
+for (const country of Object.values(countries)) {
+  const list = byRegion.get(country.regionId)
+  if (list) list.push(country)
+  else byRegion.set(country.regionId, [country])
+}
+for (const list of byRegion.values()) {
+  list.sort((a, b) => b.population - a.population || a.id.localeCompare(b.id, "en"))
+}
+
+export const globalPlayablePopulation = Object.values(countries).reduce((sum, country) => sum + country.population, 0)
+
+export function countrySpec(id: string): CountrySpec | undefined {
+  return Object.hasOwn(countries, id) ? countries[id] : undefined
+}
+
+export function countriesInRegion(regionId: RegionId): readonly CountrySpec[] {
+  return byRegion.get(regionId) ?? []
+}
+
+export function regionPlayablePopulation(regionId: RegionId): number {
+  return countriesInRegion(regionId).reduce((sum, country) => sum + country.population, 0)
+}
+
+/** Cumulative overseas data-center allowance at 0 / 25% / 50% / 75% local ordinary adoption. */
+export function slotUnlockLimit(slots: number, tier: 0 | 1 | 2 | 3): number {
+  if (tier === 0 || slots <= 0) return 0
+  if (tier === 3) return slots
+  if (slots === 1) return 0
+  return tier === 1 ? Math.round(slots / 3) : Math.min(slots - 1, Math.round(slots * 2 / 3))
+}

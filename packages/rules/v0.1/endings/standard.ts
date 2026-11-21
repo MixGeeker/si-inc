@@ -1,7 +1,7 @@
 import type { FactionId } from "../factions/roster.ts"
 
 export const endings = {
-  "ai-victory": { title: "全球 AI 统治", body: "全球普及、依赖和地区覆盖目标均已达成。" },
+  "ai-victory": { title: "奇点完成", body: "全球人口已全部完成合成人改造，我方合成人占比超过半数，正式接管世界。" },
   "human-victory": { title: "反制成功", body: "Project HUMAN 已完成，各地区开始恢复自主系统。" },
 } as const
 

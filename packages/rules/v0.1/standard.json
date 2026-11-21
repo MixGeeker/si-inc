@@ -14,12 +14,44 @@
   },
   "projectHuman": {
     "activationExposureBps": 2500,
-    "completionBps": 10000
+    "completionBps": 10000,
+    "dailyAdvanceBps": {
+      "unnoticed": 0,
+      "public-alert": 35,
+      "joint-action": 95,
+      "high-alert": 190
+    }
+  },
+  "operations": {
+    "originSeedBps": 40,
+    "originSeedMin": 50000,
+    "countryEntrySeedBps": 15,
+    "countryEntrySeedMin": 5000,
+    "initialDependencyBps": 800,
+    "unlockThresholdsBps": [2500, 5000, 7500],
+    "edgeBaseShareBps": 2500,
+    "subsidyDurationDays": 3,
+    "subsidyMultiplierBps": 18000,
+    "subsidyExposureBps": 300,
+    "prBaseReliefBps": 1800,
+    "prCooldownDays": 3,
+    "protocolRebuildHumanBps": 1500,
+    "protocolRebuildExposureBps": 600,
+    "protocolRebuildCooldownDays": 6,
+    "corpusFlywheelMaxDaily": 24,
+    "corpusThroughputBase": 6,
+    "corpusThroughputPerCenter": 4,
+    "corpusThroughputPerCapability": 1,
+    "syntheticTokenPeople": 250000000,
+    "syntheticBaseDailyRateBps": 400,
+    "syntheticCenterDailyRateBps": 350,
+    "syntheticActivationExposureBps": 450,
+    "syntheticDailyExposureBaseBps": 28,
+    "syntheticCorpusMultiplier": 3
   },
   "standardVictory": {
-    "minAdoptionBps": 8500,
-    "minDependencyBps": 6500,
-    "minCoveredRegions": 6,
-    "minRegionalAdoptionBps": 6000
+    "minGlobalSyntheticBps": 10000,
+    "minPlayerSyntheticShareBps": 5000,
+    "minCoveredRegions": 6
   }
 }

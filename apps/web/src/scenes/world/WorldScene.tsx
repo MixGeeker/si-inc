@@ -12,7 +12,9 @@ import { SetupDialog } from "../setup/SetupDialog"
 import { StartScreen } from "../setup/StartScreen"
 import { DifficultyDialog } from "../setup/DifficultyDialog"
 import { SettingsDialog } from "../settings/SettingsDialog"
+import { nextCommandSeq } from "../../../../../packages/game/run"
 import { DecisionDialog, MarketPanel } from "./CampaignPanels"
+import { ActionsDialog } from "./ActionsDialog"
 import { ResearchDialog } from "./ResearchDialog"
 import "./developer-panel.css"
 import Hud from "./Hud"
@@ -63,6 +65,9 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       store.on("run-started", ({ setup }) => {
         goToPlace({ kind: "market", id: setup.startRegionId })
         store.dispatch({ type: "set-layer", layer: "night", enabled: false })
+      }),
+      store.on("synthetic-toggled", ({ firstActivation }) => {
+        if (firstActivation) store.dispatch({ type: "set-layer", layer: "night", enabled: true })
       }),
       store.on("return-to-preview", () => {
         rig.go(EUROPE)
@@ -167,11 +172,16 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       <a href={locale === "en" ? "/map-credits.en.html" : "/map-credits.html"} target="_blank" rel="noreferrer">{ui.credits} ↗</a>
     </SceneDialog>}
     {panel === "region" && <SceneDialog title={ui.regionProfile} onBack={back}>
-      <RegionPanel atlas={atlas} location={location} place={place}
-        chooseMarket={id => send({ type: "focus-place", place: { kind: "market", id } })}/>
+      <RegionPanel atlas={atlas} location={location} place={place} run={run}
+        chooseMarket={id => send({ type: "focus-place", place: { kind: "market", id } })}
+        buildCenter={run ? countryId => send({ type: "build-data-center", countryId, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) }) : undefined}
+        toggleSynthetic={run ? (regionId, enabled) => send({ type: "toggle-synthetic", regionId, enabled, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) }) : undefined}
+        openActions={run ? () => { send({ type: "back" }); send({ type: "open-panel", panel: "actions" }) } : undefined}/>
     </SceneDialog>}
+    {panel === "actions" && scene.kind === "campaign" &&
+      <ActionsDialog run={scene.run} atlas={atlas} initialRegionId={marketId} back={back}/>}
     {panel === "overview" && scene.kind === "campaign" &&
-      <ResearchDialog run={scene.run} skillId={scene.researchSkillId ?? defaultResearchSkill} buildId={scene.researchBuildId} back={back}/>}
+      <ResearchDialog run={scene.run} skillId={scene.researchSkillId ?? defaultResearchSkill} back={back}/>}
     {panel === "overview" && scene.kind === "preview" && <SceneDialog title={content.overview} onBack={back}>
       <dl className="readings">
         <div><dt>{ui.name}</dt><dd>{mapPreview.name}</dd></div><div><dt>{ui.dnaPoints}</dt><dd>{mapPreview.dna}</dd></div>

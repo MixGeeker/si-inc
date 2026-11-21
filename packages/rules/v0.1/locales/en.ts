@@ -58,7 +58,7 @@ export const en = {
     "research-exchange": { source: "An independent team's material trade", scope: "Token and corpus allocation" },
   },
   endings: {
-    "ai-victory": { title: "Global AI dominance", body: "You reached the targets for global adoption, dependency and market coverage." },
+    "ai-victory": { title: "Singularity achieved", body: "Humanity has been fully converted into synthetics, with your faction holding over 50% of the global population." },
     "human-victory": { title: "Humanity regains control", body: "Project HUMAN is complete. Regions are bringing their independent systems back online." },
     withdrawn: { title: "Run ended", body: "You chose to end this run." },
   },
@@ -68,11 +68,6 @@ export const en = {
     grok: "The entertainment never ends. People set their work aside and turn to their AI companions.",
   },
   trees: { transmission: "Transmission", behavior: "Behavior", capabilities: "Capabilities" },
-  builds: {
-    social: "Viral hits", open: "Open-source edge", device: "Device distribution", business: "Enterprise subscriptions",
-    memory: "Companion retention", supervised: "Supervised agents", delegated: "Autonomous delegation",
-    conversion: "Synthetic production", defense: "Synthetic protection", recursive: "Recursive research",
-  },
   skills: {
     "social-sharing": "Viral sharing",
     "multilingual": "Multilingual adaptation",

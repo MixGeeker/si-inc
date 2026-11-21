@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { researchStatus, type ResearchStatus } from "../../../../../packages/game/research"
 import type { RunState } from "../../../../../packages/game/run"
-import type { ResearchBuild } from "../../../../../packages/rules/v0.1/evolution/builds"
 import { researchNode, type ResearchNode, type Skill, type SkillId } from "../../../../../packages/rules/v0.1/evolution/trees"
 import { useLanguage } from "../../i18n/useLanguage"
 import { TechnologyGlyph } from "./researchArt"
@@ -91,13 +90,12 @@ export function TechHex({ skill, status }: { skill: Skill; status: ResearchStatu
   </svg>
 }
 
-export function TechMap({ run, node, build, select }: {
-  run: RunState; node: ResearchNode; build?: ResearchBuild; select: (id: SkillId) => void
+export function TechMap({ run, node, select }: {
+  run: RunState; node: ResearchNode; select: (id: SkillId) => void
 }) {
   const { scenario, ui: { lab } } = useLanguage()
   const scroll = useRef<HTMLDivElement>(null)
   const [hovered, setHovered] = useState<SkillId | null>(null)
-  const route = build && new Set<SkillId>(build.path)
   const hint = hovered && researchNode(hovered).tree.id === node.tree.id ? hovered : null
   const tip = hint && cellCenter(cells[hint])
   useEffect(() => {
@@ -127,14 +125,12 @@ export function TechMap({ run, node, build, select }: {
       <g aria-hidden="true" pointerEvents="none" fill="#051510" opacity=".64" filter="url(#hive-shadow)">
         {node.tree.skills.map(skill => {
           const { x, y } = cellCenter(cells[skill.id])
-          return <path key={skill.id} d={outline} transform={`translate(${x} ${y + 3}) scale(${hive.radius / 50})`}
-            opacity={route && !route.has(skill.id) ? .35 : 1}/>
+          return <path key={skill.id} d={outline} transform={`translate(${x} ${y + 3}) scale(${hive.radius / 50})`}/>
         })}
       </g>
       <g aria-hidden="true" pointerEvents="none">{bridges[node.tree.id].map(({ from, to, via }) => {
         const inspected = from === node.skill.id || to === node.skill.id
-        const dim = route && !(route.has(from) && route.has(to))
-        return <g key={from + to} className={`hive-bridge${inspected ? " inspected" : ""}${dim ? " off-route" : ""}`}>
+        return <g key={from + to} className={`hive-bridge${inspected ? " inspected" : ""}`}>
           {via.map(cell => {
             const { x, y } = cellCenter(cell)
             return <g key={cell.join(",")} transform={`translate(${x} ${y}) scale(${hive.radius / 50})`}>
@@ -151,7 +147,7 @@ export function TechMap({ run, node, build, select }: {
           skill.repeatCostStep && lab.repeatable, skill.dangerBps && lab.dangerous].filter(Boolean).join(" · ")
         return <foreignObject key={skill.id} x={x - hive.radius} y={y - cellHeight / 2}
           width={2 * hive.radius} height={cellHeight} className="lab-station">
-          <button type="button" className={`lab-node is-${status}${related ? " related" : ""}${route && !route.has(skill.id) ? " off-route" : ""}`}
+          <button type="button" className={`lab-node is-${status}${related ? " related" : ""}`}
             data-skill={skill.id} aria-label={label} aria-pressed={node.skill.id === skill.id}
             onPointerEnter={e => { if (e.pointerType === "mouse") setHovered(skill.id) }} onPointerLeave={() => setHovered(null)}
             onFocus={e => { if (e.currentTarget.matches(":focus-visible")) setHovered(skill.id) }} onBlur={() => setHovered(null)}

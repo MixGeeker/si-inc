@@ -10,6 +10,10 @@ export interface RegionState {
 type Action =
   | { kind: "buySkill"; skillId: string }
   | { kind: "unlockResearchSlot"; slot: number }
+  | { kind: "buyBuildCard" }
+  | { kind: "buildDataCenter"; countryId: string }
+  | { kind: "fundConversion"; tokens: number }
+  | { kind: "toggleSynthetic"; regionId: string; enabled: boolean }
   | { kind: "useAbility"; abilityId: string; targetRegionId?: string }
   | { kind: "chooseEvent"; eventInstanceId: string; choiceId: string }
 

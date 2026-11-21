@@ -4,6 +4,7 @@ import { grantDeveloperTokens, type RunEvent, type RunSetup } from "../../../../
 import type { GameCommand, TokenGrant } from "../../../../packages/game/types.ts"
 import { defaultLocale, isLocale, type Locale } from "../../../../packages/rules/locales.ts"
 import type { Outcome } from "../../../../packages/rules/v0.1/endings/standard.ts"
+import type { ActionId } from "../../../../packages/rules/v0.1/evolution/actions.ts"
 import { isRegionId } from "../../../../packages/rules/v0.1/scenario.ts"
 import { regionOfCountry, type RegionId } from "../../../../packages/rules/v0.1/world/regions.ts"
 import { computePlaceById, computePlaces } from "../cartography/compute-markers.ts"
@@ -81,6 +82,11 @@ export type GameNotice =
   | { type: "research-slot-unlocked"; slot: number }
   | { type: "research-started"; project: ResearchProject }
   | { type: "research-completed"; project: ResearchProject }
+  | { type: "build-card-bought"; buildCards: number }
+  | { type: "data-center-built"; countryId: string; centers: number }
+  | { type: "synthetic-funded"; tokens: number; budgetPeople: number }
+  | { type: "synthetic-toggled"; regionId: RegionId; enabled: boolean; firstActivation: boolean }
+  | { type: "action-used"; abilityId: ActionId; targetRegionId?: RegionId }
   | { type: "decision-resolved"; command: Extract<GameCommand, { kind: "chooseEvent" }> }
   | { type: "run-ended"; outcome: Outcome | "withdrawn" }
 
@@ -249,6 +255,26 @@ function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
     const project = researchState(scene.run).projects.at(-1)
     if (project) return [{ type: "research-started", project }]
   }
+  if (event.type === "buy-build-card" && (scene.kind === "campaign" || scene.kind === "ending")) {
+    return [{ type: "build-card-bought", buildCards: scene.run.buildCards }]
+  }
+  if (event.type === "build-data-center" && (scene.kind === "campaign" || scene.kind === "ending")) {
+    const centers = scene.run.countries[event.countryId]?.centers ?? 0
+    return [{ type: "data-center-built", countryId: event.countryId, centers }]
+  }
+  if (event.type === "fund-conversion" && (scene.kind === "campaign" || scene.kind === "ending")) {
+    return [{ type: "synthetic-funded", tokens: event.tokens, budgetPeople: scene.run.conversionBudgetPeople }]
+  }
+  if (event.type === "toggle-synthetic" && (scene.kind === "campaign" || scene.kind === "ending")) {
+    const enableCount = scene.run.commands.filter(c => c.kind === "toggleSynthetic" && c.enabled).length
+    const firstActivation = event.enabled && enableCount === 1
+    return [{ type: "synthetic-toggled", regionId: event.regionId, enabled: event.enabled, firstActivation }]
+  }
+  if (event.type === "use-action" && (scene.kind === "campaign" || scene.kind === "ending")) {
+    const notices: GameNotice[] = [{ type: "action-used", abilityId: event.abilityId, targetRegionId: event.targetRegionId }]
+    if (scene.kind === "ending") notices.push({ type: "run-ended", outcome: scene.outcome })
+    return notices
+  }
   if (event.type === "dev-grant-token") {
     const command = visibleRunState(scene)?.commands.at(-1)
     if (command?.kind === "devGrantTokens") return [{ type: "dev-token-granted", command }]
@@ -300,6 +326,7 @@ export function pauseReasons(state: GameState) {
   if (map.kind === "preview" || map.kind === "campaign") {
     if (map.panel === "menu") reasons.push("menu")
     if (map.panel === "overview") reasons.push("research")
+    if (map.panel === "actions") reasons.push("actions")
     if (map.panel === "confirm-exit") reasons.push("confirm-exit")
   }
   if (scene.kind === "start" || scene.kind === "settings" || scene.kind === "setup" || scene.kind === "difficulty"

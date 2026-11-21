@@ -4,7 +4,7 @@ import { decisions } from "../../rules/v0.1/events/decisions.ts"
 import { standardScenario } from "../../rules/v0.1/scenario.ts"
 import { completionDay, researchState } from "../research.ts"
 import { replayForRun, runTimeline } from "../inspection.ts"
-import { advanceDay, createRun, decisionChoiceStatus, decisionEffectForRun, nextCommandSeq, nextEventDay, resolveDecision, startResearch, unlockResearchSlot, dailyOutcome } from "../run.ts"
+import { advanceDay, createRun, decisionChoiceStatus, decisionEffectForRun, nextCommandSeq, nextEventDay, resolveDecision, startResearch, unlockResearchSlot, useAction, dailyOutcome } from "../run.ts"
 
 const setup = { factionId: "claude", startRegionId: "as", difficultyId: "standard" }
 const observationDay = 400
@@ -14,6 +14,9 @@ const fresh = (seed = 42) => createRun(setup, seed)
 const codingEntry = run => run.events.find(entry => entry.content.id === codingId)
 function until(run, target) {
   while (run.completedDay < target) {
+    if (run.exposureBps >= 2200) {
+      run = useAction(run, "public-statement", nextCommandSeq(run))
+    }
     const next = advanceDay(run)
     assert.notStrictEqual(next, run, `stopped before day ${target}`)
     run = next

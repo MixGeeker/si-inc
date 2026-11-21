@@ -1,4 +1,5 @@
 export const btoken = {
+  buildCardCost: 12,
   newMarketReward: 4,
   adoptionMilestones: [
     { adoptionBps: 3000, reward: 2 },

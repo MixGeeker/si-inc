@@ -130,8 +130,22 @@ test("gameplay notices and eternal night transitions dispatch their mapped SFX c
   store.dispatch({ type: "set-layer", layer: "night", enabled: true })
   // Repeated night layer update is ignored by the reducer.
   store.dispatch({ type: "set-layer", layer: "night", enabled: true })
+  store.dispatch({ type: "open-panel", panel: "actions" })
+  run = store.getSnapshot().scene.run
+  store.dispatch({ type: "buy-build-card", runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  run = store.getSnapshot().scene.run
+  store.dispatch({ type: "build-data-center", countryId: "CHN", runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  run = store.getSnapshot().scene.run
+  store.dispatch({ type: "fund-conversion", tokens: 1, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  run = store.getSnapshot().scene.run
+  store.dispatch({ type: "toggle-synthetic", regionId: "as", enabled: true, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  store.dispatch({ type: "back" })
   store.dispatch({ type: "finish", outcome: "ai-victory" })
-  assert.deepEqual(cues, ["datacenter_deploy", "skill_evolve", "enter_eternal_night", "endgame_victory"])
+  assert.deepEqual(cues, [
+    "datacenter_deploy", "skill_evolve", "enter_eternal_night",
+    "datacenter_deploy", "datacenter_deploy", "datacenter_deploy", "faction_ability",
+    "endgame_victory",
+  ])
 
   // A new withdrawn run triggers endgame_defeat.
   store.dispatch({ type: "open-setup" })

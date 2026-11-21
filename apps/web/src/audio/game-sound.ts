@@ -76,6 +76,21 @@ export function attachGameSound(
     store.on("research-slot-unlocked", (_, snapshot) => {
       if (snapshot.scene.kind !== "ending") emit("datacenter_deploy")
     }),
+    store.on("build-card-bought", (_, snapshot) => {
+      if (snapshot.scene.kind !== "ending") emit("datacenter_deploy")
+    }),
+    store.on("data-center-built", (_, snapshot) => {
+      if (snapshot.scene.kind !== "ending") emit("datacenter_deploy")
+    }),
+    store.on("synthetic-funded", (_, snapshot) => {
+      if (snapshot.scene.kind !== "ending") emit("datacenter_deploy")
+    }),
+    store.on("synthetic-toggled", (_, snapshot) => {
+      if (snapshot.scene.kind !== "ending") emit("faction_ability")
+    }),
+    store.on("action-used", (_, snapshot) => {
+      if (snapshot.scene.kind !== "ending") emit("faction_ability")
+    }),
     store.on("decision-resolved", (_, snapshot) => {
       checkResearchThreshold(snapshot)
       if (snapshot.scene.kind !== "ending") emit("faction_ability")

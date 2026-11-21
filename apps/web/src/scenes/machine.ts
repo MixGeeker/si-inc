@@ -1,13 +1,28 @@
-import { advanceDay, createRun, pendingDecision, resolveDecision, startResearch, unlockResearchSlot, dailyOutcome, type RunState, type RunSetup } from "../../../../packages/game/run.ts"
+import {
+  advanceDay,
+  buildDataCenter,
+  buyBuildCard,
+  createRun,
+  dailyOutcome,
+  fundConversion,
+  pendingDecision,
+  resolveDecision,
+  startResearch,
+  toggleSyntheticProgram,
+  unlockResearchSlot,
+  useAction,
+  type RunSetup,
+  type RunState,
+} from "../../../../packages/game/run.ts"
 import { decisions, type DecisionId } from "../../../../packages/rules/v0.1/events/decisions.ts"
 import { endings, type Outcome } from "../../../../packages/rules/v0.1/endings/standard.ts"
+import type { ActionId } from "../../../../packages/rules/v0.1/evolution/actions.ts"
 import { researchNode, trees, type SkillId } from "../../../../packages/rules/v0.1/evolution/trees.ts"
-import { researchBuild, type BuildId } from "../../../../packages/rules/v0.1/evolution/builds.ts"
-import { completedLevel } from "../../../../packages/game/research.ts"
 import { isFactionId, isRegionId, standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
+import type { RegionId } from "../../../../packages/rules/v0.1/world/regions.ts"
 
 export type { RunSetup }
-const mapPanels = ["menu", "world", "region", "overview", "news"] as const
+const mapPanels = ["menu", "world", "region", "overview", "actions", "news"] as const
 export type MapPanel = typeof mapPanels[number]
 const newsViews = ["archive", "current", "day"] as const
 export type NewsView = typeof newsViews[number]
@@ -43,7 +58,6 @@ interface Campaign extends NewsFocus {
   speed: number
   manualPaused: boolean
   researchSkillId?: SkillId
-  researchBuildId?: BuildId
   lastDecision?: { id: DecisionId; choiceId: string }
 }
 
@@ -75,9 +89,13 @@ export type SceneEvent =
   | { type: "start"; factionId: string; startRegionId: string; difficultyId: string; seed?: number; runId?: string }
   | { type: "advance-day"; runId: string; completedDay: number }
   | { type: "select-research"; skillId: SkillId }
-  | { type: "select-research-build"; buildId: BuildId | null }
   | { type: "unlock-research-slot"; slot: number; runId: string; completedDay: number; seq: number }
   | { type: "start-research"; skillId: SkillId; runId: string; completedDay: number; seq: number }
+  | { type: "buy-build-card"; runId: string; completedDay: number; seq: number }
+  | { type: "build-data-center"; countryId: string; runId: string; completedDay: number; seq: number }
+  | { type: "fund-conversion"; tokens: number; runId: string; completedDay: number; seq: number }
+  | { type: "toggle-synthetic"; regionId: RegionId; enabled: boolean; runId: string; completedDay: number; seq: number }
+  | { type: "use-action"; abilityId: ActionId; targetRegionId?: RegionId; runId: string; completedDay: number; seq: number }
   | { type: "open-decision"; id: DecisionId; instanceId?: string }
   | { type: "choose"; id: DecisionId; instanceId?: string; choiceId: string }
   | { type: "request-exit" }
@@ -106,6 +124,7 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
     case "open-panel": {
       if (scene.kind !== "preview" && scene.kind !== "campaign") break
       if (!mapPanels.includes(event.panel)) break
+      if (event.panel === "actions" && scene.kind !== "campaign") return scene
       if (event.panel === "news") {
         if (event.newsView !== undefined && !isNewsView(event.newsView)) return scene
         if (event.newsItemId !== undefined && event.newsItemId === "") return scene
@@ -180,14 +199,6 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
       if (scene.kind === "campaign" && scene.panel === "overview" && researchNode(event.skillId)
         && event.skillId !== (scene.researchSkillId ?? defaultResearchSkill)) return { ...scene, researchSkillId: event.skillId }
       break
-    case "select-research-build": {
-      if (scene.kind !== "campaign" || scene.panel !== "overview" || (scene.researchBuildId ?? null) === event.buildId) return scene
-      if (event.buildId === null) return { ...scene, researchBuildId: undefined }
-      const build = researchBuild(event.buildId)
-      if (!build) return scene
-      const next = build.path.find(id => completedLevel(scene.run, id) === 0) ?? build.path[build.path.length - 1]
-      return { ...scene, researchBuildId: build.id, researchSkillId: next }
-    }
     case "unlock-research-slot":
     case "start-research": {
       if (scene.kind !== "campaign" || scene.panel !== "overview"
@@ -195,6 +206,26 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
       const run = event.type === "start-research" ? startResearch(scene.run, event.skillId, event.seq)
         : unlockResearchSlot(scene.run, event.slot, event.seq)
       return run === scene.run ? scene : { ...scene, run }
+    }
+    case "buy-build-card":
+    case "build-data-center":
+    case "fund-conversion":
+    case "toggle-synthetic":
+    case "use-action": {
+      if (scene.kind !== "campaign" || (scene.panel !== "actions" && scene.panel !== "region" && scene.panel !== null)
+        || scene.run.runId !== event.runId || scene.run.completedDay !== event.completedDay) return scene
+      const run = event.type === "buy-build-card"
+        ? buyBuildCard(scene.run, event.seq)
+        : event.type === "build-data-center"
+          ? buildDataCenter(scene.run, event.countryId, event.seq)
+          : event.type === "fund-conversion"
+            ? fundConversion(scene.run, event.tokens, event.seq)
+            : event.type === "toggle-synthetic"
+              ? toggleSyntheticProgram(scene.run, event.regionId, event.enabled, event.seq)
+              : useAction(scene.run, event.abilityId, event.seq, event.targetRegionId)
+      if (run === scene.run) return scene
+      const outcome = dailyOutcome(run)
+      return outcome ? { kind: "ending", outcome, run } : { ...scene, run }
     }
     case "open-decision":
       if (scene.kind === "campaign" && scene.panel === "news" && Object.hasOwn(decisions, event.id)
@@ -269,7 +300,7 @@ export function visibleRun(scene: Scene): RunSetup | null {
 
 export function playbackSpeed(scene: Scene): number {
   if ((scene.kind === "preview" || scene.kind === "campaign") && !scene.manualPaused
-    && scene.panel !== "menu" && scene.panel !== "overview" && scene.panel !== "confirm-exit") {
+    && scene.panel !== "menu" && scene.panel !== "overview" && scene.panel !== "actions" && scene.panel !== "confirm-exit") {
     return scene.speed
   }
   return 0
