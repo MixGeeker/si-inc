@@ -140,36 +140,21 @@ const cubeTiers = [0.2, -7.6] as const
 
 function ComputeGlyph() {
   const rx = cubeRx, ry = cubeRy, h = cubeH
-  const baseY = cubeTiers[0] + h
   const topY = cubeTiers[cubeTiers.length - 1]
   return <g className="compute-cube">
-    <ellipse cx="0" cy="-0.5" rx="24" ry="22" fill="url(#cube-aura)"/>
-    <ellipse cx="0" cy={baseY} rx="22" ry="11.5" fill="url(#cube-base-glow)"/>
-    <path d={`M0 ${baseY - ry - 1.5} L${rx + 2.8} ${baseY} L0 ${baseY + ry + 1.5} L${-(rx + 2.8)} ${baseY} Z`}
-      fill="none" stroke="var(--map-cube-glow)" strokeWidth=".7" strokeOpacity=".34"/>
-    <path d={`M0 ${baseY} V${topY}`} fill="none" stroke="var(--map-cube-glow)" strokeWidth="7" strokeOpacity=".16" strokeLinecap="round"/>
-    <path d={`M0 ${baseY} V${topY}`} fill="none" stroke="var(--map-cube-core)" strokeWidth="2.6" strokeOpacity=".42" strokeLinecap="round"/>
-    <path d={`M0 ${baseY} V${topY}`} fill="none" stroke="#ffffff" strokeWidth=".75" strokeOpacity=".55" strokeLinecap="round"/>
-    {cubeTiers.map((y, index) => {
+    {cubeTiers.map(y => {
       const top = `M0 ${y - ry} L${rx} ${y} L0 ${y + ry} L${-rx} ${y} Z`
       const left = `M${-rx} ${y} L0 ${y + ry} L0 ${y + ry + h} L${-rx} ${y + h} Z`
       const right = `M${rx} ${y} L0 ${y + ry} L0 ${y + ry + h} L${rx} ${y + h} Z`
       const outline = `M0 ${y - ry} L${rx} ${y} V${y + h} L0 ${y + ry + h} L${-rx} ${y + h} V${y} Z`
-      const backEdges = `M0 ${y - ry} V${y - ry + h} M${-rx} ${y + h} L0 ${y - ry + h} L${rx} ${y + h}`
-      const frontRibs = `M${-rx} ${y} L0 ${y + ry} L${rx} ${y} M0 ${y + ry} V${y + ry + h}`
       return <g key={y}>
-        <path d={outline} fill="none" stroke="var(--map-cube-glow)" strokeWidth="4.4" strokeOpacity=".18" strokeLinejoin="round"/>
-        <path d={outline} fill="none" stroke="var(--map-cube-glow)" strokeWidth="2.1" strokeOpacity=".28" strokeLinejoin="round"/>
-        <path d={backEdges} fill="none" stroke="var(--map-cube-edge)" strokeWidth=".5" strokeOpacity=".16" strokeLinejoin="round"/>
-        <path d={left} fill="url(#cube-left)" fillOpacity=".26"/>
-        <path d={right} fill="url(#cube-right)" fillOpacity=".22"/>
-        <path d={top} fill="url(#cube-top)" fillOpacity={index === cubeTiers.length - 1 ? ".38" : ".28"}/>
-        <path d={outline} fill="none" stroke="var(--map-cube-edge)" strokeWidth=".65" strokeOpacity=".46" strokeLinejoin="round"/>
-        <path d={frontRibs} fill="none" stroke="var(--map-cube-edge)" strokeWidth=".55" strokeOpacity=".34" strokeLinejoin="round"/>
+        <path d={left} fill="url(#cube-left)"/>
+        <path d={right} fill="url(#cube-right)"/>
+        <path d={top} fill="url(#cube-top)"/>
+        <path d={outline} fill="none" stroke="var(--map-cube-edge)" strokeWidth=".7" strokeLinejoin="round"/>
       </g>
     })}
-    <path d={`M0 ${topY - 2.9} L5.4 ${topY} L0 ${topY + 2.9} L-5.4 ${topY} Z`}
-      fill="var(--map-cube-core)" fillOpacity=".68" stroke="#ffffff" strokeWidth=".5" strokeOpacity=".55"/>
+    <path d={`M0 ${topY - 2.2} L3.2 ${topY} L0 ${topY + 2.2} L-3.2 ${topY} Z`} fill="var(--map-cube-core)"/>
   </g>
 }
 
@@ -187,7 +172,8 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
     new PopulationSurface(atlas.countryById.get(id)!)) : [],[atlas,activeCountries])
   const language = useLanguage()
   const { ui, locale } = language
-  const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null)
+  const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null), cursorOverlay=useRef<SVGSVGElement>(null)
+  const placedView=useRef("")
   const marks=useRef<(SVGGElement|null)[]>([])
   const cursorMarks=useRef<(SVGGElement|null)[]>([])
   const islands=useMemo(()=>atlas.countries.flatMap(country=>country.islandGroup ? [{country,...country.islandGroup}] : []),[atlas])
@@ -202,27 +188,36 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
   const onFail=useCallback(()=>setFailed(true),[])
   const altitudes=useMemo(()=>computePlaces.map(p=>relief(atlas.metres(p.lon,p.lat))+.18),[atlas])
   const project=useCallback((time:number)=>{
-    if (!overlay.current) return
     const w=rig.width,h=rig.height
-    overlay.current.setAttribute("viewBox",`0 0 ${w} ${h}`)
+    const view=`0 0 ${w} ${h}`
     const size=Math.max(.43,Math.min(1.15,hudScale(w,h)))*(1+.16*rig.current.zoom)
     function place(el:SVGGElement|null|undefined,lon:number,lat:number,z:number,angle=0,scale=size) {
       if (!el) return
       const point=rig.screen(lon,lat,z)
       const visible=point.visible && point.x>-25 && point.x<w+25 && point.y>-25 && point.y<h+25
-      el.style.display=visible ? "" : "none"
-      if(visible) el.setAttribute("transform",`translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) scale(${scale}) rotate(${angle})`)
+      const display=visible ? "" : "none"
+      if (el.style.display !== display) el.style.display=display
+      if (!visible) return
+      const transform=`translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) scale(${scale}) rotate(${angle})`
+      if (el.getAttribute("transform") !== transform) el.setAttribute("transform",transform)
     }
+    if (cursorOverlay.current) {
+      if (cursorOverlay.current.getAttribute("viewBox") !== view) cursorOverlay.current.setAttribute("viewBox",view)
+      cursors.forEach((route,i)=>{
+        const along=((time/route.seconds)+route.phase)%1
+        const lon=route.start[0]+(route.end[0]-route.start[0])*along
+        const lat=route.start[1]+(route.end[1]-route.start[1])*along
+        const end=rig.screen(route.end[0],route.end[1],.4)
+        const start=rig.screen(route.start[0],route.start[1],.4)
+        const angle=Math.atan2(end.y-start.y,end.x-start.x)*180/Math.PI+90
+        place(cursorMarks.current[i],lon,lat,.5,angle,size*1.55)
+      })
+    }
+    const pose=`${view}|${rig.flat?1:0}|${rig.current.lon.toFixed(4)}|${rig.current.lat.toFixed(4)}|${rig.current.zoom.toFixed(4)}|${marker?.lon ?? ""}|${marker?.lat ?? ""}`
+    if (!overlay.current || pose === placedView.current) return
+    placedView.current=pose
+    overlay.current.setAttribute("viewBox",view)
     computePlaces.forEach((p,i)=>place(marks.current[i],p.lon,p.lat,altitudes[i]))
-    cursors.forEach((route,i)=>{
-      const along=((time/route.seconds)+route.phase)%1
-      const lon=route.start[0]+(route.end[0]-route.start[0])*along
-      const lat=route.start[1]+(route.end[1]-route.start[1])*along
-      const end=rig.screen(route.end[0],route.end[1],.4)
-      const start=rig.screen(route.start[0],route.start[1],.4)
-      const angle=Math.atan2(end.y-start.y,end.x-start.x)*180/Math.PI+90
-      place(cursorMarks.current[i],lon,lat,.5,angle,size*1.55)
-    })
     islands.forEach((island,i)=>place(islandMarks.current[i],island.lon,island.lat,.06))
     if(eventPin.current && marker) {
       if (rig.current.zoom<.17) place(eventPin.current,marker.lon,marker.lat,.30)
@@ -267,16 +262,6 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
     <svg ref={overlay} className="geo-marks" aria-label={ui.computeSites}>
       <defs>
         <radialGradient id="event-red" cx=".38" cy=".30" r=".78"><stop stopColor="#dd3045"/><stop offset=".43" stopColor="#92172a"/><stop offset="1" stopColor="#290510"/></radialGradient>
-        <radialGradient id="cube-aura" cx=".5" cy=".5" r=".5">
-          <stop style={{ stopColor: "var(--map-cube-glow)" }} stopOpacity=".38"/>
-          <stop offset=".48" style={{ stopColor: "var(--map-cube-aura)" }} stopOpacity=".16"/>
-          <stop offset="1" style={{ stopColor: "var(--map-cube-aura)" }} stopOpacity="0"/>
-        </radialGradient>
-        <radialGradient id="cube-base-glow" cx=".5" cy=".5" r=".5">
-          <stop style={{ stopColor: "var(--map-cube-base)" }} stopOpacity=".74"/>
-          <stop offset=".5" style={{ stopColor: "var(--map-cube-base)" }} stopOpacity=".28"/>
-          <stop offset="1" style={{ stopColor: "var(--map-cube-base)" }} stopOpacity="0"/>
-        </radialGradient>
         <linearGradient id="cube-top" x1="0" y1="0" x2="1" y2="1">
           <stop style={{ stopColor: "var(--map-cube-top-0)" }} stopOpacity=".9"/>
           <stop offset="1" style={{ stopColor: "var(--map-cube-top-1)" }} stopOpacity=".46"/>
@@ -289,23 +274,10 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
           <stop style={{ stopColor: "var(--map-cube-right-0)" }} stopOpacity=".62"/>
           <stop offset="1" style={{ stopColor: "var(--map-cube-right-1)" }} stopOpacity=".72"/>
         </linearGradient>
-        <filter id="cursor-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.7"/></filter>
       </defs>
       {computePlaces.map((p,i)=><g key={p.id} ref={el=>{marks.current[i]=el}}>
         <ComputeGlyph/>
         <title>{computePlaceLabel(p, language)}</title>
-      </g>)}
-      {cursors.map((_,i)=><g key={i} ref={el=>{cursorMarks.current[i]=el}}>
-        <g filter="url(#cursor-glow)">
-          <path d={cursorShape} fill="var(--map-cursor)"/>
-          <circle cx="0" cy="26" r="5.6" fill="var(--map-cursor)"/>
-        </g>
-        <path d={cursorShape} fill="var(--map-cursor)" stroke="var(--map-cursor-stroke)" strokeWidth=".7" strokeLinejoin="round"/>
-        <g>
-          <circle cx="0" cy="26" r="5.6" fill="var(--map-cursor)" stroke="var(--map-cursor-stroke)" strokeWidth=".7"/>
-          <rect x="-2.45" y="23.7" width="1.45" height="3.1" rx=".7" fill="var(--map-cursor-stroke)"/>
-          <rect x="1" y="23.7" width="1.45" height="3.1" rx=".7" fill="var(--map-cursor-stroke)"/>
-        </g>
       </g>)}
       {islands.map(({country,id,lon,lat},i)=>{
         const label = `${ui.spratly} · ${countryName(country, locale)}`
@@ -326,6 +298,23 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
         <circle cy="-62" r="48" stroke="#d5d7c7" strokeWidth="4" fill="url(#event-red)"/>
         <use href="#bio" x="-37" y="-99" width="74" height="74" color="#fff3e4"/>
       </g>}
+    </svg>
+    <svg ref={cursorOverlay} className="geo-marks" aria-hidden="true">
+      <defs>
+        <filter id="cursor-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.7"/></filter>
+      </defs>
+      {cursors.map((_,i)=><g key={i} ref={el=>{cursorMarks.current[i]=el}}>
+        <g filter="url(#cursor-glow)">
+          <path d={cursorShape} fill="var(--map-cursor)"/>
+          <circle cx="0" cy="26" r="5.6" fill="var(--map-cursor)"/>
+        </g>
+        <path d={cursorShape} fill="var(--map-cursor)" stroke="var(--map-cursor-stroke)" strokeWidth=".7" strokeLinejoin="round"/>
+        <g>
+          <circle cx="0" cy="26" r="5.6" fill="var(--map-cursor)" stroke="var(--map-cursor-stroke)" strokeWidth=".7"/>
+          <rect x="-2.45" y="23.7" width="1.45" height="3.1" rx=".7" fill="var(--map-cursor-stroke)"/>
+          <rect x="1" y="23.7" width="1.45" height="3.1" rx=".7" fill="var(--map-cursor-stroke)"/>
+        </g>
+      </g>)}
     </svg>
   </div>
 }

@@ -189,13 +189,8 @@ export function materials(surface:Texture, nightLights:Texture, vapor:Texture, h
         + texture2D(boundaries,coord-vec2(edge.x,0.)).a
         + texture2D(boundaries,coord+vec2(0.,edge.y)).a
         + texture2D(boundaries,coord-vec2(0.,edge.y)).a;
-      vec2 wideEdge = vec2(9.5/4096.,9.5/2048.);
-      float wideHalo = texture2D(boundaries,coord+vec2(wideEdge.x,wideEdge.y)).a
-        + texture2D(boundaries,coord+vec2(-wideEdge.x,wideEdge.y)).a
-        + texture2D(boundaries,coord+vec2(wideEdge.x,-wideEdge.y)).a
-        + texture2D(boundaries,coord+vec2(-wideEdge.x,-wideEdge.y)).a;
-      vec3 nightLine = col + vec3(.08,.78,1.0) * halo * .095 + vec3(.52,.16,.88) * wideHalo * .045;
-      nightLine = mix(nightLine, vec3(.42,.95,1.0), clamp(line.a*.88,0.,.82));
+      vec3 nightLine = col + vec3(.08,.78,1.0) * halo * .06;
+      nightLine = mix(nightLine, vec3(.42,.95,1.0), clamp(line.a*.75,0.,.7));
       col = mix(dayLine, nightLine, night);
       vec2 uv = (coord-selectionRect.xy)/selectionRect.zw;
       if(all(greaterThanEqual(uv,vec2(0.))) && all(lessThanEqual(uv,vec2(1.)))) {

@@ -717,9 +717,7 @@
   .hud path,
   .hud rect,
   .hud text,
-  .hud stop,
-  .geo-marks path,
-  .geo-marks stop {
+  .hud stop {
     transition:
       background-color .42s ease,
       color .42s ease,
