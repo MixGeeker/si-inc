@@ -63,7 +63,7 @@ function ScreenGrid() {
       </mask>
     </defs>
     {size.width > 0 && <g mask="url(#grid-falloff)">
-      <rect width={size.width} height={size.height} fill="#03140f" opacity=".16" mask="url(#screen-grille)"/>
+      <rect width={size.width} height={size.height} style={{ fill: "var(--map-grid-fill)", opacity: "var(--map-grid-opacity)" }} mask="url(#screen-grille)"/>
     </g>}
   </svg>
 }
@@ -119,8 +119,8 @@ function FlatMap({atlas,selected,rig,project,layers,surfaces,profiles}:{atlas:At
       {night && <image href={nightLightsUrl} width="360" height="180"/>}
       {atlas.countries.map(c => {
         const active = selected.includes(c)
-        return <path key={c.id} d={c.d} fill={active ? "#f8ffc12b" : "none"}
-          stroke={active ? (night ? "#d7e8ea" : "#ffffe4") : (night ? "#6f9eab" : "#bdd1b7")} strokeWidth={active ? (night ? .16 : .19) : (night ? .07 : .065)} fillRule="evenodd"/>
+        return <path key={c.id} d={c.d} fill={active ? (night ? "#1cf2ff29" : "#f8ffc12b") : "none"}
+          stroke={active ? (night ? "#ff4da6" : "#ffffe4") : (night ? "#2ed8f0" : "#bdd1b7")} strokeWidth={active ? (night ? .18 : .19) : (night ? .075 : .065)} fillRule="evenodd"/>
       })}
     </g></defs>{[-360,0,360].map(x=><use key={x} x={x} href="#flat-world"/>)}
   </svg>{surfaces.length > 0 && <canvas ref={canvas} className="flat-population" aria-hidden="true"/>}</>
@@ -133,17 +133,29 @@ const cursors = [
   { start: [2.12, 41.39], end: [11.34, 44.52], phase: .33, seconds: 11 },
 ] as const
 
+const cubeRx = 12.6
+const cubeRy = 6.8
+const cubeH = 6.0
+const cubeTiers = [0.2, -7.6] as const
+
 function ComputeGlyph() {
-  const frame = "rgba(244,255,251,.55)"
-  const accent = "#e7c39a"
-  const bolt = "#d7dee2"
-  return <>
-    <rect x="-13.5" y="-13.5" width="27" height="27" fill="#07141c" fillOpacity=".88" stroke={frame} strokeWidth="1.15"/>
-    <path fill="none" stroke={accent} strokeWidth="2.15" strokeLinecap="square" d="M-16.4-13.5h5.4M-16.4-13.5v5.4M16.4-13.5h-5.4M16.4-13.5v5.4M-16.4 13.5h5.4M-16.4 13.5v-5.4M16.4 13.5h-5.4M16.4 13.5v-5.4"/>
-    <path fill={bolt} d="M1.6-8.4-4.8-.2h3.4L-2.4 8.6 6.6 0H2.8z"/>
-    {Array.from({ length: 8 }, (_, i) => <rect key={i} x={-9.4 + i * 2.55} y="16.4" width="1.7" height="3.2" fill={accent}/>)}
-    <path fill={accent} d="M0 20.6 2.15 23.6h-4.3z"/>
-  </>
+  const rx = cubeRx, ry = cubeRy, h = cubeH
+  const topY = cubeTiers[cubeTiers.length - 1]
+  return <g className="compute-cube">
+    {cubeTiers.map(y => {
+      const top = `M0 ${y - ry} L${rx} ${y} L0 ${y + ry} L${-rx} ${y} Z`
+      const left = `M${-rx} ${y} L0 ${y + ry} L0 ${y + ry + h} L${-rx} ${y + h} Z`
+      const right = `M${rx} ${y} L0 ${y + ry} L0 ${y + ry + h} L${rx} ${y + h} Z`
+      const outline = `M0 ${y - ry} L${rx} ${y} V${y + h} L0 ${y + ry + h} L${-rx} ${y + h} V${y} Z`
+      return <g key={y}>
+        <path d={left} fill="url(#cube-left)"/>
+        <path d={right} fill="url(#cube-right)"/>
+        <path d={top} fill="url(#cube-top)"/>
+        <path d={outline} fill="none" stroke="var(--map-cube-edge)" strokeWidth=".7" strokeLinejoin="round"/>
+      </g>
+    })}
+    <path d={`M0 ${topY - 2.2} L3.2 ${topY} L0 ${topY + 2.2} L-3.2 ${topY} Z`} fill="var(--map-cube-core)"/>
+  </g>
 }
 
 export default function MapViewport({atlas,rig,selected,layers,populations,pick,marker,showNews,showGlobal}:Props) {
@@ -160,7 +172,8 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
     new PopulationSurface(atlas.countryById.get(id)!)) : [],[atlas,activeCountries])
   const language = useLanguage()
   const { ui, locale } = language
-  const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null)
+  const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null), cursorOverlay=useRef<SVGSVGElement>(null)
+  const placedView=useRef("")
   const marks=useRef<(SVGGElement|null)[]>([])
   const cursorMarks=useRef<(SVGGElement|null)[]>([])
   const islands=useMemo(()=>atlas.countries.flatMap(country=>country.islandGroup ? [{country,...country.islandGroup}] : []),[atlas])
@@ -175,27 +188,36 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
   const onFail=useCallback(()=>setFailed(true),[])
   const altitudes=useMemo(()=>computePlaces.map(p=>relief(atlas.metres(p.lon,p.lat))+.18),[atlas])
   const project=useCallback((time:number)=>{
-    if (!overlay.current) return
     const w=rig.width,h=rig.height
-    overlay.current.setAttribute("viewBox",`0 0 ${w} ${h}`)
+    const view=`0 0 ${w} ${h}`
     const size=Math.max(.43,Math.min(1.15,hudScale(w,h)))*(1+.16*rig.current.zoom)
     function place(el:SVGGElement|null|undefined,lon:number,lat:number,z:number,angle=0,scale=size) {
       if (!el) return
       const point=rig.screen(lon,lat,z)
       const visible=point.visible && point.x>-25 && point.x<w+25 && point.y>-25 && point.y<h+25
-      el.style.display=visible ? "" : "none"
-      if(visible) el.setAttribute("transform",`translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) scale(${scale}) rotate(${angle})`)
+      const display=visible ? "" : "none"
+      if (el.style.display !== display) el.style.display=display
+      if (!visible) return
+      const transform=`translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) scale(${scale}) rotate(${angle})`
+      if (el.getAttribute("transform") !== transform) el.setAttribute("transform",transform)
     }
+    if (cursorOverlay.current) {
+      if (cursorOverlay.current.getAttribute("viewBox") !== view) cursorOverlay.current.setAttribute("viewBox",view)
+      cursors.forEach((route,i)=>{
+        const along=((time/route.seconds)+route.phase)%1
+        const lon=route.start[0]+(route.end[0]-route.start[0])*along
+        const lat=route.start[1]+(route.end[1]-route.start[1])*along
+        const end=rig.screen(route.end[0],route.end[1],.4)
+        const start=rig.screen(route.start[0],route.start[1],.4)
+        const angle=Math.atan2(end.y-start.y,end.x-start.x)*180/Math.PI+90
+        place(cursorMarks.current[i],lon,lat,.5,angle,size*1.55)
+      })
+    }
+    const pose=`${view}|${rig.flat?1:0}|${rig.current.lon.toFixed(4)}|${rig.current.lat.toFixed(4)}|${rig.current.zoom.toFixed(4)}|${marker?.lon ?? ""}|${marker?.lat ?? ""}`
+    if (!overlay.current || pose === placedView.current) return
+    placedView.current=pose
+    overlay.current.setAttribute("viewBox",view)
     computePlaces.forEach((p,i)=>place(marks.current[i],p.lon,p.lat,altitudes[i]))
-    cursors.forEach((route,i)=>{
-      const along=((time/route.seconds)+route.phase)%1
-      const lon=route.start[0]+(route.end[0]-route.start[0])*along
-      const lat=route.start[1]+(route.end[1]-route.start[1])*along
-      const end=rig.screen(route.end[0],route.end[1],.4)
-      const start=rig.screen(route.start[0],route.start[1],.4)
-      const angle=Math.atan2(end.y-start.y,end.x-start.x)*180/Math.PI+90
-      place(cursorMarks.current[i],lon,lat,.5,angle,size*1.55)
-    })
     islands.forEach((island,i)=>place(islandMarks.current[i],island.lon,island.lat,.06))
     if(eventPin.current && marker) {
       if (rig.current.zoom<.17) place(eventPin.current,marker.lon,marker.lat,.30)
@@ -240,23 +262,22 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
     <svg ref={overlay} className="geo-marks" aria-label={ui.computeSites}>
       <defs>
         <radialGradient id="event-red" cx=".38" cy=".30" r=".78"><stop stopColor="#dd3045"/><stop offset=".43" stopColor="#92172a"/><stop offset="1" stopColor="#290510"/></radialGradient>
-        <filter id="cursor-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.7"/></filter>
+        <linearGradient id="cube-top" x1="0" y1="0" x2="1" y2="1">
+          <stop style={{ stopColor: "var(--map-cube-top-0)" }} stopOpacity=".9"/>
+          <stop offset="1" style={{ stopColor: "var(--map-cube-top-1)" }} stopOpacity=".46"/>
+        </linearGradient>
+        <linearGradient id="cube-left" x1="0" y1="0" x2="0" y2="1">
+          <stop style={{ stopColor: "var(--map-cube-left-0)" }} stopOpacity=".66"/>
+          <stop offset="1" style={{ stopColor: "var(--map-cube-left-1)" }} stopOpacity=".72"/>
+        </linearGradient>
+        <linearGradient id="cube-right" x1="0" y1="0" x2="1" y2="1">
+          <stop style={{ stopColor: "var(--map-cube-right-0)" }} stopOpacity=".62"/>
+          <stop offset="1" style={{ stopColor: "var(--map-cube-right-1)" }} stopOpacity=".72"/>
+        </linearGradient>
       </defs>
       {computePlaces.map((p,i)=><g key={p.id} ref={el=>{marks.current[i]=el}}>
         <ComputeGlyph/>
         <title>{computePlaceLabel(p, language)}</title>
-      </g>)}
-      {cursors.map((_,i)=><g key={i} ref={el=>{cursorMarks.current[i]=el}}>
-        <g filter="url(#cursor-glow)">
-          <path d={cursorShape} fill="#4aa3ff"/>
-          <circle cx="0" cy="26" r="5.6" fill="#4aa3ff"/>
-        </g>
-        <path d={cursorShape} fill="#4aa3ff" stroke="#f7fbff" strokeWidth=".7" strokeLinejoin="round"/>
-        <g>
-          <circle cx="0" cy="26" r="5.6" fill="#4aa3ff" stroke="#f7fbff" strokeWidth=".7"/>
-          <rect x="-2.45" y="23.7" width="1.45" height="3.1" rx=".7" fill="#f7fbff"/>
-          <rect x="1" y="23.7" width="1.45" height="3.1" rx=".7" fill="#f7fbff"/>
-        </g>
       </g>)}
       {islands.map(({country,id,lon,lat},i)=>{
         const label = `${ui.spratly} · ${countryName(country, locale)}`
@@ -266,7 +287,7 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
           onKeyDown={e=>{if(e.key==="Enter" || e.key===" ") {e.preventDefault();choose()}}}>
           <title>{label}</title>
           <circle r="13" fill="transparent"/>
-          <path d="M0-5 5 0 0 5-5 0Z" stroke="#e6eee0" strokeWidth="1.4" fill={selected.includes(country) ? "#e8f1b7" : "#426057"}/>
+          <path d="M0-5 5 0 0 5-5 0Z" stroke="var(--map-island-stroke)" strokeWidth="1.4" fill={selected.includes(country) ? "var(--map-island-selected)" : "var(--map-island-fill)"}/>
         </g>
       })}
       {marker && <g ref={eventPin} style={{display:"none",pointerEvents:"auto",cursor:"pointer"}} role="button" aria-label={marker.label} tabIndex={0}
@@ -277,6 +298,23 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
         <circle cy="-62" r="48" stroke="#d5d7c7" strokeWidth="4" fill="url(#event-red)"/>
         <use href="#bio" x="-37" y="-99" width="74" height="74" color="#fff3e4"/>
       </g>}
+    </svg>
+    <svg ref={cursorOverlay} className="geo-marks" aria-hidden="true">
+      <defs>
+        <filter id="cursor-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.7"/></filter>
+      </defs>
+      {cursors.map((_,i)=><g key={i} ref={el=>{cursorMarks.current[i]=el}}>
+        <g filter="url(#cursor-glow)">
+          <path d={cursorShape} fill="var(--map-cursor)"/>
+          <circle cx="0" cy="26" r="5.6" fill="var(--map-cursor)"/>
+        </g>
+        <path d={cursorShape} fill="var(--map-cursor)" stroke="var(--map-cursor-stroke)" strokeWidth=".7" strokeLinejoin="round"/>
+        <g>
+          <circle cx="0" cy="26" r="5.6" fill="var(--map-cursor)" stroke="var(--map-cursor-stroke)" strokeWidth=".7"/>
+          <rect x="-2.45" y="23.7" width="1.45" height="3.1" rx=".7" fill="var(--map-cursor-stroke)"/>
+          <rect x="1" y="23.7" width="1.45" height="3.1" rx=".7" fill="var(--map-cursor-stroke)"/>
+        </g>
+      </g>)}
     </svg>
   </div>
 }

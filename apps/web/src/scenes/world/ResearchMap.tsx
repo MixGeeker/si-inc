@@ -20,28 +20,28 @@ const viewBox = "-50 -43.3013 100 86.6026"
 function SurfaceDefs() {
   return <defs>
     <linearGradient id="hive-glass" x2=".74" y2="1">
-      <stop stopColor="#83958d" stopOpacity=".8"/><stop offset=".27" stopColor="#4a5f5c" stopOpacity=".88"/>
-      <stop offset=".68" stopColor="#344a49" stopOpacity=".9"/><stop offset="1" stopColor="#617570" stopOpacity=".93"/>
+      <stop style={{ stopColor: "var(--hive-glass-0)" }} stopOpacity=".82"/><stop offset=".27" style={{ stopColor: "var(--hive-glass-1)" }} stopOpacity=".9"/>
+      <stop offset=".68" style={{ stopColor: "var(--hive-glass-2)" }} stopOpacity=".92"/><stop offset="1" style={{ stopColor: "var(--hive-glass-3)" }} stopOpacity=".95"/>
     </linearGradient>
     <linearGradient id="hive-ready" x2=".58" y2="1">
-      <stop stopColor="#b6e9d0"/><stop offset=".24" stopColor="#548374"/><stop offset=".73" stopColor="#30574f"/><stop offset="1" stopColor="#739d88"/>
+      <stop style={{ stopColor: "var(--hive-ready-0)" }}/><stop offset=".24" style={{ stopColor: "var(--hive-ready-1)" }}/><stop offset=".73" style={{ stopColor: "var(--hive-ready-2)" }}/><stop offset="1" style={{ stopColor: "var(--hive-ready-3)" }}/>
     </linearGradient>
     <linearGradient id="hive-complete" x1=".15" y1="0" x2=".75" y2="1">
-      <stop stopColor="#c2f7d6"/><stop offset=".31" stopColor="#80ddb1"/><stop offset=".69" stopColor="#52bd96"/><stop offset="1" stopColor="#328b78"/>
+      <stop style={{ stopColor: "var(--hive-complete-0)" }}/><stop offset=".31" style={{ stopColor: "var(--hive-complete-1)" }}/><stop offset=".69" style={{ stopColor: "var(--hive-complete-2)" }}/><stop offset="1" style={{ stopColor: "var(--hive-complete-3)" }}/>
     </linearGradient>
     <linearGradient id="hive-working" x1=".15" y1="0" x2=".75" y2="1">
-      <stop stopColor="#ffe6b3"/><stop offset=".32" stopColor="#efc176"/><stop offset=".72" stopColor="#d6a55e"/><stop offset="1" stopColor="#976f42"/>
+      <stop style={{ stopColor: "var(--hive-working-0)" }}/><stop offset=".32" style={{ stopColor: "var(--hive-working-1)" }}/><stop offset=".72" style={{ stopColor: "var(--hive-working-2)" }}/><stop offset="1" style={{ stopColor: "var(--hive-working-3)" }}/>
     </linearGradient>
     <linearGradient id="hive-closed" x2=".8" y2="1">
-      <stop stopColor="#555d5b"/><stop offset=".6" stopColor="#303937"/><stop offset="1" stopColor="#4b5450"/>
+      <stop style={{ stopColor: "var(--hive-closed-0)" }}/><stop offset=".6" style={{ stopColor: "var(--hive-closed-1)" }}/><stop offset="1" style={{ stopColor: "var(--hive-closed-2)" }}/>
     </linearGradient>
     <radialGradient id="hive-bridge" cx=".47" cy=".5" r=".61">
-      <stop stopColor="#2e5b54" stopOpacity=".05"/><stop offset=".6" stopColor="#5b9380" stopOpacity=".18"/>
-      <stop offset=".84" stopColor="#7cba9f" stopOpacity=".43"/><stop offset="1" stopColor="#b3e5c4" stopOpacity=".78"/>
+      <stop style={{ stopColor: "var(--hive-bridge-0)" }} stopOpacity=".08"/><stop offset=".6" style={{ stopColor: "var(--hive-bridge-1)" }} stopOpacity=".24"/>
+      <stop offset=".84" style={{ stopColor: "var(--hive-bridge-2)" }} stopOpacity=".5"/><stop offset="1" style={{ stopColor: "var(--hive-bridge-3)" }} stopOpacity=".85"/>
     </radialGradient>
     <linearGradient id="hive-facet" x1="0" y1="0" x2=".8" y2="1">
-      <stop stopColor="#f1ffeb" stopOpacity=".46"/><stop offset=".42" stopColor="#f3fff4" stopOpacity=".07"/>
-      <stop offset="1" stopColor="#081b19" stopOpacity=".43"/>
+      <stop stopColor="#f1faff" stopOpacity=".42"/><stop offset=".42" stopColor="#f3faff" stopOpacity=".06"/>
+      <stop offset="1" stopColor="#040814" stopOpacity=".48"/>
     </linearGradient>
     <linearGradient id="hive-texture-fade" x2=".25" y2="1">
       <stop stopColor="white"/><stop offset=".75" stopColor="#555"/><stop offset="1" stopColor="black"/>
@@ -51,10 +51,10 @@ function SurfaceDefs() {
     </mask>
     <pattern id="hive-mesh" x={hive.originX} y={hive.originY} width={3 * hive.radius} height={cellHeight}
       patternUnits="userSpaceOnUse" viewBox="0 0 150 86.603">
-      <path d={lattice} fill="none" stroke="#94c7b1" strokeWidth="1.05" opacity=".19"/>
+      <path d={lattice} fill="none" stroke="var(--hive-mesh)" strokeWidth="1.05" opacity=".17"/>
     </pattern>
     <pattern id="hive-microcells" width="15" height="8.6603" patternUnits="userSpaceOnUse" viewBox="0 0 150 86.603">
-      <path d={lattice} fill="none" stroke="#f2ffdc" strokeWidth="4.5"/>
+      <path d={lattice} fill="none" stroke="#f2faff" strokeWidth="4.5"/>
     </pattern>
     <filter id="hive-shadow" x="-5%" y="-10%" width="110%" height="125%"><feGaussianBlur stdDeviation="2.6"/></filter>
   </defs>
@@ -62,7 +62,7 @@ function SurfaceDefs() {
 
 function Substrate() {
   return <g aria-hidden="true" pointerEvents="none">
-    <g fill="none" stroke="#83ad9d" strokeWidth="1" opacity=".17">
+    <g fill="none" stroke="var(--hive-substrate)" strokeWidth="1" opacity=".18">
       <path d="M-160 97H-14l35-61H159l23-38h71M-160 103H-10l35-61h137l23-38h64"/>
       <path d="M610 490v-30l34-51h139l40-68h162M620 490v-29l30-46h138l40-68h159"/>
       <circle cx="253" cy="-2" r="2"/><circle cx="249" cy="4" r="2"/>
