@@ -227,18 +227,41 @@ dialog.research-dialog {
 .lab-slots-title { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin-bottom: .55em; }
 .lab-slots-title span { font-size: .85em; color: var(--muted); font-variant-numeric: tabular-nums; }
 .lab-slots ol { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: clamp(5px,.7cqw,12px); margin: 0; padding: 0; list-style: none; }
-.lab-slots li { min-width: 0; }
-.research-dialog .lab-slot { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 6.1em; gap: .2em; text-align: left;
+.lab-slots li { position: relative; min-width: 0; overflow: hidden; }
+.research-dialog .lab-slot { --lab-flare: #e7fbff; display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 6.1em; gap: .2em; text-align: left;
   padding: .62em .8em; color: var(--ui-ink-soft); border: 1px solid var(--lab-slot-border); background: var(--lab-slot-bg); }
 .lab-slot-head { display: flex; align-items: center; justify-content: space-between; gap: .3em; font-size: .74em; color: var(--muted); }
-.lab-slot strong { margin: .27em 0 0; font-size: .97em; font-weight: 550; line-height: 1.22; }
+.lab-slot strong { position: relative; z-index: 1; width: fit-content; max-width: 100%; margin: .27em 0 0; font-size: .97em; font-weight: 550; line-height: 1.22; }
 .lab-slot small, .lab-progress span { font-size: .77em; font-variant-numeric: tabular-nums; }
 .research-dialog .lab-slot:disabled { opacity: 1; }
 .research-dialog .lab-slot.locked { color: var(--muted); border-style: dashed; background: var(--lab-slot-locked-bg); }
-.research-dialog .lab-slot.next { color: var(--amber); border-color: var(--lab-slot-next-border); background: var(--lab-slot-next-bg); }
-.research-dialog .lab-slot.working { color: var(--ink); border-color: var(--lab-slot-working-border); background: var(--lab-slot-working-bg); }
+.research-dialog .lab-slot.next { --lab-flare: #ffd4ee; color: var(--amber); border-color: var(--lab-slot-next-border); background: var(--lab-slot-next-bg); }
+.research-dialog .lab-slot.working { --lab-flare: #f4d9ff; color: var(--ink); border-color: var(--lab-slot-working-border); background: var(--lab-slot-working-bg); }
 .research-dialog .lab-slot.idle { color: var(--ui-cyan-soft); background: var(--lab-slot-idle-bg); border-color: var(--lab-slot-idle-border); }
 .research-dialog .lab-slot:hover:enabled { border-color: var(--amber); }
+.lab-slot-head, .lab-slot small, .lab-progress { position: relative; z-index: 1; }
+.lab-slot.is-lit::before {
+  content: ""; position: absolute; z-index: 2; inset: -45% -70%; pointer-events: none;
+  background: linear-gradient(108deg, transparent 40%, rgba(255,255,255,.16) 46%, rgba(255,255,255,.82) 50%, var(--lab-flare) 54%, transparent 62%);
+  mix-blend-mode: screen; transform: translateX(-62%); animation: lab-sheen .68s ease-out forwards;
+}
+.lab-slot.is-lit strong::after {
+  content: ""; position: absolute; z-index: 2; left: 50%; top: 50%; width: 5.6em; height: 5.6em; pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent, var(--lab-flare) 42%, #fff 50%, var(--lab-flare) 58%, transparent) center / 100% 1.5px no-repeat,
+    linear-gradient(transparent, var(--lab-flare) 42%, #fff 50%, var(--lab-flare) 58%, transparent) center / 1.5px 100% no-repeat,
+    radial-gradient(circle, #fff 0 3.5%, transparent 4.5% 27%, #fff 28.5% 30.5%, transparent 32.5%);
+  filter: drop-shadow(0 0 7px var(--lab-flare)); mix-blend-mode: screen;
+  opacity: 0; transform: translate(-50%, -50%) scale(.3); animation: lab-flare .74s ease-out forwards;
+}
+@keyframes lab-sheen { to { transform: translateX(62%); } }
+@keyframes lab-flare {
+  30% { opacity: 1; transform: translate(-50%, -50%) scale(.78); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lab-slot.is-lit::before, .lab-slot.is-lit strong::after { animation: none; opacity: 0; }
+}
 .lab-progress { display: grid; gap: .2em; margin-top: auto; }
 .lab-detail-action .lab-progress { margin-top: .4em; }
 .lab-progress progress { width: 100%; height: 3px; border: 0; appearance: none; background: var(--lab-progress-track); }

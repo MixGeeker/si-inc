@@ -1,4 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
+import { useGameSnapshot, useGameStore } from "../GameContext"
+import { musicCatalog, musicTrackTitle } from "../../audio/music"
 import { Glyph, Symbols } from "./Symbols"
 import { surfaceUrl, type Location } from "../../cartography/atlas"
 import { useLanguage } from "../../i18n/useLanguage"
@@ -250,7 +252,13 @@ function RegionStrip({location,place,open,x,y,content}:{location:Location|null;p
   </g>
 }
 export default function Hud({location,place,content,newsItems,newsView,newsItemId,newsDay,openNews,closeNews,decide,zoom,selectedSpeed,manualPaused,paused,night,toggleNight,open,focusPlace,setSpeed,onPause,setZoom}:Props) {
-  const { ui, percent } = useLanguage()
+  const { locale, ui, percent } = useLanguage()
+  const music = useGameSnapshot(state => state.music)
+  const store = useGameStore()
+  const [musicOpen, setMusicOpen] = useState(false)
+  const musicLabel = useRef<HTMLDivElement>(null)
+  const musicGroup = useRef<SVGGElement>(null)
+  const [musicPlate, setMusicPlate] = useState(156)
   const host=useRef<HTMLDivElement>(null)
   const [size,setSize]=useState({width:HUD.width,height:HUD.height})
   useLayoutEffect(()=>{
@@ -264,6 +272,16 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
     observer.observe(element)
     return ()=>observer.disconnect()
   },[])
+  useLayoutEffect(() => {
+    const label = musicLabel.current
+    const group = musicGroup.current
+    if (!label || !group) return
+    const bounds = group.getBBox()
+    const scale = bounds.width ? group.getBoundingClientRect().width / bounds.width : 0
+    if (!scale) return
+    const plate = Math.ceil(46 + label.getBoundingClientRect().width / scale + 10)
+    setMusicPlate(old => old === plate ? old : plate)
+  }, [ui.front.music, musicPlate])
   const unit=hudScale(size.width,size.height)
   const w=size.width/unit, h=size.height/unit
   // Keep the news and menu legible when the full map frame scales down.
@@ -302,15 +320,33 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
           <path d="M910 26h100v52H910Z" fill="transparent"/>
         </Control>
       </g>
+      {content.kind === "campaign" && <g transform={`translate(${w / 2} 0) scale(${menuUnit / unit})`} role="group" aria-label={night ? ui.secondActFull : ui.firstActFull}>
+        <g transform="translate(-124 26)">
+          <Glass d="M0 0h248v51H0Z"/>
+          <text x="124" y="35" textAnchor="middle" fontSize="26">{night ? ui.secondAct : ui.firstAct}</text>
+        </g>
+      </g>}
       <g transform={`translate(${w} ${menuTop / unit}) scale(${menuUnit / unit})`}>
         {content.kind === "preview" ? <g transform="translate(-430 26)">
           <Control label={night ? ui.switchDay : ui.switchNight} pressed={night} run={toggleNight}>
             <Glass d="M0 0h92v51H0Z"/>
             <text x="46" y="35" textAnchor="middle" fontSize="28">{night ? ui.night : ui.daylight}</text>
           </Control>
-        </g> : <g transform="translate(-586 26)" role="group" aria-label={night ? ui.secondActFull : ui.firstActFull}>
-          <Glass d="M0 0h248v51H0Z"/>
-          <text x="124" y="35" textAnchor="middle" fontSize="26">{night ? ui.secondAct : ui.firstAct}</text>
+        </g> : <g ref={musicGroup} transform={`translate(${-338 - musicPlate} 26)`}>
+          <Glass d={`M0 0h${musicPlate}v51H0Z`}/>
+          <Control label={ui.front.musicOn} pressed={music.enabled} run={() => store.dispatch({ type: "set-music-enabled", enabled: !music.enabled })}>
+            <rect width="44" height="51" fill="transparent"/>
+            <path d="M14 16v19l7-3.5L32 38V12L21 18.5z" fill={music.enabled ? "var(--hud-bloom)" : "var(--hud-control-idle)"}/>
+          </Control>
+          <Control label={ui.front.musicChannel} pressed={musicOpen} run={() => setMusicOpen(open => !open)}>
+            <rect x="44" width={musicPlate - 44} height="51" fill="transparent"/>
+            <foreignObject x="46" y="8" width={Math.max(musicPlate - 54, 24)} height="36">
+              <div className="hud-music-label" ref={musicLabel}>
+                <span>{ui.front.music}</span>
+                <svg viewBox="0 0 16 10" width="14" height="9" aria-hidden="true"><path d="M1 1.5 8 8l7-6.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
+              </div>
+            </foreignObject>
+          </Control>
         </g>}
         <g transform="translate(-326 26)">
           <Control label={ui.dateMenu} run={()=>open("menu")}>
@@ -355,5 +391,14 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
       style={{left:railX*unit,top:(railY+HUD.railTrackTop)*unit,width:68*unit,height:HUD.railTravel*unit}}
       aria-label={ui.mapZoom} aria-valuetext={percent.format(Math.round(zoom * 100) / 100)} onChange={e=>setZoom(Math.expm1(Number(e.target.value)/1000*Math.log(69))/68)}/>
     <NewsLayer unit={newsUnit} sheetTop={sheetTop} items={newsItems} view={newsView} itemId={newsItemId} day={newsDay} dated={content.kind==="campaign"} open={openNews} close={closeNews} decide={decide}/>
+    {musicOpen && content.kind === "campaign" && <>
+      <button type="button" className="hud-music-backdrop" aria-label={ui.close} onClick={() => setMusicOpen(false)}/>
+      <div className="hud-music" role="listbox" aria-label={ui.front.musicChannel} style={{top: menuTop + 84 * menuUnit, right: 338 * menuUnit, width: Math.max(248 * menuUnit, 220)}}>
+        <button type="button" role="option" aria-selected={music.trackId === null}
+          onClick={() => store.dispatch({ type: "set-music-track", trackId: null })}>{ui.front.musicAuto}</button>
+        {musicCatalog.map(track => <button type="button" key={track.id} role="option" aria-selected={music.trackId === track.id}
+          onClick={() => store.dispatch({ type: "set-music-track", trackId: track.id })}>{musicTrackTitle(track, locale)}</button>)}
+      </div>
+    </>}
   </div>
 }

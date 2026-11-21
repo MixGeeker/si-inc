@@ -1,4 +1,4 @@
-import { useId, type KeyboardEvent, type ReactNode } from "react"
+import { useId, useState, type AnimationEvent, type KeyboardEvent, type ReactNode } from "react"
 import { completedLevel, completionDay, firstIdleSlot, researchAttributes, researchCost, researchLevels, researchState, researchStatus,
   slotProject, dailyCorpus, type ResearchProject } from "../../../../../packages/game/research"
 import { researchExample } from "../../../../../packages/game/market-research"
@@ -164,19 +164,36 @@ function ProjectDetail({ run, node, start, unlock, select }: {
 function ResearchSlots({ run, unlock, select }: { run: RunState; unlock: (slot: number) => void; select: SelectSkill }) {
   const { ui: { lab }, scenario } = useLanguage()
   const { unlockedSlots, corpus } = researchState(run)
+  const [lit, setLit] = useState<number | null>(null)
+  const press = (slot: number, action: () => void) => {
+    action()
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    setLit(null)
+    requestAnimationFrame(() => setLit(slot))
+  }
   return <section className="lab-slots" aria-label={lab.slots}>
     <div className="lab-slots-title"><h3>{lab.slots}</h3><span>{lab.unlocked(unlockedSlots, rules.slotCosts.length)}</span></div>
     <ol>{rules.slotCosts.map((cost, i) => {
       const slot = i + 1, project = slotProject(run, slot), next = slot === unlockedSlots + 1, locked = slot > unlockedSlots
       const heading = <span className="lab-slot-head">{lab.slot(slot)}<LabIcon name={locked ? "lab-lock" : project ? "lab-clock" : "flask"}/></span>
-      if (project) return <li key={slot}><button type="button" className="lab-slot working" onClick={() => select(project.skillId)}>
-        {heading}<strong>{scenario.skills[project.skillId]}</strong><ProjectProgress run={run} project={project}/>
-      </button></li>
-      if (!locked) return <li key={slot}><div className="lab-slot idle">{heading}<strong>{lab.idle}</strong></div></li>
-      return <li key={slot}><button type="button" className={next ? "lab-slot next" : "lab-slot locked"} disabled={!canUnlockSlot(run, slot)}
-        title={next ? lab.unlock(slot) : lab.previous(slot - 1)} onClick={() => unlock(slot)}>
-        {heading}<strong>{next ? (corpus >= cost ? lab.unlockShort : lab.shortfall(cost - corpus)) : lab.lockedSlot}</strong><small>{lab.corpusCount(cost)}</small>
-      </button></li>
+      const end = (event: AnimationEvent<HTMLLIElement>) => {
+        if (event.animationName === "lab-flare") setLit(current => current === slot ? null : current)
+      }
+      const litClass = lit === slot ? " is-lit" : ""
+      if (project) return <li key={slot} onAnimationEnd={end}>
+        <button type="button" className={`lab-slot working${litClass}`} onClick={() => press(slot, () => select(project.skillId))}>
+          {heading}<strong>{scenario.skills[project.skillId]}</strong><ProjectProgress run={run} project={project}/>
+        </button>
+      </li>
+      if (!locked) return <li key={slot} onAnimationEnd={end}>
+        <div className={`lab-slot idle${litClass}`}>{heading}<strong>{lab.idle}</strong></div>
+      </li>
+      return <li key={slot} onAnimationEnd={end}>
+        <button type="button" className={`lab-slot ${next ? "next" : "locked"}${litClass}`} disabled={!canUnlockSlot(run, slot)}
+          title={next ? lab.unlock(slot) : lab.previous(slot - 1)} onClick={() => press(slot, () => unlock(slot))}>
+          {heading}<strong>{next ? (corpus >= cost ? lab.unlockShort : lab.shortfall(cost - corpus)) : lab.lockedSlot}</strong><small>{lab.corpusCount(cost)}</small>
+        </button>
+      </li>
     })}</ol>
   </section>
 }

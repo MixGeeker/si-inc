@@ -36,9 +36,9 @@
   --ui-loop: #5ceeff;
 
   /* Frame, vignette, backdrop */
-  --ui-frost-bg: linear-gradient(180deg, rgba(6, 7, 16, .48), rgba(2, 2, 7, .78));
+  --ui-frost-bg: linear-gradient(180deg, rgba(8, 48, 62, .42), rgba(4, 28, 42, .68));
   --ui-frost-filter: blur(22px) saturate(1.1) brightness(.84);
-  --ui-vignette: radial-gradient(ellipse at 50% 46%, transparent 48%, rgba(2, 2, 8, .82) 100%);
+  --ui-vignette: radial-gradient(ellipse at 50% 46%, transparent 48%, rgba(4, 36, 48, .7) 100%);
   --ui-backdrop: rgba(2, 2, 8, .72);
   --ui-front-backdrop: rgba(2, 2, 9, .82);
 
@@ -46,7 +46,7 @@
   --ui-panel-bg:
     linear-gradient(rgba(28, 242, 255, .035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(28, 242, 255, .035) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(9, 10, 20, .9), rgba(3, 3, 9, .95));
+    linear-gradient(180deg, rgba(10, 52, 66, .78), rgba(5, 32, 44, .84));
   --ui-panel-shadow:
     inset 0 1px 0 rgba(127, 248, 255, .42),
     inset 0 0 0 1px rgba(28, 242, 255, .2),
@@ -162,18 +162,21 @@
   --hud-corner-dot: #ff4da6;
   --hud-bezel-bloom: #1cf2ff;
   --hud-center-dot: #ff3898;
-  --hud-skirt: rgba(3, 3, 9, .86);
+  --hud-skirt: rgba(6, 48, 62, .62);
   --hud-glass-0: #7ff8ff;
   --hud-glass-1: #1cf2ff;
-  --hud-glass-2: #0a0d1c;
-  --hud-glass-3: #05060e;
-  --hud-glass-4: #020207;
+  --hud-glass-2: #0e4c5c;
+  --hud-glass-3: #083844;
+  --hud-glass-4: #062833;
+  --hud-glass-2-alpha: .58;
+  --hud-glass-3-alpha: .5;
+  --hud-glass-4-alpha: .46;
   --hud-bezel-0: #7ff8ff;
   --hud-bezel-1: #1cf2ff;
   --hud-bezel-2: #020208;
-  --hud-blue-0: #0c2238;
-  --hud-blue-1: #071426;
-  --hud-blue-2: #040a16;
+  --hud-blue-0: rgba(16, 96, 112, .7);
+  --hud-blue-1: rgba(10, 68, 82, .64);
+  --hud-blue-2: rgba(6, 44, 56, .58);
   --hud-red-0: #ff4da6;
   --hud-red-1: #c9186f;
   --hud-red-2: #4a0936;
@@ -181,10 +184,10 @@
   --hud-vents: #1cf2ff;
   --hud-rule: #7ff8ff;
   --hud-scanline: #49c6e5;
-  --hud-well-cool: rgba(6, 18, 32, .84);
-  --hud-well-warm: rgba(42, 8, 28, .82);
-  --hud-badge-bg: #060712;
-  --hud-badge-scrim: rgba(4, 4, 12, .84);
+  --hud-well-cool: rgba(10, 72, 86, .55);
+  --hud-well-warm: rgba(42, 8, 28, .62);
+  --hud-badge-bg: rgba(8, 48, 62, .72);
+  --hud-badge-scrim: rgba(4, 32, 44, .62);
   --hud-badge-text: #ff4da6;
   --hud-drop-bg: #1e081a;
   --hud-drop-edge: #ff6cb8;
@@ -516,6 +519,9 @@
   --hud-glass-2: #143028;
   --hud-glass-3: #07140f;
   --hud-glass-4: #040c0a;
+  --hud-glass-2-alpha: .82;
+  --hud-glass-3-alpha: .88;
+  --hud-glass-4-alpha: .94;
   --hud-bezel-0: #f7fffc;
   --hud-bezel-1: #8dffe4;
   --hud-bezel-2: #02110c;

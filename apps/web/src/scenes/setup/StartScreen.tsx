@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type MouseEvent } from "react"
 import { isLocale, localeNames } from "../../../../../packages/rules/locales"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
 import { musicCatalog, musicTrackTitle } from "../../audio/music"
@@ -8,6 +8,32 @@ import { useGameSnapshot, useGameStore } from "../GameContext"
 import "./front-scenes.css"
 
 type StartPanel = "sound" | "language"
+
+function celebrate(event: MouseEvent<HTMLButtonElement>, action: () => void) {
+  const button = event.currentTarget
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { action(); return }
+  button.classList.remove("is-burst")
+  void button.offsetWidth
+  button.classList.add("is-burst")
+  const rect = button.getBoundingClientRect()
+  const host = document.createElement("span")
+  host.className = "front-burst"
+  host.setAttribute("aria-hidden", "true")
+  for (let i = 0; i < 18; i++) {
+    const bit = document.createElement("i")
+    const angle = (Math.PI * 2 * i) / 18 + (Math.random() - .5) * .45
+    const dist = 16 + Math.random() * 48
+    bit.style.left = `${event.clientX - rect.left}px`
+    bit.style.top = `${event.clientY - rect.top}px`
+    bit.style.width = bit.style.height = `${2 + (i % 3)}px`
+    bit.style.setProperty("--dx", `${Math.cos(angle) * dist}px`)
+    bit.style.setProperty("--dy", `${Math.sin(angle) * dist}px`)
+    host.append(bit)
+  }
+  button.append(host)
+  window.setTimeout(() => { host.remove(); button.classList.remove("is-burst") }, 680)
+  window.setTimeout(action, 160)
+}
 
 export function StartScreen({ start, settings, explore }: { start: () => void; settings: () => void; explore: () => void }) {
   const store = useGameStore()
@@ -102,11 +128,11 @@ export function StartScreen({ start, settings, explore }: { start: () => void; s
       </div>
       <nav className="front-menu" aria-label={text.title}>
         <p className="front-menu-kicker">SINGULARITY INC. <span>{rules.rulesVersion}</span></p>
-        <button type="button" className="front-menu-action front-primary" onClick={start}>
-          <span className="front-action-index" aria-hidden="true">01</span><span>{text.start}</span><span className="front-arrow" aria-hidden="true">↗</span>
+        <button type="button" className="front-menu-action front-primary" onClick={event => celebrate(event, start)}>
+          <span className="front-sheen" aria-hidden="true"/><span className="front-action-index" aria-hidden="true">01</span><span>{text.start}</span><span className="front-arrow" aria-hidden="true">↗</span>
         </button>
-        <button type="button" className="front-menu-action front-secondary" onClick={settings}>
-          <span className="front-action-index" aria-hidden="true">02</span><span>{text.settings}</span><span className="front-arrow" aria-hidden="true">↗</span>
+        <button type="button" className="front-menu-action front-secondary" onClick={event => celebrate(event, settings)}>
+          <span className="front-sheen" aria-hidden="true"/><span className="front-action-index" aria-hidden="true">02</span><span>{text.settings}</span><span className="front-arrow" aria-hidden="true">↗</span>
         </button>
         <button type="button" className="front-menu-action front-tertiary" onClick={explore}>
           <span className="front-action-index" aria-hidden="true">03</span><span>{text.explore}</span><span className="front-arrow" aria-hidden="true">→</span>
