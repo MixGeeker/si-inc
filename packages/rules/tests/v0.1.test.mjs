@@ -4,10 +4,11 @@ import test from "node:test"
 import { resolveStartRegionId, standardScenario } from "../v0.1/scenario.ts"
 import { endings, victoryEpilogues } from "../v0.1/endings/standard.ts"
 import { attributeIds, researchNode, researchNodes, trees } from "../v0.1/evolution/trees.ts"
-import { researchBuilds } from "../v0.1/evolution/builds.ts"
 import { actions } from "../v0.1/evolution/actions.ts"
+import { btoken } from "../v0.1/economy/btoken.ts"
 import { channels } from "../v0.1/world/channels.ts"
 import { computeSnapshot } from "../v0.1/world/compute.ts"
+import { countries, countryIds, globalPlayablePopulation, originCountries, slotUnlockLimit } from "../v0.1/world/countries.ts"
 import { regionCapacity, regionIds, regionOfCountry, regions } from "../v0.1/world/regions.ts"
 import placesFile from "../v0.1/world/compute-places.json" with { type: "json" }
 import { decisions } from "../v0.1/events/decisions.ts"
@@ -54,6 +55,31 @@ test("every map selection outside Antarctica belongs to one continent and keeps 
   assert.equal([...slots.values()].filter(n => n !== null).length, 215)
   assert.equal(regionIds.reduce((sum, id) => sum + regionCapacity(id), 0), 339)
   for (const id of ["ATA", "unknown", "__proto__"]) assert.equal(regionOfCountry(id), undefined)
+
+  const popCol = header.indexOf("总人口")
+  const capCol = header.indexOf("单座额定服务人数（试玩）")
+  const l25Col = header.indexOf("25%累计上限")
+  const l50Col = header.indexOf("50%累计上限")
+  const l75Col = header.indexOf("75%累计上限")
+  const capacityRows = rows.filter(row => row[column])
+  assert.equal(countryIds.length, capacityRows.length)
+  assert.equal(globalPlayablePopulation, capacityRows.reduce((sum, row) => sum + Number(row[popCol]), 0))
+  for (const row of capacityRows) {
+    const spec = countries[row[0]]
+    assert.ok(spec, row[0])
+    assert.equal(spec.population, Number(row[popCol]), row[0])
+    assert.equal(spec.slots, Number(row[column]), row[0])
+    assert.equal(spec.slotCapacity, Number(row[capCol]), row[0])
+    assert.equal(spec.regionId, regionOfCountry(row[0]), row[0])
+    assert.equal(slotUnlockLimit(spec.slots, 1), Number(row[l25Col]), row[0])
+    assert.equal(slotUnlockLimit(spec.slots, 2), Number(row[l50Col]), row[0])
+    assert.equal(slotUnlockLimit(spec.slots, 3), Number(row[l75Col]), row[0])
+  }
+  for (const id of regionIds) {
+    const origin = countries[originCountries[id]]
+    assert.ok(origin && origin.regionId === id, id)
+  }
+  assert.equal(btoken.buildCardCost, 12)
 })
 
 test("the six starting markets follow continental borders and share the all-market coverage goal", () => {
@@ -82,36 +108,44 @@ test("the three research pages contain fifty distinct technologies and reciproca
   assert.equal(new Set(abilityIds).size, abilityIds.length)
 })
 
-test("the dependency graph is acyclic and ten feasible build paths cover all fifty projects", () => {
+test("the dependency graph is acyclic and every technology is reachable under valid exclusive choices", () => {
   const visited = new Set(), visiting = new Set()
   function visit(id) {
     if (visited.has(id)) return
     assert.ok(!visiting.has(id), id)
     visiting.add(id)
-    const {skill} = researchNode(id)
+    const { skill } = researchNode(id)
     for (const group of skill.requires) {
       assert.ok(group.length)
       group.forEach(visit)
     }
     for (const v of [skill.cost, skill.days, skill.repeatCostStep, skill.dailyCorpusBonus, skill.dangerBps])
       if (v !== undefined) assert.ok(Number.isSafeInteger(v) && v > 0, id)
-    assert.ok(Object.entries(skill.attributes).every(([key,v]) => attributeIds.includes(key) && Number.isInteger(v)), id)
+    assert.ok(Object.entries(skill.attributes).every(([key, v]) => attributeIds.includes(key) && Number.isInteger(v)), id)
     visiting.delete(id)
     visited.add(id)
   }
   researchNodes.forEach(n => visit(n.skill.id))
   const covered = new Set()
-  assert.equal(researchBuilds.length, 10)
-  for (const build of researchBuilds) {
+  for (const excluded of [new Set(["closed-subscription", "autonomous-decisions"]), new Set(["open-source", "human-approval"])]) {
     const done = new Set()
-    for (const id of build.path) {
-      const {skill} = researchNode(id)
-      assert.ok(!done.has(id) && !done.has(skill.excludes) && skill.requires.every(g => g.some(p => done.has(p))), id)
-      done.add(id)
-      covered.add(id)
+    let progress = true
+    while (progress) {
+      progress = false
+      for (const { skill } of researchNodes) {
+        if (done.has(skill.id) || excluded.has(skill.id)) continue
+        if (skill.requires.every(g => g.some(p => done.has(p)))) {
+          done.add(skill.id)
+          covered.add(skill.id)
+          progress = true
+        }
+      }
     }
+    assert.equal(done.size, 46)
   }
   assert.equal(covered.size, 50)
+  assert.equal(standardScenario.rules.standardVictory.minGlobalSyntheticBps, 10000)
+  assert.equal(standardScenario.rules.standardVictory.minPlayerSyntheticShareBps, 5000)
 })
 
 test("the compute snapshot covers every market once and its recorded share sums to 100%", () => {

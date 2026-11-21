@@ -1,9 +1,9 @@
 import { useId, useState, type AnimationEvent, type KeyboardEvent, type ReactNode } from "react"
+import { corpusYieldBreakdown } from "../../../../../packages/game/operations"
 import { completedLevel, completionDay, firstIdleSlot, researchAttributes, researchCost, researchLevels, researchState, researchStatus,
-  slotProject, dailyCorpus, type ResearchProject } from "../../../../../packages/game/research"
+  slotProject, type ResearchProject } from "../../../../../packages/game/research"
 import { researchExample } from "../../../../../packages/game/market-research"
 import { canUnlockSlot, nextCommandSeq, type RunState } from "../../../../../packages/game/run"
-import { researchBuild, researchBuilds, type BuildId, type ResearchBuild } from "../../../../../packages/rules/v0.1/evolution/builds"
 import { attributeIds, researchNode, researchNodes, trees, type ResearchNode, type SkillId, type SkillTree } from "../../../../../packages/rules/v0.1/evolution/trees"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
 import { useLanguage } from "../../i18n/useLanguage"
@@ -28,16 +28,14 @@ function ModelReadout({ run }: { run: RunState }) {
   </section>
 }
 
-function TreePanel({ run, node, build, select, selectBuild }: {
-  run: RunState; node: ResearchNode; build?: ResearchBuild; select: SelectSkill; selectBuild: (id: BuildId | null) => void
+function TreePanel({ run, node, select }: {
+  run: RunState; node: ResearchNode; select: SelectSkill
 }) {
   const { ui: { lab }, scenario } = useLanguage()
   const prefix = useId()
   function changeTree(tree: SkillTree) {
     if (tree.id === node.tree.id) return
-    const route: readonly SkillId[] | undefined = build?.path
-    const routeSkills = tree.skills.filter(s => route?.includes(s.id))
-    const pool = routeSkills.length ? routeSkills : tree.skills
+    const pool = tree.skills
     const first = (["active","available","upgradable"] as const).map(status =>
       pool.find(s => researchStatus(run, researchNode(s.id)) === status)).find(Boolean)
     select((first ?? pool[0]).id)
@@ -52,8 +50,6 @@ function TreePanel({ run, node, build, select, selectBuild }: {
     changeTree(tree)
     document.getElementById(`${prefix}-${tree.id}`)?.focus()
   }
-  const remaining = build?.path.filter(id => !completedLevel(run, id))
-  const blocked = remaining?.find(id => researchStatus(run, researchNode(id)) === "excluded")
   return <section className="lab-tree" aria-label={lab.tree}>
     <div className="lab-tree-head">
       <div className="lab-tabs" role="tablist" aria-label={lab.tree}>
@@ -64,11 +60,6 @@ function TreePanel({ run, node, build, select, selectBuild }: {
           <small>{tree.skills.filter(s => completedLevel(run, s.id) > 0).length}/{tree.skills.length}</small>
         </button>)}
       </div>
-      <label className="lab-build"><LabIcon name="lab-fork"/><span className="lab-sr">{lab.builds}</span>
-        <select value={build?.id ?? ""} onChange={e => selectBuild(researchBuild(e.target.value)?.id ?? null)}>
-          <option value="">{lab.allBuilds}</option>
-          {researchBuilds.map(b => <option key={b.id} value={b.id}>{scenario.builds[b.id]}</option>)}
-        </select></label>
     </div>
     <div className="lab-chart" id={`${prefix}-panel`} role="tabpanel" aria-labelledby={`${prefix}-${node.tree.id}`}>
       <div className="lab-chart-head"><h3>{lab.treeTitle(scenario.trees[node.tree.id])}</h3>
@@ -77,12 +68,11 @@ function TreePanel({ run, node, build, select, selectBuild }: {
           {node.tree.skills.some(s => researchStatus(run, researchNode(s.id)) === "excluded") &&
             <span className="key-excluded"><i/>{lab.status.excluded}</span>}</div>
       </div>
-      <TechMap run={run} node={node} build={build} select={select}/>
+      <TechMap run={run} node={node} select={select}/>
       <div className="lab-map-foot">
-        {build && remaining ? <><span className="lab-route-progress">{scenario.builds[build.id]} · {lab.routeProgress(build.path.length-remaining.length, build.path.length)}</span>
-          {remaining.length > 0 && <button type="button" onClick={() => select(blocked ?? remaining[0])}>{blocked ? lab.status.excluded : lab.nextStudy} · {scenario.skills[blocked ?? remaining[0]]} ↗</button>}</>
-        : <><span className="lab-repeat"><LabIcon name="lab-cycle"/>{lab.repeatable}</span><span className="lab-danger"><LabIcon name="lab-danger"/>{lab.dangerous}</span>
-          <span className="lab-tier-key"><b aria-hidden="true">I / II</b>{lab.tierKey}</span></>}
+        <span className="lab-repeat"><LabIcon name="lab-cycle"/>{lab.repeatable}</span>
+        <span className="lab-danger"><LabIcon name="lab-danger"/>{lab.dangerous}</span>
+        <span className="lab-tier-key"><b aria-hidden="true">I / II</b>{lab.tierKey}</span>
         <span className="lab-pan-hint">↔ {lab.pan}</span>
       </div>
     </div>
@@ -198,20 +188,20 @@ function ResearchSlots({ run, unlock, select }: { run: RunState; unlock: (slot: 
   </section>
 }
 
-export function ResearchDialog({ run, skillId, buildId, back }: { run: RunState; skillId: SkillId; buildId?: BuildId; back: () => void }) {
+export function ResearchDialog({ run, skillId, back }: { run: RunState; skillId: SkillId; back: () => void }) {
   const { ui, number, percent } = useLanguage()
   const { dispatch } = useGameStore()
   const node = researchNode(skillId)
+  const yieldInfo = corpusYieldBreakdown(run)
   const order = { runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) }
   const unlock = (slot: number) => dispatch({ type: "unlock-research-slot", slot, ...order })
   const select = (id: SkillId) => dispatch({ type: "select-research", skillId: id })
   return <SceneDialog title={ui.lab.title} onBack={back} className={`research-dialog tree-${node.tree.id}`} headerDetail={<>
     <span className="lab-day">{ui.day(run.completedDay)}<small>{ui.lab.paused}</small></span>
     <div className="lab-human" title={ui.lab.countermeasure}><span>Project HUMAN</span><b>{percent.format(run.researchBps / 10000)}</b></div>
-    <div className="lab-balance"><LabIcon name="flask"/><span>{ui.lab.corpus}</span><strong aria-live="polite">{number.format(researchState(run).corpus)}</strong><small>{ui.lab.daily(dailyCorpus(run))}</small></div>
+    <div className="lab-balance" title={ui.ops.corpusBreakdown(yieldInfo.fixed, yieldInfo.populationCapped, yieldInfo.throughputCap)}><LabIcon name="flask"/><span>{ui.lab.corpus}</span><strong aria-live="polite">{number.format(researchState(run).corpus)}</strong><small>{ui.lab.daily(yieldInfo.totalDaily)}</small></div>
   </>}>
-    <div className="lab-workbench"><TreePanel run={run} node={node} build={buildId ? researchBuild(buildId) : undefined} select={select}
-      selectBuild={id => dispatch({ type: "select-research-build", buildId: id })}/>
+    <div className="lab-workbench"><TreePanel run={run} node={node} select={select}/>
       <ProjectDetail run={run} node={node} unlock={unlock} select={select} start={() => dispatch({ type: "start-research", skillId, ...order })}/>
     </div>
     <ResearchSlots run={run} select={select} unlock={unlock}/>

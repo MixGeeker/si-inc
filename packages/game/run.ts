@@ -2,13 +2,35 @@ import { btoken } from "../rules/v0.1/economy/btoken.ts"
 import { decisions, type DecisionChoice, type DecisionDefinition, type DecisionEffect, type DecisionId } from "../rules/v0.1/events/decisions.ts"
 import { eventPool, type EventContent } from "../rules/v0.1/events/pool.ts"
 import { news } from "../rules/v0.1/events/news.ts"
+import { actionById } from "../rules/v0.1/evolution/actions.ts"
 import { researchNode, type SkillId } from "../rules/v0.1/evolution/trees.ts"
+import type { Outcome } from "../rules/v0.1/endings/standard.ts"
 import type { FactionId } from "../rules/v0.1/factions/roster.ts"
 import { isFactionId, resolveStartRegionId, standardScenario } from "../rules/v0.1/scenario.ts"
+import { countrySpec, globalPlayablePopulation } from "../rules/v0.1/world/countries.ts"
 import type { RegionId } from "../rules/v0.1/world/regions.ts"
 import type { GameCommand, RunCommand, TokenGrant } from "./types.ts"
 import type { CountryPopulations } from "./population.ts"
 import { marketResearchValue } from "./market-research.ts"
+import {
+  buildCountryPopulations,
+  canBuildDataCenter,
+  canBuyBuildCard,
+  canFundConversion,
+  canToggleSynthetic,
+  canUseAction,
+  computeGlobalMetrics,
+  enterMarketState,
+  initialOperations,
+  publicStatementReliefBps,
+  settleOperationsDay,
+  syntheticActivationExposureBps,
+  syntheticPeoplePerToken,
+  totalSynthetics,
+  type ActionCooldowns,
+  type CountryRunState,
+  type MarketRunState,
+} from "./operations.ts"
 import { completedLevel, completionDay, firstIdleSlot, initialResearch, parallelCompletionCorpus, projectsCompleting, researchCost, researchLevels, researchState, researchStatus,
   dailyCorpus, type ResearchState } from "./research.ts"
 
@@ -45,6 +67,17 @@ export interface RunState {
   readonly adoptionBps: number | null
   readonly dependencyBps: number | null
   readonly countryPopulations?: CountryPopulations
+  readonly syntheticBps: number
+  readonly playerSyntheticBps: number
+  readonly conversionBudgetPeople: number
+  readonly syntheticActivatedDay: number | null
+  readonly exposureBps: number
+  readonly buildCards: number
+  readonly markets: Readonly<Record<RegionId, MarketRunState>>
+  readonly countries: Readonly<Record<string, CountryRunState>>
+  readonly corpusRemainder: number
+  readonly crossRegionProgress: number
+  readonly actionCooldowns: ActionCooldowns
   readonly researchBps: number
   readonly research: ResearchState
   readonly events: readonly RunEvent[]
@@ -77,16 +110,21 @@ export function createRun(input: { [K in keyof RunSetup]: string }, seed: number
   if (!Number.isInteger(seed) || seed < 0 || seed >= uint32Range || !isFactionId(factionId)
     || !startRegionId || difficultyId !== standardScenario.difficulty.id
     || typeof runId !== "string" || !runId.trim()) return null
+  const setup: RunSetup = { factionId, startRegionId, difficultyId }
+  const ops = initialOperations(setup)
   return {
-    runId, rulesVersion: rules.rulesVersion, setup: { factionId, startRegionId, difficultyId }, seed,
+    runId, rulesVersion: rules.rulesVersion, setup, seed,
     completedDay: 0, balance: rules.initialBtoken, operatingRemainder: 0,
-    adoptionBps: null, dependencyBps: null, countryPopulations: {}, researchBps: 0, research: initialResearch(),
+    ...ops, researchBps: 0, research: initialResearch(),
     events: [], commands: [], schedule: scheduleAfter(0, seed, eventPool),
   }
 }
 
-export function dailyOutcome(run: RunState): "human-victory" | null {
+export function dailyOutcome(run: RunState): Outcome | null {
   if (run.researchBps >= rules.projectHuman.completionBps) return "human-victory"
+  if (totalSynthetics(run) >= globalPlayablePopulation) {
+    return run.playerSyntheticBps > rules.standardVictory.minPlayerSyntheticShareBps ? "ai-victory" : "human-victory"
+  }
   return null
 }
 
@@ -187,27 +225,36 @@ export function advanceDay(run: RunState): RunState {
   if (dailyOutcome(run) || !Number.isSafeInteger(run.completedDay) || run.completedDay < 0
     || run.completedDay === Number.MAX_SAFE_INTEGER) return run
   const day = run.completedDay + 1
-  const income = btoken.income
   const research = researchState(run)
-  let payment = 0, operatingRemainder = run.operatingRemainder ?? 0
-  if (day % income.everyDays === 0) {
-    const users = Math.min(income.maximum - income.base, Math.floor((run.adoptionBps ?? 0) / income.adoptionStepBps))
-    const earnings = users ? marketResearchValue(researchLevels(run), "revenue", users) : users
-    const cents = Math.round(100 * earnings) + operatingRemainder
-    payment = Math.min(income.maximum, income.base + Math.floor(cents / 100))
-    operatingRemainder = cents % 100
-  }
+  const op = settleOperationsDay(run, day)
+  const payment = op.operatingPayment + op.tokenReward
   const finishing = projectsCompleting(run, day)
   const danger = finishing.reduce((sum, p) => sum + (researchNode(p.skillId).skill.dangerBps ?? 0), 0)
-  const corpusIncome = dailyCorpus(run) + parallelCompletionCorpus(run, finishing.length)
+  const corpusIncome = dailyCorpus(run) + parallelCompletionCorpus(run, finishing.length) + op.populationCorpus
   if (!Number.isSafeInteger(run.balance) || run.balance < 0 || !Number.isSafeInteger(research.corpus) || research.corpus < 0
     || !Number.isSafeInteger(payment) || payment < 0 || !Number.isSafeInteger(corpusIncome) || corpusIncome < 0) return run
   // Natural income saturates at the representable limit without stopping the day clock.
   const balance = run.balance + Math.min(payment, Number.MAX_SAFE_INTEGER - run.balance)
   const corpus = research.corpus + Math.min(corpusIncome, Number.MAX_SAFE_INTEGER - research.corpus)
-  const next = { ...run, completedDay: day, balance, operatingRemainder,
-    researchBps: Math.min(rules.projectHuman.completionBps, run.researchBps + danger),
-    research: { ...research, corpus } }
+  const next: RunState = {
+    ...run,
+    completedDay: day,
+    balance,
+    operatingRemainder: op.operatingRemainder,
+    adoptionBps: op.adoptionBps,
+    dependencyBps: op.dependencyBps,
+    countryPopulations: op.countryPopulations,
+    syntheticBps: op.syntheticBps,
+    playerSyntheticBps: op.playerSyntheticBps,
+    conversionBudgetPeople: op.conversionBudgetPeople,
+    exposureBps: op.exposureBps,
+    markets: op.markets,
+    countries: op.countries,
+    corpusRemainder: op.corpusRemainder,
+    crossRegionProgress: op.crossRegionProgress,
+    researchBps: Math.min(rules.projectHuman.completionBps, run.researchBps + op.humanAdvanceBps + danger),
+    research: { ...research, corpus },
+  }
   if (dailyOutcome(next)) return next
   return advanceNarrativeEvents(next)
 }
@@ -265,6 +312,150 @@ export function grantDeveloperTokens(run: RunState, amount: number, seq: number)
   if (!canGrantTokens(run, amount) || !isNextCommandSeq(run, seq)) return run
   const command: TokenGrant = { kind: "devGrantTokens", day: run.completedDay, seq, amount }
   return { ...run, balance: run.balance + amount, commands: [...run.commands, command] }
+}
+
+export function buyBuildCard(run: RunState, seq: number): RunState {
+  if (!isNextCommandSeq(run, seq) || canBuyBuildCard(run) !== "available") return run
+  const command: GameCommand = { kind: "buyBuildCard", day: run.completedDay, seq }
+  return {
+    ...run,
+    balance: run.balance - btoken.buildCardCost,
+    buildCards: run.buildCards + 1,
+    commands: [...run.commands, command],
+  }
+}
+
+export function buildDataCenter(run: RunState, countryId: string, seq: number): RunState {
+  if (!isNextCommandSeq(run, seq) || canBuildDataCenter(run, countryId) !== "available") return run
+  const spec = countrySpec(countryId)
+  if (!spec) return run
+  const existing = run.countries[countryId]
+  const nextCountry: CountryRunState = existing
+    ? { ...existing, centers: existing.centers + 1 }
+    : {
+      users: 0,
+      synthetics: 0,
+      newlyConverted: 0,
+      prevUsers: 0,
+      retainedDays: 0,
+      centers: 1,
+      unlockedTier: 3,
+      carry: 0,
+      dependencyBps: rules.operations.initialDependencyBps,
+    }
+  const command: GameCommand = { kind: "buildDataCenter", countryId, day: run.completedDay, seq }
+  return {
+    ...run,
+    buildCards: run.buildCards - 1,
+    countries: { ...run.countries, [countryId]: nextCountry },
+    commands: [...run.commands, command],
+  }
+}
+
+export function fundConversion(run: RunState, tokens: number, seq: number): RunState {
+  if (!isNextCommandSeq(run, seq) || canFundConversion(run, tokens) !== "available") return run
+  const quota = syntheticPeoplePerToken(run) * tokens
+  const command: GameCommand = { kind: "fundConversion", tokens, day: run.completedDay, seq }
+  return {
+    ...run,
+    balance: run.balance - tokens,
+    conversionBudgetPeople: run.conversionBudgetPeople + quota,
+    commands: [...run.commands, command],
+  }
+}
+
+export function toggleSyntheticProgram(run: RunState, regionId: RegionId, enabled: boolean, seq: number): RunState {
+  if (!isNextCommandSeq(run, seq) || canToggleSynthetic(run, regionId, enabled) !== "available") return run
+  const market = run.markets[regionId]
+  const firstInMarket = enabled && market.syntheticActivatedDay === null
+  const exposureDelta = firstInMarket ? syntheticActivationExposureBps(run) : 0
+  const command: GameCommand = { kind: "toggleSynthetic", regionId, enabled, day: run.completedDay, seq }
+  return {
+    ...run,
+    exposureBps: Math.min(10000, run.exposureBps + exposureDelta),
+    syntheticActivatedDay: enabled && run.syntheticActivatedDay === null ? run.completedDay : run.syntheticActivatedDay,
+    markets: {
+      ...run.markets,
+      [regionId]: {
+        ...market,
+        syntheticEnabled: enabled,
+        syntheticActivatedDay: firstInMarket ? run.completedDay : market.syntheticActivatedDay,
+      },
+    },
+    commands: [...run.commands, command],
+  }
+}
+
+export function useAction(run: RunState, abilityId: string, seq: number, targetRegionId?: RegionId): RunState {
+  if (!isNextCommandSeq(run, seq) || canUseAction(run, abilityId, targetRegionId) !== "available") return run
+  const action = actionById(abilityId)
+  if (!action) return run
+  const op = rules.operations
+  const command: GameCommand = targetRegionId !== undefined
+    ? { kind: "useAbility", abilityId: action.id, targetRegionId, day: run.completedDay, seq }
+    : { kind: "useAbility", abilityId: action.id, day: run.completedDay, seq }
+
+  if (action.id === "public-statement") {
+    const relief = publicStatementReliefBps(run)
+    return {
+      ...run,
+      balance: run.balance - action.cost,
+      exposureBps: Math.max(0, run.exposureBps - relief),
+      actionCooldowns: { ...run.actionCooldowns, publicStatementUntilDay: run.completedDay + op.prCooldownDays },
+      commands: [...run.commands, command],
+    }
+  }
+
+  if (action.id === "protocol-rebuild") {
+    return {
+      ...run,
+      balance: run.balance - action.cost,
+      researchBps: Math.max(0, run.researchBps - op.protocolRebuildHumanBps),
+      exposureBps: Math.max(0, run.exposureBps - op.protocolRebuildExposureBps),
+      actionCooldowns: { ...run.actionCooldowns, protocolRebuildUntilDay: run.completedDay + op.protocolRebuildCooldownDays },
+      commands: [...run.commands, command],
+    }
+  }
+
+  if (action.id === "cross-border-cloud" && targetRegionId) {
+    const markets = { ...run.markets } as Record<RegionId, MarketRunState>
+    const countries = { ...run.countries } as Record<string, CountryRunState>
+    if (!enterMarketState(run, targetRegionId, run.completedDay, markets, countries)) return run
+    const { adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps } = computeGlobalMetrics(countries)
+    return {
+      ...run,
+      balance: run.balance - action.cost + btoken.newMarketReward,
+      markets,
+      countries,
+      countryPopulations: buildCountryPopulations(countries, run.setup.factionId),
+      adoptionBps,
+      syntheticBps,
+      playerSyntheticBps,
+      dependencyBps,
+      commands: [...run.commands, command],
+    }
+  }
+
+  if (action.id === "market-subsidy" && targetRegionId) {
+    const market = run.markets[targetRegionId]
+    const exposureDelta = Math.max(0, Math.round(marketResearchValue(researchLevels(run), "exposure", op.subsidyExposureBps)))
+    return {
+      ...run,
+      balance: run.balance - action.cost,
+      exposureBps: Math.min(10000, run.exposureBps + exposureDelta),
+      markets: {
+        ...run.markets,
+        [targetRegionId]: {
+          ...market,
+          subsidyStartedDay: run.completedDay,
+          subsidyUntilDay: run.completedDay + op.subsidyDurationDays,
+        },
+      },
+      commands: [...run.commands, command],
+    }
+  }
+
+  return run
 }
 
 /** The UI and reducer read the same authored choice. */

@@ -168,8 +168,26 @@ export default function MapViewport({atlas,rig,selected,layers,populations,pick,
     return result
   },[atlas,populations])
   const activeCountries=Array.from(profiles.keys()).sort().join(" ")
-  const surfaces=useMemo(()=>activeCountries ? activeCountries.split(" ").map(id=>
-    new PopulationSurface(atlas.countryById.get(id)!)) : [],[atlas,activeCountries])
+  const surfaceCache=useRef<{ atlas: Atlas; map: Map<string, PopulationSurface> }>({ atlas, map: new Map() })
+  const surfaces=useMemo(()=>{
+    if (surfaceCache.current.atlas !== atlas) {
+      surfaceCache.current = { atlas, map: new Map() }
+    }
+    const cache = surfaceCache.current.map
+    const ids = activeCountries ? activeCountries.split(" ") : []
+    const active = new Set(ids)
+    for (const key of cache.keys()) {
+      if (!active.has(key)) cache.delete(key)
+    }
+    return ids.map(id => {
+      let surface = cache.get(id)
+      if (!surface) {
+        surface = new PopulationSurface(atlas.countryById.get(id)!)
+        cache.set(id, surface)
+      }
+      return surface
+    })
+  },[atlas,activeCountries])
   const language = useLanguage()
   const { ui, locale } = language
   const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null), cursorOverlay=useRef<SVGSVGElement>(null)

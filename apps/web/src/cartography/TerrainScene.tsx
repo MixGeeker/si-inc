@@ -31,7 +31,31 @@ export default function TerrainScene({terrainLabel,atlas,rig,selected,layers,sur
   const previousNight = useRef(layers.night)
   const sweep = useRef<LightTransition | null>(null)
   const traces = useMemo(()=>new CurrentTraces(atlas),[atlas])
-  const population = useMemo(()=>surfaces.map(field=>populationMesh(atlas,field)),[atlas,surfaces])
+  const meshCache = useRef<{ atlas: Atlas; map: Map<PopulationSurface, ReturnType<typeof populationMesh>> }>({ atlas, map: new Map() })
+  const population = useMemo(()=>{
+    if (meshCache.current.atlas !== atlas) {
+      for (const p of meshCache.current.map.values()) {
+        p.texture.dispose(); p.material.dispose(); p.geometry.dispose()
+      }
+      meshCache.current = { atlas, map: new Map() }
+    }
+    const cache = meshCache.current.map
+    const active = new Set(surfaces)
+    for (const [surface, mesh] of cache) {
+      if (!active.has(surface)) {
+        mesh.texture.dispose(); mesh.material.dispose(); mesh.geometry.dispose()
+        cache.delete(surface)
+      }
+    }
+    return surfaces.map(field => {
+      let mesh = cache.get(field)
+      if (!mesh) {
+        mesh = populationMesh(atlas, field)
+        cache.set(field, mesh)
+      }
+      return mesh
+    })
+  },[atlas,surfaces])
   const elapsed = useRef(0), seaDt = useRef(0), overlayDt = useRef(1)
   const terrainMeshes=useRef<(Mesh|null)[]>([])
   useLayoutEffect(()=>{
@@ -80,9 +104,9 @@ export default function TerrainScene({terrainLabel,atlas,rig,selected,layers,sur
     invalidate()
   },[mat,mark,layers,gl,backdrop,invalidate])
   useEffect(()=>()=>{if(mark!==blank) mark.texture.dispose()},[mark,blank])
-  useEffect(()=>()=>{for (const p of population) {
+  useEffect(()=>()=>{for (const p of meshCache.current.map.values()) {
     p.texture.dispose(); p.material.dispose(); p.geometry.dispose()
-  }},[population])
+  } meshCache.current.map.clear()},[])
   useEffect(()=>()=>{geometry.dispose(); wind.dispose(); bordersMap.dispose(); blank.texture.dispose()
     mat.ground.dispose(); mat.sky.dispose(); traces.geometry.dispose()
   },[geometry,wind,bordersMap,blank,mat,traces])
@@ -109,8 +133,11 @@ export default function TerrainScene({terrainLabel,atlas,rig,selected,layers,sur
     const dt = Math.min(delta,.12)*speed
     elapsed.current += dt
     mat.uniforms.elapsed.value = elapsed.current
+    const populationHz = population.length > 30 ? 4 : population.length > 12 ? 8 : 15
     for (const p of population) {
-      p.surface.update(profiles.get(p.surface.id)!, elapsed.current)
+      const profile = profiles.get(p.surface.id)
+      if (!profile) continue
+      p.surface.update(profile, elapsed.current, populationHz)
       if (p.uploaded !== p.surface.revision) { p.texture.needsUpdate = true; p.uploaded = p.surface.revision }
     }
     if (layers.current && dt>0) {

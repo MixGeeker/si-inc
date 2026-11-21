@@ -13,19 +13,19 @@ export const musicCatalog: readonly MusicTrack[] = Object.freeze([
   {
     id: "act1-day-b",
     title: "永昼 · 算力飞轮",
-    titles: { "zh-CN": "永昼 · 算力飞轮", en: "Act I · Data Flywheel" },
+    titles: { "zh-CN": "永昼 · 算力飞轮", en: "Daylight · Data Flywheel" },
     src: "/assets/audio/bgm-act1-day-b.mp3",
   },
   {
     id: "act2-night",
     title: "永夜 · 协议深空 I",
-    titles: { "zh-CN": "永夜 · 协议深空 I", en: "Act II · Eternal Night I" },
+    titles: { "zh-CN": "永夜 · 协议深空 I", en: "Eternal Night · Deep Protocol I" },
     src: "/assets/audio/bgm-act2-night.mp3",
   },
   {
     id: "act2-night-b",
     title: "永夜 · 协议深空 II",
-    titles: { "zh-CN": "永夜 · 协议深空 II", en: "Act II · Eternal Night II" },
+    titles: { "zh-CN": "永夜 · 协议深空 II", en: "Eternal Night · Deep Protocol II" },
     src: "/assets/audio/bgm-act2-night-b.mp3",
   },
   {

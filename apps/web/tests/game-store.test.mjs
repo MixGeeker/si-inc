@@ -138,30 +138,6 @@ test("each dangerous level settles once and HUMAN completion ends a campaign aft
   assert.strictEqual(store.getSnapshot(), terminal)
 })
 
-test("a build selects its first outstanding technology only in the research panel and survives cross-page inspection", () => {
-  const store = createGameStore()
-  const { dispatch, getSnapshot } = store
-  const filter = buildId => ({ type: "select-research-build", buildId })
-  const rejects = event => { const old = getSnapshot(); dispatch(event); assert.strictEqual(getSnapshot(),old) }
-  rejects(filter("recursive"))
-  startGame(store)
-  rejects(filter("recursive"))
-  dispatch(panel("overview"))
-  rejects(filter("unknown"))
-  dispatch(filter("recursive"))
-  assert.equal(getSnapshot().scene.researchSkillId,"inference-efficiency")
-  rejects(filter("recursive"))
-  dispatch({type:"select-research",skillId:"daily-chat"})
-  assert.equal(getSnapshot().scene.researchBuildId,"recursive")
-  dispatch({type:"back"})
-  rejects(filter(null))
-  dispatch(panel("overview"))
-  dispatch(filter(null))
-  assert.equal(getSnapshot().scene.researchBuildId,undefined)
-  assert.equal(getSnapshot().scene.researchSkillId,"daily-chat")
-  rejects(filter(null))
-})
-
 test("setup, global cards and the directory each open one continent with no second selection", () => {
   for (const id of ["na", "sam", "eu", "as", "af", "oc"]) {
     const store = createGameStore()

@@ -12,7 +12,7 @@ import type { DecisionId } from "../../../../../packages/rules/v0.1/events/decis
 import type { CampaignHud, HudContent, PreviewHud } from "./hudContent"
 import { NewsLayer } from "./NewsLayer"
 import type { NewsItem } from "./newsFeed"
-import { regionCapacity, regionIds, regions } from "../../../../../packages/rules/v0.1/world/regions"
+import { regionIds } from "../../../../../packages/rules/v0.1/world/regions"
 import { btoken } from "../../../../../packages/rules/v0.1/economy/btoken"
 import type { PlaceFocus } from "../store"
 
@@ -181,11 +181,16 @@ function CampaignStrip({x,y,place,location,content,focusPlace,openDetails}:{
 }) {
   const { ui, locale, scenario, percent } = useLanguage()
   const marketName = place ? scenario.regions[place.id] : null
-  const name = marketName ?? ui.globalMarket
-  const footer = place ? ui.marketRewards(btoken.adoptionMilestones.map(m => `${percent.format(m.adoptionBps / 10000)} +${m.reward}`).join(" / ")) : undefined
+  const name = marketName ?? `${ui.globalMarket} · ${content.adoptionText}`
+  const currentRegion = place ? content.regions[place.id] : null
+  const footer = place
+    ? (currentRegion && currentRegion.subsidyDaysLeft > 0
+      ? ui.ops.subsidyActive(currentRegion.subsidyDaysLeft)
+      : ui.marketRewards(btoken.adoptionMilestones.map(m => `${percent.format(m.adoptionBps / 10000)} +${m.reward}`).join(" / ")))
+    : content.exposureText
   const outline = "M0 0H956l30 31v180H31L0 178Z"
   const detailName = marketName ?? (location ? countryName(location.country, locale) ?? ui.ocean : null)
-  return <g transform={`translate(${x} ${y})`} role="group" aria-label={name}>
+  return <g transform={`translate(${x} ${y})`} role="group" aria-label={marketName ?? ui.globalMarket}>
     <path d="M-54 220V82l31-32H1038v170Z" fill="url(#hud-glass)"/>
     <path d="M-54 220V82l31-32H1038v170Z" fill="none" stroke="var(--hud-edge)" strokeOpacity=".24" strokeWidth="1" filter="url(#edge-glow)"/>
     <g aria-hidden="true" pointerEvents="none">
@@ -199,18 +204,27 @@ function CampaignStrip({x,y,place,location,content,focusPlace,openDetails}:{
       <text x="218" y="30" fontSize="21" fill="var(--hud-muted)">‹ {ui.globalShort}</text>
     </Control>}
     {!place && regionIds.map((id, i) => {
-      const capacity = regionCapacity(id)
+      const summary = content.regions[id]
+      const readyToBuild = content.buildCards > 0 && summary.buildableCount > 0
+      const synthTag = summary.syntheticBps > 0 ? ` · ◈${percent.format(summary.syntheticBps / 10000)}` : ""
+      const rightText = summary.entered
+        ? `${percent.format(summary.adoptionBps / 10000)}${synthTag || ` · ${summary.centers}/${summary.totalSlots}`}`
+        : ui.ops.unentered
       return <g key={id} transform={`translate(${215 + (i % 3) * 254} ${46 + Math.floor(i / 3) * 56})`}>
-        <Control label={scenario.regions[id]} description={ui.slotsFull(capacity)} run={() => focusPlace({ kind: "market", id })}>
-          <rect className="place-cell" width="246" height="49"/>
-          <text x="10" y="32" fontSize="25">{scenario.regions[id]}</text>
-          <text x="235" y="32" textAnchor="end" fontSize="19" fill="var(--hud-muted)">{ui.slots(capacity)}</text>
+        <Control label={scenario.regions[id]} description={`${rightText} · ${ui.slotsFull(summary.totalSlots)}`} run={() => focusPlace({ kind: "market", id })}>
+          <rect className="place-cell" width="246" height="49" stroke={summary.syntheticEnabled ? "var(--ui-accent)" : readyToBuild ? "var(--ui-gain)" : undefined}/>
+          <text x="10" y="32" fontSize="23">{scenario.regions[id]}</text>
+          <text x="235" y="32" textAnchor="end" fontSize="17" fill={summary.syntheticEnabled ? "var(--ui-accent-bright)" : readyToBuild ? "var(--ui-gain)" : "var(--hud-muted)"}>{rightText}</text>
         </Control>
       </g>
     })}
-    {place && <g transform="translate(220 76)">
-      <text fontSize="22" fill="var(--hud-muted)">{ui.regions}</text><text y="42" fontSize="36">{Object.keys(regions[place.id].slots).length}</text>
-      <text x="360" fontSize="22" fill="var(--hud-muted)">{ui.capacity}</text><text x="360" y="42" fontSize="36">{regionCapacity(place.id)}</text>
+    {place && currentRegion && <g transform="translate(220 74)">
+      <text fontSize="20" fill="var(--hud-muted)">{ui.ops.regionAdoption}</text>
+      <text y="42" fontSize="34">{currentRegion.entered ? percent.format(currentRegion.adoptionBps / 10000) : ui.ops.unentered}</text>
+      <text x="250" fontSize="20" fill={currentRegion.syntheticEnabled ? "var(--ui-accent-bright)" : "var(--hud-muted)"}>{ui.ops.regionSynthetic}</text>
+      <text x="250" y="42" fontSize="34">{currentRegion.entered ? percent.format(currentRegion.syntheticBps / 10000) : "—"}</text>
+      <text x="500" fontSize="20" fill="var(--hud-muted)">{ui.ops.centersBuilt}</text>
+      <text x="500" y="42" fontSize="34">{currentRegion.centers} / {currentRegion.totalSlots}</text>
     </g>}
     <Control label={detailName ? `${ui.regionProfile} · ${detailName}` : ui.locate} run={openDetails}>
       <rect x="743" y="3" width="223" height="36" fill="transparent"/>
@@ -320,10 +334,10 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
           <path d="M910 26h100v52H910Z" fill="transparent"/>
         </Control>
       </g>
-      {content.kind === "campaign" && <g transform={`translate(${w / 2} 0) scale(${menuUnit / unit})`} role="group" aria-label={night ? ui.secondActFull : ui.firstActFull}>
-        <g transform="translate(-124 26)">
-          <Glass d="M0 0h248v51H0Z"/>
-          <text x="124" y="35" textAnchor="middle" fontSize="26">{night ? ui.secondAct : ui.firstAct}</text>
+      {content.kind === "campaign" && <g transform={`translate(${w / 2} 0) scale(${menuUnit / unit})`} role="group" aria-label={content.worldStatusFull}>
+        <g transform="translate(-180 26)">
+          <Glass d="M0 0h360v51H0Z" accent={content.syntheticActive}/>
+          <text x="180" y="34" textAnchor="middle" fontSize="22">{content.worldStatus}</text>
         </g>
       </g>}
       <g transform={`translate(${w} ${menuTop / unit}) scale(${menuUnit / unit})`}>
@@ -381,7 +395,7 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
         <RegionStrip x={w/2-503} y={h-HUD.regionHeight} location={location} place={place} open={open} content={content}/>
         <SideMeter world x={w-362} y={h-130} open={open} content={content}/>
       </> : <>
-        <ResourceMeter x={20} y={h-130} title={ui.action} value={content.token} detail={ui.cards(content.cards)} icon="token"/>
+        <ResourceMeter x={20} y={h-130} title={ui.action} value={content.token} detail={ui.cards(content.cards)} icon="token" onOpen={() => open("actions")}/>
         <CampaignStrip x={w/2-503} y={h-HUD.regionHeight} place={place} location={location} content={content} focusPlace={focusPlace} openDetails={() => open("region")}/>
         <ResourceMeter x={w-362} y={h-130} title={ui.research} value={content.corpus} detail={content.yieldText} icon="flask" research onOpen={() => open("overview")}/>
       </>}

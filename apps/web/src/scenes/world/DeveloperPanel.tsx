@@ -1,9 +1,11 @@
 import { useMemo, useRef, useState } from "react"
 import { replayForRun, runTimeline, type RunTraceEntry } from "../../../../../packages/game/inspection"
+import { corpusYieldBreakdown, totalCenters } from "../../../../../packages/game/operations"
 import { canGrantTokens, nextCommandSeq, nextEventDay, type RunState } from "../../../../../packages/game/run"
+import { actionById } from "../../../../../packages/rules/v0.1/evolution/actions"
 import { researchNode } from "../../../../../packages/rules/v0.1/evolution/trees"
 import { decisions } from "../../../../../packages/rules/v0.1/events/decisions"
-import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
+import { isRegionId, standardScenario } from "../../../../../packages/rules/v0.1/scenario"
 import type { Language } from "../../i18n/languages"
 import { useLanguage } from "../../i18n/useLanguage"
 import { useGameSnapshot, useGameStore } from "../GameContext"
@@ -19,6 +21,20 @@ function traceTitle(row: RunTraceEntry, { ui, scenario }: Language) {
   if (command?.kind === "buySkill") {
     const node = researchNode(command.skillId)
     if (node) return scenario.skills[node.skill.id]
+  }
+  if (command?.kind === "buyBuildCard") return ui.ops.buildCardCommand
+  if (command?.kind === "buildDataCenter") return ui.ops.buildCenterCommand(command.countryId)
+  if (command?.kind === "fundConversion") return ui.ops.fundConversionCommand(command.tokens)
+  if (command?.kind === "toggleSynthetic") {
+    const regionLabel = isRegionId(command.regionId) ? scenario.regions[command.regionId] : command.regionId
+    return ui.ops.toggleSyntheticCommand(regionLabel, command.enabled)
+  }
+  if (command?.kind === "useAbility") {
+    const action = actionById(command.abilityId)
+    if (action) {
+      const target = command.targetRegionId && isRegionId(command.targetRegionId) ? ` · ${scenario.regions[command.targetRegionId]}` : ""
+      return `${scenario.actions[action.id].name}${target}`
+    }
   }
   if (command?.kind === "chooseEvent" && event?.content.kind === "decision") {
     const choice = decisions[event.content.id].choices.find(c => c.id === command.choiceId)
@@ -166,8 +182,12 @@ export default function DeveloperPanel({ openSetup, close, hidden }: { openSetup
           <div><dt>{text.scene}</dt><dd>{scene.kind === "campaign" || scene.kind === "decision" || scene.kind === "ending" ? text.sceneNames[scene.kind] : scene.kind}</dd></div>
           <div><dt>{text.selection}</dt><dd>{selection}</dd></div>
           <div><dt>{ui.lab.countermeasure}</dt><dd>{percent.format(run.researchBps / 10000)}</dd></div>
+          <div><dt>{ui.ops.exposure}</dt><dd>{percent.format(run.exposureBps / 10000)}</dd></div>
           <div><dt>{text.adoption}</dt><dd>{run.adoptionBps === null ? text.notCalculated : percent.format(run.adoptionBps / 10000)}</dd></div>
+          <div><dt>{ui.ops.syntheticGlobal}</dt><dd>{percent.format(run.syntheticBps / 10000)} ({ui.ops.syntheticMine} {percent.format(run.playerSyntheticBps / 10000)})</dd></div>
           <div><dt>{text.dependency}</dt><dd>{run.dependencyBps === null ? text.notCalculated : percent.format(run.dependencyBps / 10000)}</dd></div>
+          <div><dt>{ui.ops.centersBuilt}</dt><dd>{totalCenters(run)} · {ui.ops.ownedCards(run.buildCards)}</dd></div>
+          <div><dt>{ui.ops.corpusFlywheel}</dt><dd>{(() => { const y = corpusYieldBreakdown(run); return ui.ops.corpusBreakdown(y.fixed, y.populationCapped, y.throughputCap) })()}</dd></div>
         </dl>}
         {tab === "replay" && <Replay run={run}/>}
       </>}

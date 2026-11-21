@@ -44,15 +44,26 @@ test("model indices and contextual modifiers use the same arithmetic for researc
 
 test("profit applies to adopted-user revenue, carries fractional tokens, and leaves fixed income alone", () => {
   let run = createRun({factionId:"claude", startRegionId:"as", difficultyId:"standard"},42)
-  run = { ...run, completedDay:5, adoptionBps:3000, research:{...run.research, unlockedSlots:1,
-    projects:[{skillId:"closed-subscription",slot:1,startedDay:0}]} }
-  const quiet = advanceDay({...run,adoptionBps:0})
-  assert.equal(quiet.balance-run.balance,1)
-  assert.equal(quiet.operatingRemainder,0)
-  const first = advanceDay(run)
-  assert.equal(first.balance-run.balance,2)
-  assert.equal(first.operatingRemainder,8)
-  const spill = advanceDay({...run,operatingRemainder:94})
-  assert.equal(spill.balance-run.balance,3)
-  assert.equal(spill.operatingRemainder,2)
+  const quiet = advanceDay({ ...run, completedDay: 5, countries: {}, adoptionBps: 0,
+    research:{...run.research, unlockedSlots:1, projects:[{skillId:"closed-subscription",slot:1,startedDay:0}]} })
+  assert.equal(quiet.balance - run.balance, 1)
+  assert.equal(quiet.operatingRemainder, 0)
+  // Place ~31% of global population in China & India with Asia's 30% & 70% milestones already claimed so only operating income pays.
+  const activeCountries = {
+    CHN: { users: 1_300_000_000, synthetics: 0, newlyConverted: 0, prevUsers: 1_300_000_000, retainedDays: 1, centers: 0, unlockedTier: 3, carry: 0, dependencyBps: 1000 },
+    IND: { users: 1_250_000_000, synthetics: 0, newlyConverted: 0, prevUsers: 1_250_000_000, retainedDays: 1, centers: 0, unlockedTier: 3, carry: 0, dependencyBps: 1000 },
+  }
+  const settledRun = {
+    ...run,
+    completedDay: 5,
+    countries: activeCountries,
+    markets: { ...run.markets, as: { ...run.markets.as, milestonesClaimed: [3000, 7000] } },
+    research: { ...run.research, unlockedSlots: 1, projects: [{ skillId: "closed-subscription", slot: 1, startedDay: 0 }] },
+  }
+  const first = advanceDay(settledRun)
+  assert.equal(first.balance - settledRun.balance, 2)
+  assert.equal(first.operatingRemainder, 8)
+  const spill = advanceDay({ ...settledRun, operatingRemainder: 94 })
+  assert.equal(spill.balance - settledRun.balance, 3)
+  assert.equal(spill.operatingRemainder, 2)
 })

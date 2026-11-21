@@ -2,6 +2,13 @@ import { btoken } from "../../../../../packages/rules/v0.1/economy/btoken"
 import { decisions } from "../../../../../packages/rules/v0.1/events/decisions"
 import { actions } from "../../../../../packages/rules/v0.1/evolution/actions"
 import { channelTechnologies, type Channel } from "../../../../../packages/rules/v0.1/evolution/market-effects"
+import {
+  corpusYieldBreakdown,
+  currentAlertLevel,
+  currentPhase,
+  totalCenters,
+  victoryProgress,
+} from "../../../../../packages/game/operations"
 import { completedLevel, researchAttributes, researchState } from "../../../../../packages/game/research"
 import { decisionChoiceForRun, decisionChoiceStatus, decisionEffectForRun, type RunState } from "../../../../../packages/game/run"
 import { projectHuman } from "../../../../../packages/rules/v0.1/opposition/project-human"
@@ -11,15 +18,36 @@ import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
 import type { Scene } from "../machine"
 import { EventEffects } from "./EventEffects"
+import { formatCompactPeople } from "./hudContent"
 import "./narrative-events.css"
 
 export function MarketPanel({ run }: { run: RunState }) {
   const { setup } = run
-  const { ui, scenario, percent, number } = useLanguage()
+  const { ui, scenario, locale, percent, number } = useLanguage()
   const ability = scenario.factions[setup.factionId].ability
   const { income } = btoken
+  const alertId = currentAlertLevel(run.exposureBps)
+  const phaseId = currentPhase(run.adoptionBps ?? 0)
+  const yieldInfo = corpusYieldBreakdown(run)
+  const victory = victoryProgress(run)
+  const globalSynthMet = victory.globalSyntheticBps >= victory.globalSyntheticTargetBps
+  const playerShareMet = victory.playerSyntheticBps > victory.playerSyntheticTargetBps
   return <>
-    <p>{ui.startMarket} · {scenario.regions[setup.startRegionId]}</p>
+    <p>{ui.startMarket} · {scenario.regions[setup.startRegionId]} · {scenario.phases[phaseId].name}</p>
+    <dl className="readings">
+      <div><dt>{ui.ops.globalAdoption}</dt><dd>{percent.format((run.adoptionBps ?? 0) / 10000)}</dd></div>
+      <div><dt>{ui.ops.syntheticGlobal}</dt><dd>{percent.format(run.syntheticBps / 10000)}</dd></div>
+      <div><dt>{ui.ops.exposure}</dt><dd>{percent.format(run.exposureBps / 10000)} · {scenario.alerts[alertId]}</dd></div>
+      <div><dt>{ui.ops.centersBuilt}</dt><dd>{totalCenters(run)} · {ui.ops.ownedCards(run.buildCards)}</dd></div>
+      <div><dt>{ui.ops.rawCorpus}</dt><dd>{ui.ops.rawCorpusUnit(formatCompactPeople(yieldInfo.rawPeopleCorpus, locale, number))}</dd></div>
+      <div><dt>{ui.ops.corpusFlywheel}</dt><dd>{ui.ops.corpusBreakdown(yieldInfo.fixed, yieldInfo.populationCapped, yieldInfo.throughputCap)}</dd></div>
+    </dl>
+    <details open><summary>{ui.ops.victoryGoal}</summary>
+      <ul className="victory-list">
+        <li className={globalSynthMet ? "met" : undefined}>{globalSynthMet ? "✓ " : "○ "}{ui.ops.victoryGlobalSynthetic(percent.format(victory.globalSyntheticBps / 10000), percent.format(victory.globalSyntheticTargetBps / 10000))}</li>
+        <li className={playerShareMet ? "met" : undefined}>{playerShareMet ? "✓ " : "○ "}{ui.ops.victoryPlayerShare(percent.format(victory.playerSyntheticBps / 10000), percent.format(victory.playerSyntheticTargetBps / 10000))}</li>
+      </ul>
+    </details>
     <details><summary>{standardScenario.factions[setup.factionId].name} · {ability.name}</summary><p>{ability.description}</p></details>
     <details><summary>{ui.activeAbilities}</summary>
       <dl className="readings">{actions.map(action => <div key={action.id}>
