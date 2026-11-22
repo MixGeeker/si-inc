@@ -9,9 +9,11 @@ export interface RegionState {
 
 type Action =
   | { kind: "buySkill"; skillId: string }
+  | { kind: "cancelResearch"; slot: number }
+  | { kind: "moveResearch"; fromSlot: number; toSlot: number }
   | { kind: "unlockResearchSlot"; slot: number }
   | { kind: "buyBuildCard" }
-  | { kind: "buildDataCenter"; countryId: string }
+  | { kind: "buildDataCenter"; regionId: string }
   | { kind: "fundConversion"; tokens: number }
   | { kind: "toggleSynthetic"; regionId: string; enabled: boolean }
   | { kind: "useAbility"; abilityId: string; targetRegionId?: string }

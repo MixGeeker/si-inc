@@ -49,7 +49,7 @@ test("daily settlements continue beyond day 120 without a fixed deadline while n
   assert.ok(run.balance > rules.initialBtoken)
   assert.ok(run.research.corpus >= rules.research.initialCorpus + 400 * rules.research.dailyCorpus)
   assert.ok(run.adoptionBps > 0 && run.dependencyBps > 0)
-  assert.ok(run.countryPopulations.CHN?.factions.claude.immersed > 0)
+  assert.ok(run.regionPopulations.as?.factions.claude.immersed > 0)
   assert.deepEqual(run, play(42))
   assert.notDeepEqual(run.events.map(e => e.content.id), play(1).events.map(e => e.content.id))
   let previous = 0
@@ -112,8 +112,8 @@ test("developer grants use current headroom, reject repeats and preserve unlimit
 test("HUMAN completion wins before same-day narrative delivery and freezes future days", () => {
   const run = createRun(setup, 42)
   const threatened = { ...run, completedDay: 6, researchBps: 9200,
-    countries: { ...run.countries, CHN: { ...run.countries.CHN, centers: 1 } },
-    research: { ...run.research, unlockedSlots: 1, projects: [{ skillId: "batch-conversion", slot: 1, startedDay: 0, workDone: 600 }] },
+    markets: { ...run.markets, as: { ...run.markets.as, centers: 1 } },
+    research: { ...run.research, projects: [{ skillId: "batch-conversion", slot: 1, startedDay: 0, workDone: 600, paidCost: 26 }] },
     schedule: { ...run.schedule, nextDay: 7 } }
   const ended = advanceDay(threatened)
   assert.equal(ended.completedDay, 7)

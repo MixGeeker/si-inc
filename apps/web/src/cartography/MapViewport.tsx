@@ -2,8 +2,10 @@ import { Component, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, 
 import { Canvas, useThree } from "@react-three/fiber"
 import { Atlas, clamp, nightLightsUrl, relief, surfaceUrl, type Country, type Location } from "./atlas"
 import type { MapBubble } from "../../../../packages/game/operations.ts"
-import type { CountryPopulations } from "../../../../packages/game/population.ts"
+import type { ContourPopulations } from "../../../../packages/game/population.ts"
+import type { FactionId } from "../../../../packages/rules/v0.1/factions/roster.ts"
 import { standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
+import { regions } from "../../../../packages/rules/v0.1/world/regions.ts"
 import { flatCountryFill } from "./country-field"
 import { attachNavigation, MapCamera } from "./camera"
 import { hudScale, Y_SCALE } from "./layout"
@@ -17,10 +19,15 @@ import { computePlaceLabel, computePlaces } from "./compute-markers"
 
 type Props = {
   atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState
-  populations:CountryPopulations; populationScope:string|null
+  populations:ContourPopulations; populationScope:string|null; playerFaction:FactionId|null
   bubbles?:readonly MapBubble[]
   onCollectBubble?:(bubble:MapBubble)=>void
   pick:(pos:Location)=>void
+}
+
+function bubblePosition(bubble: MapBubble): readonly [number, number] {
+  const spec = regions[bubble.regionId]
+  return spec.bubblePoints[bubble.anchorIndex % spec.bubblePoints.length] ?? spec.center
 }
 
 class GraphicsBoundary extends Component<{children:ReactNode; fail:()=>void},{failed:boolean}> {
@@ -77,8 +84,8 @@ function ScreenGrid() {
     </g>}
   </svg>
 }
-function FlatMap({atlas,selected,rig,project,layers,populations,populationScope}:{atlas:Atlas;selected:readonly Country[];rig:MapCamera;project:(t:number)=>void;
-  layers:LayerState;populations:CountryPopulations;populationScope:string|null}) {
+function FlatMap({atlas,selected,rig,project,layers,populations,populationScope,playerFaction}:{atlas:Atlas;selected:readonly Country[];rig:MapCamera;project:(t:number)=>void;
+  layers:LayerState;populations:ContourPopulations;populationScope:string|null;playerFaction:FactionId|null}) {
   const { ui } = useLanguage()
   const { night, reduced } = layers
   const svg=useRef<SVGSVGElement>(null)
@@ -112,7 +119,7 @@ function FlatMap({atlas,selected,rig,project,layers,populations,populationScope}
       {night && <image href={nightLightsUrl} width="360" height="180"/>}
       {atlas.countries.map(c => {
         const isSelected = selected.includes(c)
-        const fill = populationScope !== null ? flatCountryFill(populations[c.id]) : null
+        const fill = populationScope !== null ? flatCountryFill(populations[c.id], playerFaction) : null
         return <path key={c.id} d={c.d} fill={fill ? fill.color : "none"} fillOpacity={fill ? fill.opacity : undefined}
           stroke={isSelected ? (night ? "#d6f2f6" : "#f6f8e6") : (night ? "#567c84" : "#bdd1b7")}
           strokeWidth={isSelected ? .19 : (night ? .075 : .065)} fillRule="evenodd"/>
@@ -155,7 +162,7 @@ function ComputeGlyph() {
 
 const emptyBubbles: readonly MapBubble[] = []
 
-export default function MapViewport({atlas,rig,selected,layers,populations,populationScope,bubbles = emptyBubbles,onCollectBubble,pick}:Props) {
+export default function MapViewport({atlas,rig,selected,layers,populations,populationScope,playerFaction,bubbles = emptyBubbles,onCollectBubble,pick}:Props) {
   const store = useGameStore()
   const collectKey = useGameSnapshot(state => state.shortcuts.collectBubble)
   const language = useLanguage()
@@ -183,9 +190,7 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
     return active ? .14 : baseAltitudes[i] * .26 + .16
   }),[baseAltitudes, populationScope, populations])
   const bubbleCoords=useMemo(()=>bubbles.map(bubble=>{
-    const country = atlas.countryById.get(bubble.countryId)
-    const lon = country?.lon ?? 0
-    const lat = country?.lat ?? 0
+    const [lon, lat] = bubblePosition(bubble)
     return { bubble, lon, lat, z: relief(atlas.metres(lon, lat)) + .55 }
   }),[atlas, bubbles])
   const bubbleKey = useMemo(() => bubbles.map(b => b.id).join(","), [bubbles])
@@ -231,9 +236,7 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
   useEffect(() => {
     const timers: number[] = []
     const off = store.on("bubble-collected", ({ bubble }) => {
-      const country = atlas.countryById.get(bubble.countryId)
-      const lon = country?.lon ?? 0
-      const lat = country?.lat ?? 0
+      const [lon, lat] = bubblePosition(bubble)
       const z = relief(atlas.metres(lon, lat)) + .55
       const raw = rig.screen(lon, lat, z)
       const x = clamp(raw.visible ? raw.x : rig.width / 2, 80, Math.max(80, rig.width - 80))
@@ -284,9 +287,9 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
       gl={{antialias:true,alpha:false,powerPreference:"high-performance"}} camera={rig.camera}>
       <Wake setWake={setWake}/>
       <Suspense fallback={null}><TerrainScene terrainLabel={ui.terrain} atlas={atlas} rig={rig} selected={selected} layers={layers}
-        populations={populations} populationScope={populationScope} project={project} onReady={onReady}/></Suspense>
+        populations={populations} populationScope={populationScope} playerFaction={playerFaction} project={project} onReady={onReady}/></Suspense>
     </Canvas></GraphicsBoundary>}
-    {(failed || lost) && <FlatMap atlas={atlas} selected={selected} rig={rig} project={project} layers={layers} populations={populations} populationScope={populationScope}/>}
+    {(failed || lost) && <FlatMap atlas={atlas} selected={selected} rig={rig} project={project} layers={layers} populations={populations} populationScope={populationScope} playerFaction={playerFaction}/>}
     {layers.night && <div className="map-vignette" />}
     <ScreenGrid/>
     {!ready && !failed && !rig.flat && <span className="map-loading" role="status">{ui.buildingTerrain}</span>}

@@ -158,7 +158,7 @@ const weather = `
 
 const populationGroundShader = `
   uniform sampler2D countryField, countryPop;
-  uniform float popEnabled;
+  uniform float popEnabled, playerFaction;
 
   vec2 hash22(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
@@ -166,10 +166,17 @@ const populationGroundShader = `
     return fract((p3.xx + p3.yz) * p3.zy);
   }
 
-  // Evaluates a staggered hex-grid octave of crisp, solid-color scaling circles.
-  // Returns vec2(dotMask, colorVariant01).
-  vec2 dotOctave(vec2 scenePos, float spacing, float pxSize, float elapsedSec, float synBoost, float radiusScale) {
-    if (radiusScale <= 0.02) return vec2(0.0);
+  // Signed distance to a regular pointy-top hexagon with inradius r.
+  float hexDist(vec2 p) {
+    p = abs(p);
+    return max(p.x * 0.8660254 + p.y * 0.5, p.y);
+  }
+
+  // Evaluates a staggered hex-grid octave: ordinary users render as crisp scaling circles;
+  // synthetic regions crystallize proportionally into crisp regular hexagons.
+  // Returns vec3(shapeMask, colorVariant01, isSyntheticHex).
+  vec3 dotOctave(vec2 scenePos, float spacing, float pxSize, float elapsedSec, float synBoost, float radiusScale) {
+    if (radiusScale <= 0.02) return vec3(0.0);
     vec2 scaled = scenePos / spacing;
     float row = floor(scaled.y * 1.1547);
     float xShift = mod(row, 2.0) * 0.5;
@@ -178,20 +185,25 @@ const populationGroundShader = `
     local.y *= 0.866025;
 
     vec2 rnd = hash22(cell);
-    vec2 center = (rnd - 0.5) * 0.18;
-    float dist = length(local - center);
+    vec2 center = (rnd - 0.5) * 0.16;
+    vec2 rel = local - center;
+
+    // Deterministically switch individual lattice cells from circles to hexagons proportional to local synthetic share.
+    float synRoll = fract(rnd.x * 19.31 + rnd.y * 7.13);
+    float isSyn = step(0.005, synBoost) * (1.0 - step(synBoost, synRoll));
+    float dist = mix(length(rel), hexDist(rel), isSyn);
 
     // Continuous staggered scale-up -> peak -> scale-down breathing cycle.
-    float speed = (0.48 + 0.38 * rnd.x) * (1.0 + 0.30 * synBoost);
+    float speed = (0.48 + 0.38 * rnd.x) * (1.0 + 0.25 * isSyn);
     float wave = fract(elapsedSec * speed + rnd.y * 6.17 + (cell.x * 0.09 + cell.y * 0.11));
     float scaleEnv = sin(wave * 3.14159265);
-    float maxRadius = mix(0.27, 0.37, synBoost) * (0.80 + 0.25 * rnd.x) * radiusScale;
-    float radius = maxRadius * pow(max(0.0, scaleEnv), 0.72);
+    float maxRadius = mix(0.27, 0.34, isSyn) * (0.82 + 0.22 * rnd.x) * radiusScale;
+    float radius = maxRadius * pow(max(0.0, scaleEnv), mix(0.72, 0.58, isSyn));
 
-    float aa = max(0.016, (pxSize / spacing) * 1.30);
-    float mask = radius > 0.016 ? (1.0 - smoothstep(radius - aa, radius + aa, dist)) : 0.0;
+    float aa = max(0.015, (pxSize / spacing) * mix(1.30, 1.08, isSyn));
+    float mask = radius > 0.015 ? (1.0 - smoothstep(radius - aa, radius + aa, dist)) : 0.0;
     float variant = step(0.45, fract(rnd.x * 13.7 + rnd.y * 7.3));
-    return vec2(mask, variant);
+    return vec3(mask, variant, isSyn);
   }
 
   // Bilinear SDF territory evaluation on the 1440x720 field for razor-smooth vector-like coastal & border bleed.
@@ -280,7 +292,7 @@ export function materials(surface:Texture, nightLights:Texture, vapor:Texture, h
     cloudSweep:{value:0}, cloudCover:{value:0}, viewportPixels:{value:new Vector2(1,1)},
     ground:{value:surface}, nightLights:{value:nightLights}, boundaries:{value:boundaries}, selected:{value:selected.texture},
     selectionRect:{value:selected.rect}, currentsOn:{value:1}, night:{value:1},
-    countryField:{value:countryField}, countryPop:{value:countryPop}, popEnabled:{value:1},
+    countryField:{value:countryField}, countryPop:{value:countryPop}, popEnabled:{value:1}, playerFaction:{value:-1},
     sun:{value:new Vector3(-.50,.46,.77).normalize()},
   }
   const ground = new ShaderMaterial({ uniforms, vertexShader:groundVertex, fragmentShader:weather + populationGroundShader + `
@@ -390,14 +402,22 @@ export function materials(surface:Texture, nightLights:Texture, vapor:Texture, h
 
           // 100% Flat, zero-relief, high-saturation opaque base pigments:
           // GPT (#00a854 / #00c462), Claude (#eb4409 / #ff5c0a), Grok (#7524e6 / #8f38ff)
-          vec3 baseGpt = mix(vec3(0.000, 0.659, 0.329), vec3(0.000, 0.769, 0.384), localSyn);
-          vec3 baseClaude = mix(vec3(0.922, 0.267, 0.035), vec3(1.000, 0.361, 0.039), localSyn);
-          vec3 baseGrok = mix(vec3(0.459, 0.141, 0.902), vec3(0.561, 0.220, 1.000), localSyn);
+          vec3 baseGpt = mix(vec3(0.000, 0.659, 0.329), vec3(0.000, 0.785, 0.400), localSyn);
+          vec3 baseClaude = mix(vec3(0.922, 0.267, 0.035), vec3(1.000, 0.380, 0.045), localSyn);
+          vec3 baseGrok = mix(vec3(0.459, 0.141, 0.902), vec3(0.580, 0.235, 1.000), localSyn);
           vec3 flatColor = baseGpt * wGpt + baseClaude * wClaude + baseGrok * wGrok;
 
-          // Pure vibrant dual-bright faction dots in matching faction hues (zero dark/muddy holes!):
-          vec3 dotVivid = vec3(0.390, 1.000, 0.690) * wGpt + vec3(1.000, 0.725, 0.130) * wClaude + vec3(0.835, 0.520, 1.000) * wGrok;
-          vec3 dotMid   = vec3(0.140, 0.910, 0.510) * wGpt + vec3(1.000, 0.500, 0.090) * wClaude + vec3(0.680, 0.330, 1.000) * wGrok;
+          // Pure vibrant dual-bright faction dots/hexes in matching faction hues:
+          vec3 dotVivid = vec3(0.420, 1.000, 0.710) * wGpt + vec3(1.000, 0.750, 0.160) * wClaude + vec3(0.855, 0.560, 1.000) * wGrok;
+          vec3 dotMid   = vec3(0.160, 0.920, 0.530) * wGpt + vec3(1.000, 0.520, 0.110) * wClaude + vec3(0.700, 0.360, 1.000) * wGrok;
+
+          // Emphasize player's faction and dim rival factions so own territory pops at a glance.
+          float playerWeight = playerFaction < -0.5 ? 1.0
+            : (playerFaction < 0.5 ? wGpt : (playerFaction < 1.5 ? wClaude : wGrok));
+          float rivalWeight = clamp(1.0 - playerWeight, 0.0, 1.0);
+          float baseLuma = dot(flatColor, vec3(0.299, 0.587, 0.114));
+          vec3 dimBase = mix(vec3(baseLuma), flatColor, 0.68) * 0.46;
+          flatColor = mix(min(vec3(1.0), flatColor * 1.06), dimBase, rivalWeight);
 
           // Zoom-adaptive radius-transitioned hex grids in isotropic scene space (360 x 180*1.18):
           vec2 scenePos = vec2(coord.x * 360.0, coord.y * 212.4);
@@ -409,12 +429,17 @@ export function materials(surface:Texture, nightLights:Texture, vapor:Texture, h
           float sp0 = exp2(lv0);
           float sp1 = sp0 * 2.0;
 
-          vec2 d0 = dotOctave(scenePos, sp0, pxScene, elapsed, localSyn, smoothstep(0.82, 0.14, blend));
-          vec2 d1 = dotOctave(scenePos + vec2(3.7, 1.9), sp1, pxScene, elapsed, localSyn, 1.0);
-          vec2 dotChoice = d0.x >= d1.x ? d0 : d1;
+          vec3 d0 = dotOctave(scenePos, sp0, pxScene, elapsed, localSyn, smoothstep(0.82, 0.14, blend));
+          vec3 d1 = dotOctave(scenePos + vec2(3.7, 1.9), sp1, pxScene, elapsed, localSyn, 1.0);
+          vec3 dotChoice = d0.x >= d1.x ? d0 : d1;
 
           vec3 dotCol = mix(dotMid, dotVivid, dotChoice.y);
-          flatColor = mix(flatColor, dotCol, dotChoice.x * 0.95);
+          // Give synthetic hexagons a subtle crystalline highlight boost on player territory.
+          dotCol = mix(dotCol, min(vec3(1.0), dotCol * 1.18 + vec3(0.08)), dotChoice.z * 0.55);
+          float dotLuma = dot(dotCol, vec3(0.299, 0.587, 0.114));
+          vec3 dimDot = mix(vec3(dotLuma), dotCol, 0.66) * 0.52;
+          dotCol = mix(dotCol, dimDot, rivalWeight);
+          flatColor = mix(flatColor, dotCol, dotChoice.x * mix(0.96, 0.86, rivalWeight));
 
           // Crisp vector-smooth solid fill (opacity = 1.0 inside, smooth anti-aliased spill perimeter).
           float fillMask = smoothstep(0.24, 0.64, terr.z + dotChoice.x * step(0.22, terr.z) * 0.20);

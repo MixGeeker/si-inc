@@ -94,9 +94,11 @@ export type GameNotice =
   | { type: "event-occurred"; entry: RunEvent }
   | { type: "research-slot-unlocked"; slot: number }
   | { type: "research-started"; project: ResearchProject }
+  | { type: "research-cancelled"; slot: number }
+  | { type: "research-reordered"; fromSlot: number; toSlot: number }
   | { type: "research-completed"; project: ResearchProject }
   | { type: "build-card-bought"; buildCards: number }
-  | { type: "data-center-built"; countryId: string; centers: number }
+  | { type: "data-center-built"; regionId: RegionId; centers: number }
   | { type: "synthetic-funded"; tokens: number; budgetPeople: number }
   | { type: "synthetic-toggled"; regionId: RegionId; enabled: boolean; firstActivation: boolean }
   | { type: "eternal-night-started" }
@@ -292,12 +294,18 @@ function gameNotices(event: GameEvent, { scene, layers }: GameState, previous: G
     const project = researchState(scene.run).projects.at(-1)
     if (project) return [{ type: "research-started", project }]
   }
+  if (event.type === "cancel-research" && scene.kind === "campaign") {
+    return [{ type: "research-cancelled", slot: event.slot }]
+  }
+  if (event.type === "move-research" && scene.kind === "campaign") {
+    return [{ type: "research-reordered", fromSlot: event.fromSlot, toSlot: event.toSlot }]
+  }
   if (event.type === "buy-build-card" && (scene.kind === "campaign" || scene.kind === "ending")) {
     return [{ type: "build-card-bought", buildCards: scene.run.buildCards }]
   }
   if (event.type === "build-data-center" && (scene.kind === "campaign" || scene.kind === "ending")) {
-    const centers = scene.run.countries[event.countryId]?.centers ?? 0
-    return [{ type: "data-center-built", countryId: event.countryId, centers }]
+    const centers = scene.run.markets[event.regionId]?.centers ?? 0
+    return [{ type: "data-center-built", regionId: event.regionId, centers }]
   }
   if (event.type === "fund-conversion" && (scene.kind === "campaign" || scene.kind === "ending")) {
     return [{ type: "synthetic-funded", tokens: event.tokens, budgetPeople: scene.run.conversionBudgetPeople }]

@@ -1,4 +1,5 @@
 import { marketEffects, type MarketEffect, type MarketMeasure, type ResearchMarketContext } from "../rules/v0.1/evolution/market-effects.ts"
+export type { ResearchMarketContext }
 import { researchNode, type AttributeId, type SkillId } from "../rules/v0.1/evolution/trees.ts"
 import { attributesForLevels, type SkillLevels } from "./research.ts"
 

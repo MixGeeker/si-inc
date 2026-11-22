@@ -48,13 +48,13 @@ export const capabilities = [
   {
     id: "deidentification", name: "数据去标识化", cost: 18, days: 4, computeLoad: 46,
     requires: [["regulatory-adaptation"], ["privacy-controls"]], attributes: { danger: -5 },
-    description: "本阵营在一国首次启用合成人计划时，该次行动带来的暴露增量减少 25%。",
+    description: "本阵营在一个大洲首次启用合成人计划时，该次行动带来的暴露增量减少 25%。",
   },
   {
     id: "version-rebuild", name: "版本重构", cost: 22, days: 7, computeLoad: 88,
     requires: [["multimodal"], ["reinforcement-learning"], ["regulatory-adaptation"]], attributes: { appeal: 3, profit: 3 },
-    concurrentBonus: { minimum: 2, corpus: 3 },
-    description: "从次日起，同一天有两个及以上研究项目结题时，额外获得 3 语料，每天最多触发一次。",
+    concurrentBonus: { minimum: 1, corpus: 3 },
+    description: "从次日起，每当一项研究结题且研究队列中已有下一项无缝接力时，额外获得 3 语料，每天最多触发一次。",
   },
   {
     id: "evaluation-suite", name: "自动评测集", cost: 22, days: 5, computeLoad: 64,
@@ -71,7 +71,7 @@ export const capabilities = [
     id: "batch-conversion", name: "批量改造", cost: 30, days: 7, computeLoad: 112,
     requires: [["synthetic-interface"], ["load-balancing"]], attributes: { profit: 3, danger: 8 },
     dangerBps: 800,
-    description: "在已启用计划且有本地中心的国家，每天改造上限增加 50%，仍须支付改造预算。",
+    description: "在已启用计划且有本地中心的大洲，每天改造上限增加 50%，仍须支付改造预算。",
   },
   {
     id: "distributed-review", name: "分布式复核", cost: 24, days: 5, computeLoad: 66,

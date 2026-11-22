@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { populationShares } from "../../../packages/game/population.ts"
-import { encodeCountryPopulations, flatCountryFill, populationColors } from "../src/cartography/country-field.ts"
+import { encodeCountryPopulations, encodeRegionPopulations, factionShaderIndex, flatCountryFill, populationColors, projectRegionPopulationsToContours, rivalPopulationColors } from "../src/cartography/country-field.ts"
 import { createGameStore } from "../src/scenes/store.ts"
 import { previewPopulations } from "../src/scenes/world/populationPreview.ts"
 
@@ -29,8 +29,14 @@ test("the East Asia sample only accepts edits in the open preview and never ente
   store.dispatch({type:"open-panel",panel:"menu"}); store.dispatch({type:"open-setup"})
   store.dispatch({type:"start",factionId:"gpt",startRegionId:"as",difficultyId:"standard",seed:15})
   assert.equal(snapshot().populationPreview, null)
-  assert.ok(snapshot().scene.run.countryPopulations.CHN?.factions.gpt.immersed > 0)
-  for (const sampleId of ["KOR", "PRK", "JPN"]) assert.equal(snapshot().scene.run.countryPopulations[sampleId], undefined)
+  assert.ok(snapshot().scene.run.regionPopulations.as?.factions.gpt.immersed > 0)
+  const projected = projectRegionPopulationsToContours(["CHN", "JPN", "KOR", "ATA"], snapshot().scene.run.regionPopulations)
+  assert.strictEqual(projected.CHN, snapshot().scene.run.regionPopulations.as)
+  assert.strictEqual(projected.JPN, snapshot().scene.run.regionPopulations.as)
+  assert.equal(projected.ATA, undefined)
+  const regBytes = encodeRegionPopulations(["CHN", "ATA"], snapshot().scene.run.regionPopulations)
+  assert.ok(regBytes[1 * 4] > 0)
+  assert.equal(regBytes[2 * 4], 0)
   store.dispatch({type:"open-panel",panel:"world"})
   const live = snapshot()
   store.dispatch(open); store.dispatch(set(25))
@@ -79,6 +85,12 @@ test("country population texture encoding preserves coverage, faction shares, an
   // Slot 3 = EMPTY stays zeroed.
   assert.deepEqual([...bytes.subarray(3 * 4, 3 * 4 + 4)], [0, 0, 0, 0])
   assert.equal(flatCountryFill(populations.KOR).color, populationColors.grok[0])
-  assert.equal(flatCountryFill(populations.JPN).color, populationColors.gpt[1])
+  assert.equal(flatCountryFill(populations.KOR, "gpt").color, rivalPopulationColors.grok[0])
+  assert.equal(flatCountryFill(populations.JPN, "gpt").color, populationColors.gpt[1])
+  assert.equal(flatCountryFill(populations.JPN, "claude").color, rivalPopulationColors.gpt[1])
+  assert.equal(factionShaderIndex("gpt"), 0)
+  assert.equal(factionShaderIndex("claude"), 1)
+  assert.equal(factionShaderIndex("grok"), 2)
+  assert.equal(factionShaderIndex(null), -1)
   assert.equal(flatCountryFill(undefined), null)
 })

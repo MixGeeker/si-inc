@@ -5,10 +5,12 @@ import {
   advanceDay,
   buildDataCenter,
   buyBuildCard,
+  cancelResearch,
   collectMapBubble,
   createRun,
   fundConversion,
   grantDeveloperTokens,
+  moveResearch,
   resolveDecision,
   startResearch,
   toggleSyntheticProgram,
@@ -56,7 +58,7 @@ function sameSnapshotData(expected: unknown, actual: unknown): boolean {
     Object.hasOwn(actualRecord, key) && sameSnapshotData(expectedRecord[key], actualRecord[key]))
 }
 
-/** Reconstruct each settlement with the rules that produced the run, including deferred decisions. */
+/** Reconstruct each settlement with the rules that produced the run, including deferred decisions and serial research queue ops. */
 export function runTimeline(run: RunState): RunTraceEntry[] | null {
   if (run.rulesVersion !== standardScenario.rules.rulesVersion || !Number.isSafeInteger(run.completedDay) || run.completedDay < 0) return null
   const initial = createRun(run.setup, run.seed, run.runId)
@@ -80,8 +82,10 @@ export function runTimeline(run: RunState): RunTraceEntry[] | null {
       if (command.kind === "devGrantTokens") cursor = grantDeveloperTokens(before, command.amount, command.seq)
       else if (command.kind === "unlockResearchSlot") cursor = unlockResearchSlot(before, command.slot, command.seq)
       else if (command.kind === "buySkill") cursor = startResearch(before, command.skillId, command.seq)
+      else if (command.kind === "cancelResearch") cursor = cancelResearch(before, command.slot, command.seq)
+      else if (command.kind === "moveResearch") cursor = moveResearch(before, command.fromSlot, command.toSlot, command.seq)
       else if (command.kind === "buyBuildCard") cursor = buyBuildCard(before, command.seq)
-      else if (command.kind === "buildDataCenter") cursor = buildDataCenter(before, command.countryId, command.seq)
+      else if (command.kind === "buildDataCenter") cursor = buildDataCenter(before, command.regionId, command.seq)
       else if (command.kind === "fundConversion") cursor = fundConversion(before, command.tokens, command.seq)
       else if (command.kind === "toggleSynthetic") cursor = toggleSyntheticProgram(before, command.regionId as RegionId, command.enabled, command.seq)
       else if (command.kind === "useAbility") cursor = useAction(before, command.abilityId, command.seq, command.targetRegionId as RegionId | undefined)
@@ -112,22 +116,23 @@ export function runTimeline(run: RunState): RunTraceEntry[] | null {
     || cursor.actionCooldowns.factionAbilityUntilDay !== run.actionCooldowns.factionAbilityUntilDay
     || cursor.actionCooldowns.factionEffectUntilDay !== run.actionCooldowns.factionEffectUntilDay
     || !sameSnapshotData(cursor.bubbles, run.bubbles)
-    || !sameSnapshotData(cursor.countries, run.countries) || !sameSnapshotData(cursor.opponents, run.opponents)
-    || !sameSnapshotData(cursor.countryPopulations, run.countryPopulations)
+    || !sameSnapshotData(cursor.opponents, run.opponents)
+    || !sameSnapshotData(cursor.regionPopulations, run.regionPopulations)
     || cursor.researchBps !== run.researchBps || expected.corpus !== actual.corpus
     || expected.unlockedSlots !== actual.unlockedSlots || expected.projects.length !== actual.projects.length) return null
   const matches = sameSnapshotData(cursor.markets, run.markets) && expected.projects.every((p, i) => p.skillId === actual.projects[i].skillId
     && p.startedDay === actual.projects[i].startedDay && p.slot === actual.projects[i].slot
-    && p.workDone === actual.projects[i].workDone && p.completedDay === actual.projects[i].completedDay)
+    && p.workDone === actual.projects[i].workDone && p.completedDay === actual.projects[i].completedDay
+    && p.paidCost === actual.projects[i].paidCost)
   const eventMatches = cursor.events.length === run.events.length && cursor.events.every((event, i) => {
-    const expected = run.events[i]
-    return event.instanceId === expected.instanceId && event.day === expected.day
-      && event.content.kind === expected.content.kind && event.content.id === expected.content.id
-      && event.choiceId === expected.choiceId && event.resolvedDay === expected.resolvedDay
-      && event.sourceSkillId === expected.sourceSkillId && event.followUpDay === expected.followUpDay
-      && event.sourceInstanceId === expected.sourceInstanceId && event.sourceChoiceId === expected.sourceChoiceId
-      && event.effect?.tokens === expected.effect?.tokens && event.effect?.corpus === expected.effect?.corpus
-      && event.effect?.humanBps === expected.effect?.humanBps
+    const expectedEvent = run.events[i]
+    return event.instanceId === expectedEvent.instanceId && event.day === expectedEvent.day
+      && event.content.kind === expectedEvent.content.kind && event.content.id === expectedEvent.content.id
+      && event.choiceId === expectedEvent.choiceId && event.resolvedDay === expectedEvent.resolvedDay
+      && event.sourceSkillId === expectedEvent.sourceSkillId && event.followUpDay === expectedEvent.followUpDay
+      && event.sourceInstanceId === expectedEvent.sourceInstanceId && event.sourceChoiceId === expectedEvent.sourceChoiceId
+      && event.effect?.tokens === expectedEvent.effect?.tokens && event.effect?.corpus === expectedEvent.effect?.corpus
+      && event.effect?.humanBps === expectedEvent.effect?.humanBps
   })
   const scheduleMatches = cursor.schedule.nextDay === run.schedule.nextDay
     && cursor.schedule.randomState === run.schedule.randomState && cursor.schedule.remaining.length === run.schedule.remaining.length

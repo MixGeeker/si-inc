@@ -1,14 +1,29 @@
 import { ClampToEdgeWrapping, DataTexture, NearestFilter, RepeatWrapping, RGBAFormat, type Texture } from "three"
-import { populationShares, type CountryPopulation, type CountryPopulations } from "../../../../packages/game/population.ts"
+import { populationShares, type ContourPopulations, type PopulationBucket, type RegionPopulations } from "../../../../packages/game/population.ts"
 import type { FactionId } from "../../../../packages/rules/v0.1/factions/roster.ts"
+import { regionOfCountry } from "../../../../packages/rules/v0.1/world/regions.ts"
 import type { Atlas } from "./atlas"
 
-/** Pure flat, high-saturation solid pigments for territory fills. */
+/** Pure flat, high-saturation solid pigments for player/preview territory fills. */
 export const populationColors = {
   gpt: ["#00a854", "#00c462"],
   claude: ["#eb4409", "#ff5c0a"],
   grok: ["#7524e6", "#8f38ff"],
 } as const satisfies Record<FactionId, readonly [string, string]>
+
+/** Dimmed pigments for rival factions so the player's own territory stands out cleanly. */
+export const rivalPopulationColors = {
+  gpt: ["#0f5230", "#166b40"],
+  claude: ["#702912", "#873316"],
+  grok: ["#3e1e73", "#4f278f"],
+} as const satisfies Record<FactionId, readonly [string, string]>
+
+export function factionShaderIndex(factionId: FactionId | null | undefined): number {
+  if (factionId === "gpt") return 0
+  if (factionId === "claude") return 1
+  if (factionId === "grok") return 2
+  return -1
+}
 
 const FIELD_W = 1440
 const FIELD_H = 720
@@ -313,9 +328,24 @@ export function buildCountryFieldTexture(atlas: Atlas, nightLightsTexture?: Text
   return texture
 }
 
+/** Project continent-level simulation populations onto country SVG contours for map rendering only. */
+export function projectRegionPopulationsToContours(
+  countryIds: readonly string[],
+  regionPopulations: RegionPopulations,
+): ContourPopulations {
+  const projected: Record<string, PopulationBucket> = {}
+  for (const countryId of countryIds) {
+    const regionId = regionOfCountry(countryId)
+    if (!regionId) continue
+    const bucket = regionPopulations[regionId]
+    if (bucket) projected[countryId] = bucket
+  }
+  return projected
+}
+
 export function encodeCountryPopulations(
   countryIds: readonly string[],
-  populations: CountryPopulations,
+  populations: ContourPopulations,
   data: Uint8Array = new Uint8Array(256 * 2 * 4),
 ) {
   data.fill(0)
@@ -354,8 +384,16 @@ export function encodeCountryPopulations(
   return data
 }
 
+export function encodeRegionPopulations(
+  countryIds: readonly string[],
+  regionPopulations: RegionPopulations,
+  data: Uint8Array = new Uint8Array(256 * 2 * 4),
+) {
+  return encodeCountryPopulations(countryIds, projectRegionPopulationsToContours(countryIds, regionPopulations), data)
+}
+
 /** Fallback fill style for the 2D SVG map when WebGL is unavailable. */
-export function flatCountryFill(entry: CountryPopulation | undefined) {
+export function flatCountryFill(entry: PopulationBucket | undefined, playerFaction: FactionId | null = null) {
   const profile = entry ? populationShares(entry) : null
   if (!profile || profile.coverage <= 0) return null
   const totals: Record<FactionId, { total: number; syn: number }> = {
@@ -372,9 +410,11 @@ export function flatCountryFill(entry: CountryPopulation | undefined) {
     if (totals[id].total > totals[best].total) best = id
   }
   const synMostly = totals[best].syn * 2 >= totals[best].total ? 1 : 0
+  const isRival = playerFaction !== null && best !== playerFaction
+  const palette = isRival ? rivalPopulationColors[best] : populationColors[best]
   return {
-    color: populationColors[best][synMostly],
-    opacity: 0.72 + 0.26 * profile.coverage,
+    color: palette[synMostly],
+    opacity: (isRival ? 0.56 : 0.76) + 0.22 * profile.coverage,
   }
 }
 
@@ -393,7 +433,7 @@ export function createCountryPopulationTexture() {
 export function updateCountryPopulationTexture(
   target: { texture: DataTexture; data: Uint8Array },
   atlas: Atlas,
-  populations: CountryPopulations,
+  populations: ContourPopulations,
 ) {
   encodeCountryPopulations(atlas.countries.map(c => c.id), populations, target.data)
   target.texture.needsUpdate = true

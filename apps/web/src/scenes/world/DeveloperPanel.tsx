@@ -22,8 +22,13 @@ function traceTitle(row: RunTraceEntry, { ui, scenario }: Language) {
     const node = researchNode(command.skillId)
     if (node) return scenario.skills[node.skill.id]
   }
+  if (command?.kind === "cancelResearch") return ui.lab.cancelCommand(command.slot)
+  if (command?.kind === "moveResearch") return ui.lab.moveCommand(command.fromSlot, command.toSlot)
   if (command?.kind === "buyBuildCard") return ui.ops.buildCardCommand
-  if (command?.kind === "buildDataCenter") return ui.ops.buildCenterCommand(command.countryId)
+  if (command?.kind === "buildDataCenter") {
+    const regionLabel = isRegionId(command.regionId) ? scenario.regions[command.regionId] : command.regionId
+    return ui.ops.buildCenterCommand(regionLabel)
+  }
   if (command?.kind === "fundConversion") return ui.ops.fundConversionCommand(command.tokens)
   if (command?.kind === "toggleSynthetic") {
     const regionLabel = isRegionId(command.regionId) ? scenario.regions[command.regionId] : command.regionId
@@ -58,7 +63,7 @@ function Timeline({ run }: { run: RunState }) {
   if (!rows) return <p>{ui.developer.traceUnavailable}</p>
   return <>
     <ol className="dev-timeline">{(all ? rows : rows.slice(0, 5)).map(row => {
-      const researchOrder = row.command?.kind === "buySkill" || row.command?.kind === "unlockResearchSlot"
+      const researchOrder = row.command?.kind === "buySkill" || row.command?.kind === "unlockResearchSlot" || row.command?.kind === "cancelResearch"
       const delta = researchOrder ? row.corpusAfter - row.corpusBefore! : row.after - (row.before ?? row.after)
       return <li key={row.command ? `command-${row.command.seq}` : row.event ? `event-${row.event.instanceId}` : `day-${row.day}`}><details>
         <summary><span>{ui.day(row.day)}</span><strong>{traceTitle(row, language)}</strong>

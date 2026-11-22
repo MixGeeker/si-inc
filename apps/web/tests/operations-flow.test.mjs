@@ -111,9 +111,9 @@ test("buying build cards, building data centers, and using active actions update
 
   store.dispatch({ type: "open-panel", panel: "region" })
   const run2 = runOf(store)
-  store.dispatch({ type: "build-data-center", countryId: "USA", runId: run2.runId, completedDay: run2.completedDay, seq: nextCommandSeq(run2) })
+  store.dispatch({ type: "build-data-center", regionId: "na", runId: run2.runId, completedDay: run2.completedDay, seq: nextCommandSeq(run2) })
   assert.equal(runOf(store).buildCards, 0)
-  assert.equal(runOf(store).countries.USA.centers, 1)
+  assert.equal(runOf(store).markets.na.centers, 1)
 
   // Fund conversion & toggle synthetic program; only the very first activation sets firstActivation: true.
   const run3 = runOf(store)
@@ -132,11 +132,14 @@ test("buying build cards, building data centers, and using active actions update
   assert.equal(updatedHud.syntheticActive, true)
   assert.equal(updatedHud.regions.na.centers, 1)
   assert.equal(updatedHud.regions.eu.entered, true)
+  assert.equal(updatedHud.globalBar.segments[0].isPlayer, true)
+  assert.equal(updatedHud.regionBars.na.segments[0].factionId, "gpt")
+  assert.ok(updatedHud.exposureBps > 0)
 
   assert.deepEqual(notices, [
     { type: "action-used", abilityId: "cross-border-cloud", targetRegionId: "eu" },
     { type: "build-card-bought", buildCards: 1 },
-    { type: "data-center-built", countryId: "USA", centers: 1 },
+    { type: "data-center-built", regionId: "na", centers: 1 },
     { type: "synthetic-funded", tokens: packTokens, budgetPeople: run4.conversionBudgetPeople },
     { type: "synthetic-toggled", regionId: "na", enabled: true, firstActivation: true },
     { type: "synthetic-toggled", regionId: "na", enabled: false, firstActivation: false },
@@ -211,20 +214,27 @@ test("faction signature abilities, map bubbles, compute pressure HUD, and compac
   assert.equal(actionNotices.at(-1).abilityId, "hallucination-smoke")
   store.dispatch({ type: "back" })
 
-  // Compute pressure rises as simultaneous projects load CU and is reflected in HUD.
+  // Compute pressure rises when slot 1 starts researching, while slot 2 blueprint adds 0 CU; reorder & cancel emit notices.
+  const queueNotices = []
+  store.on("research-reordered", n => queueNotices.push(n))
+  store.on("research-cancelled", n => queueNotices.push(n))
   const pressureBefore = computePressure(runOf(store))
   store.dispatch({ type: "open-panel", panel: "overview" })
-  for (const slot of [1, 2]) {
-    const r = runOf(store)
-    store.dispatch({ type: "unlock-research-slot", slot, runId: r.runId, completedDay: r.completedDay, seq: nextCommandSeq(r) })
-  }
   for (const skillId of ["daily-chat", "social-sharing"]) {
     const r = runOf(store)
     store.dispatch({ type: "start-research", skillId, runId: r.runId, completedDay: r.completedDay, seq: nextCommandSeq(r) })
   }
-  store.dispatch({ type: "back" })
   const pressureAfter = computePressure(runOf(store))
   assert.ok(pressureAfter.researchDemand > pressureBefore.researchDemand)
   assert.ok(pressureAfter.totalDemand > pressureBefore.totalDemand)
-  assert.ok(runTimeline(runOf(store)), "bubble collection, faction ability, and research replay cleanly")
+  let rq = runOf(store)
+  store.dispatch({ type: "move-research", fromSlot: 2, toSlot: 1, runId: rq.runId, completedDay: rq.completedDay, seq: nextCommandSeq(rq) })
+  rq = runOf(store)
+  store.dispatch({ type: "cancel-research", slot: 2, runId: rq.runId, completedDay: rq.completedDay, seq: nextCommandSeq(rq) })
+  store.dispatch({ type: "back" })
+  assert.deepEqual(queueNotices, [
+    { type: "research-reordered", fromSlot: 2, toSlot: 1 },
+    { type: "research-cancelled", slot: 2 },
+  ])
+  assert.ok(runTimeline(runOf(store)), "bubble collection, faction ability, and serial queue actions replay cleanly")
 })

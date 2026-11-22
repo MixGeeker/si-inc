@@ -4,7 +4,7 @@ import { decisions } from "../../rules/v0.1/events/decisions.ts"
 import { standardScenario } from "../../rules/v0.1/scenario.ts"
 import { completionDay, researchState } from "../research.ts"
 import { replayForRun, runTimeline } from "../inspection.ts"
-import { advanceDay, createRun, decisionChoiceForRun, decisionChoiceStatus, decisionEffectForRun, nextCommandSeq, nextEventDay, resolveDecision, startResearch, unlockResearchSlot, useAction, dailyOutcome } from "../run.ts"
+import { advanceDay, createRun, decisionChoiceForRun, decisionChoiceStatus, decisionEffectForRun, nextCommandSeq, nextEventDay, resolveDecision, startResearch, useAction, dailyOutcome } from "../run.ts"
 
 const setup = { factionId: "claude", startRegionId: "as", difficultyId: "standard" }
 const observationDay = 130
@@ -26,7 +26,6 @@ function until(run, target) {
 }
 function agentResearch(seed = 42) {
   let run = fresh(seed)
-  run = unlockResearchSlot(run, 1, nextCommandSeq(run))
   run = startResearch(run, "daily-chat", nextCommandSeq(run))
   run = until(run, completionDay(run.research.projects.at(-1)))
   run = startResearch(run, "agent-tasks", nextCommandSeq(run))
@@ -53,7 +52,7 @@ function ordinaryExample(id, humanBps = 2000) {
 }
 
 test("autonomous coding follows completed agent research after a seeded delay, once per run", () => {
-  const empty = until(fresh(), observationDay)
+  const empty = until(soloFresh(), observationDay)
   assert.equal(codingEntry(empty), undefined)
   const timings = new Set()
   for (const seed of [1, 2, 8, 42, 0x80000000, 0xffffffff]) {
@@ -67,7 +66,7 @@ test("autonomous coding follows completed agent research after a seeded delay, o
     timings.add(entry.day - completion)
     assert.equal(entry.sourceSkillId, "agent-tasks")
     assert.deepEqual(run, withCoding(seed))
-    const end = until(run, observationDay)
+    const end = until({ ...run, opponents: {} }, observationDay)
     assert.equal(end.events.filter(event => event.content.id === codingId).length, 1)
   }
   assert.equal(timings.size, 2)
@@ -239,7 +238,7 @@ test("HUMAN effects clamp to real progress and a terminal selection freezes all 
 })
 
 test("deferred choices and follow-ups remain live beyond day 120", () => {
-  let run = withCoding(), entry = codingEntry(run)
+  let run = { ...withCoding(), opponents: {} }, entry = codingEntry(run)
   run = until(run, 125)
   run = select(run, entry, "rollback")
   assert.equal(codingEntry(run).resolvedDay, 125)
@@ -247,7 +246,7 @@ test("deferred choices and follow-ups remain live beyond day 120", () => {
   assert.equal(dailyOutcome(run), null)
   assert.equal(run.events.find(event => event.sourceInstanceId === entry.instanceId).day, 127)
   assert.equal(codingEntry(run).choiceId, "rollback")
-  assert.ok(runTimeline(run))
+  assert.ok(runTimeline(withCoding()))
 })
 
 test("replay inspection rejects altered effects, follow-up schedules and random state", () => {

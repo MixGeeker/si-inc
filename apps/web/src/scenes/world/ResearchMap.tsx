@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { researchStatus, type ResearchStatus } from "../../../../../packages/game/research"
+import { canQueueResearch, queuedSlotsForSkill, researchStatus, type ResearchStatus } from "../../../../../packages/game/research"
 import type { RunState } from "../../../../../packages/game/run"
 import { researchNode, type ResearchNode, type Skill, type SkillId } from "../../../../../packages/rules/v0.1/evolution/trees"
 import { useLanguage } from "../../i18n/useLanguage"
@@ -70,8 +70,12 @@ function Substrate() {
   </g>
 }
 
-export function TechHex({ skill, status }: { skill: Skill; status: ResearchStatus }) {
-  return <svg className={`tech-hex is-${status}`} viewBox={viewBox} aria-hidden="true">
+export function TechHex({ skill, status, queueSlots }: { skill: Skill; status: ResearchStatus; queueSlots?: readonly number[] }) {
+  const firstSlot = queueSlots && queueSlots.length > 0 ? queueSlots[0] : null
+  const badgeText = firstSlot !== null
+    ? `${firstSlot === 1 ? "▶1" : `#${firstSlot}`}${queueSlots!.length > 1 ? `×${queueSlots!.length}` : ""}`
+    : null
+  return <svg className={`tech-hex is-${status}${firstSlot !== null ? " is-in-queue" : ""}`} viewBox={viewBox} aria-hidden="true">
     <path className="hex-surface" d={outline}/>
     <path className="hex-texture" d={outline} fill="url(#hive-microcells)" mask="url(#hive-texture-mask)"/>
     <path className="hex-facet" fill="url(#hive-facet)" fillRule="evenodd"
@@ -83,6 +87,10 @@ export function TechHex({ skill, status }: { skill: Skill; status: ResearchStatu
     {skill.repeatCostStep && <use className="hex-loop" href="#lab-cycle" x="-25.5" y="-32.5" width="12" height="12"/>}
     {skill.dangerBps && <use className="hex-risk" href="#lab-danger" x="15" y="-33" width="12" height="12"/>}
     {status === "active" && <path className="hex-running" d="m-21 33 3-4h4l-3 4zm7 0 3-4h4l-3 4zm7 0 3-4h4l-3 4Z"/>}
+    {badgeText && <g className={`hex-queue-badge${firstSlot === 1 ? " is-head" : ""}`}>
+      <rect x="-18" y="-40.5" width="36" height="14.5" rx="7.25"/>
+      <text x="0" y="-30" textAnchor="middle">{badgeText}</text>
+    </g>}
     {status === "excluded" && <path className="hex-forbidden" d="m-22 33 7-7"/>}
     <path className="hex-relation" d="m-46 0 5-8.7m82 17.4L46 0"/>
     <path className="hex-selection" d="M-47 0-23.5-40.7H23.5L47 0 23.5 40.7H-23.5Z"/>
@@ -90,8 +98,8 @@ export function TechHex({ skill, status }: { skill: Skill; status: ResearchStatu
   </svg>
 }
 
-export function TechMap({ run, node, select }: {
-  run: RunState; node: ResearchNode; select: (id: SkillId) => void
+export function TechMap({ run, node, select, enqueue }: {
+  run: RunState; node: ResearchNode; select: (id: SkillId) => void; enqueue?: (id: SkillId) => void
 }) {
   const { scenario, ui: { lab } } = useLanguage()
   const scroll = useRef<HTMLDivElement>(null)
@@ -142,17 +150,23 @@ export function TechMap({ run, node, select }: {
       })}</g>
       {node.tree.skills.map(skill => {
         const { x, y } = cellCenter(cells[skill.id]), status = researchStatus(run, researchNode(skill.id))
+        const queueSlots = queuedSlotsForSkill(run, skill.id)
         const related = skill.requires.some(group => group.includes(node.skill.id)) || node.skill.requires.some(group => group.includes(skill.id))
         const label = [scenario.skills[skill.id], lab.tier(researchTier(skill)), lab.status[status],
+          queueSlots.length > 0 && lab.inQueue(queueSlots),
           skill.repeatCostStep && lab.repeatable, skill.dangerBps && lab.dangerous].filter(Boolean).join(" · ")
         return <foreignObject key={skill.id} x={x - hive.radius} y={y - cellHeight / 2}
           width={2 * hive.radius} height={cellHeight} className="lab-station">
-          <button type="button" className={`lab-node is-${status}${related ? " related" : ""}`}
+          <button type="button" className={`lab-node is-${status}${related ? " related" : ""}${queueSlots.length > 0 ? " is-in-queue" : ""}`}
             data-skill={skill.id} aria-label={label} aria-pressed={node.skill.id === skill.id}
             onPointerEnter={e => { if (e.pointerType === "mouse") setHovered(skill.id) }} onPointerLeave={() => setHovered(null)}
             onFocus={e => { if (e.currentTarget.matches(":focus-visible")) setHovered(skill.id) }} onBlur={() => setHovered(null)}
-            onClick={() => { setHovered(null); select(skill.id) }}>
-            <TechHex skill={skill} status={status}/>
+            onClick={() => { setHovered(null); select(skill.id) }}
+            onDoubleClick={() => {
+              select(skill.id)
+              if (enqueue && canQueueResearch(run, skill.id)) enqueue(skill.id)
+            }}>
+            <TechHex skill={skill} status={status} queueSlots={queueSlots}/>
           </button>
         </foreignObject>
       })}

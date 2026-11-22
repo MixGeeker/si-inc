@@ -14,20 +14,17 @@ const start = { type: "start", runId: "daily-settlement-equivalence", seed: 42,
   factionId: "claude", startRegionId: "as", difficultyId: "standard" }
 const runOf = store => visibleRunState(store.getSnapshot().scene)
 const research = skillId => ({ type: "start-research", skillId })
-const slot = slot => ({ type: "unlock-research-slot", slot })
 const ordersByDay = new Map([
-  [0, [slot(1), slot(2), research("social-sharing"), research("daily-chat")]],
+  [0, [research("social-sharing"), research("daily-chat")]],
   [2, [research("inference-efficiency"), research("multilingual")]],
-  [4, [research("reinforcement-learning")]],
-  [6, [research("agent-tasks")]],
-  [8, [research("multimodal")]],
-  [11, [research("regulatory-adaptation")]],
-  [16, [slot(3), research("version-rebuild")]],
-  [24, [research("multilingual"), research("reinforcement-learning")]],
+  [6, [research("reinforcement-learning"), research("agent-tasks")]],
+  [12, [research("multimodal"), research("regulatory-adaptation")]],
+  [20, [research("version-rebuild")]],
+  [34, [research("multilingual"), research("reinforcement-learning")]],
 ])
 const choices = { "unexpected-coding": "keep", "community-router": "pass", "inference-dividend": "cash",
   "audit-request": "routine", "research-exchange": "hold" }
-const noticeTypes = ["run-started", "research-slot-unlocked", "research-started", "research-completed",
+const noticeTypes = ["run-started", "research-started", "research-completed",
   "build-card-bought", "data-center-built", "action-used", "bubble-collected",
   "event-occurred", "decision-resolved", "run-ended"]
 
@@ -135,12 +132,12 @@ function play(mode) {
       store.dispatch({ type: "back" })
     }
     const beforeOps = runOf(store)
-    if (beforeOps.countries.CHN.centers === 0 && beforeOps.balance >= buildCardCost(beforeOps)) {
+    if (beforeOps.markets.as.centers === 0 && beforeOps.balance >= buildCardCost(beforeOps)) {
       store.dispatch({ type: "open-panel", panel: "actions" })
       const beforeBuy = runOf(store)
       store.dispatch({ type: "buy-build-card", runId: beforeBuy.runId, completedDay: day, seq: nextCommandSeq(beforeBuy) })
       const beforeBuild = runOf(store)
-      store.dispatch({ type: "build-data-center", countryId: "CHN", runId: beforeBuild.runId, completedDay: day, seq: nextCommandSeq(beforeBuild) })
+      store.dispatch({ type: "build-data-center", regionId: "as", runId: beforeBuild.runId, completedDay: day, seq: nextCommandSeq(beforeBuild) })
       store.dispatch({ type: "back" })
     }
     const forBubble = runOf(store)
@@ -215,12 +212,12 @@ test("1x and 5x clocks with and without pauses match developer settlements beyon
     assert.deepEqual(actual, expected, `${mode}: complete state, ordered notices, daily history and replay agree`)
   }
 
-  const { run, notices, dailyFacts } = expected
+  const { run, notices } = expected
   assert.equal(run.completedDay, targetDay)
   assert.ok(run.balance >= 0)
-  assert.ok(run.research.corpus > 2000)
+  assert.ok(run.research.corpus > 1500)
   assert.equal(run.researchBps, 400)
-  assert.equal(run.countries.CHN.centers, 1)
+  assert.equal(run.markets.as.centers, 1)
   assert.ok(run.adoptionBps > 0 && run.exposureBps < 2500)
   assert.equal(run.research.projects.length, 11)
   assert.equal(notices.filter(({ notice }) => notice.type === "run-ended").length, 0)
@@ -228,10 +225,6 @@ test("1x and 5x clocks with and without pauses match developer settlements beyon
   assert.equal(notices.filter(({ notice }) => notice.type === "data-center-built").length, 1)
   assert.ok(notices.filter(({ notice }) => notice.type === "bubble-collected").length >= 1)
   assert.ok(notices.filter(({ notice }) => notice.type === "action-used").length >= 1)
-  assert.deepEqual(notices.filter(({ day, notice }) => day === 28 && notice.type === "research-completed")
-    .map(({ notice }) => notice.project.skillId), ["multilingual", "reinforcement-learning"])
-  assert.ok(dailyFacts[28].corpus - dailyFacts[27].corpus >= 16)
-  assert.ok(dailyFacts[29].corpus - dailyFacts[28].corpus >= 18)
 
   const coding = run.events.find(entry => entry.content.id === "unexpected-coding")
   const followUp = run.events.find(entry => entry.sourceInstanceId === coding.instanceId)

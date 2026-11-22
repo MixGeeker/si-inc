@@ -1,6 +1,6 @@
 import {
   canToggleSynthetic,
-  countryBuildOptions,
+  regionBuildOption,
   regionSummary,
 } from "../../../../../packages/game/operations"
 import type { RunState } from "../../../../../packages/game/run"
@@ -48,7 +48,7 @@ export function RegionPanel({
   place: PlaceFocus | null
   run?: RunState | null
   chooseMarket: (id: RegionId) => void
-  buildCenter?: (countryId: string) => void
+  buildCenter?: (regionId: RegionId) => void
   toggleSynthetic?: (regionId: RegionId, enabled: boolean) => void
   openActions?: () => void
 }) {
@@ -57,7 +57,7 @@ export function RegionPanel({
   const site = location?.siteId ? computePlaceById(location.siteId) : undefined
   const title = place ? scenario.regions[place.id] : countryName(location?.country, locale) ?? (location ? ui.ocean : ui.worldOverview)
   const summary = run && place ? regionSummary(run, place.id) : null
-  const keyCountries = run && place ? countryBuildOptions(run, place.id).slice(0, 10) : []
+  const buildOpt = run && place ? regionBuildOption(run, place.id) : null
   const nextSynthetic = summary ? !summary.syntheticEnabled : true
   const synthToggleStatus = run && place ? canToggleSynthetic(run, place.id, nextSynthetic) : "invalid"
   return <>
@@ -67,12 +67,12 @@ export function RegionPanel({
         <div><dt>{ui.ops.playerRegionAdoption}</dt><dd>{summary.entered ? percent.format(summary.adoptionBps / 10000) : ui.ops.unentered}</dd></div>
         <div><dt>{ui.ops.playerRegionSynthetic}</dt><dd>{summary.entered ? `${percent.format(summary.syntheticBps / 10000)}${summary.syntheticEnabled ? ` · ${ui.ops.convertingActive}` : ""}` : "—"}</dd></div>
         <div><dt>{ui.ops.immersedPeople}</dt><dd>{formatCompactPeople(summary.immersed, locale, number)} / {formatCompactPeople(summary.synthetics, locale, number)}</dd></div>
-        <div><dt>{ui.ops.playerCenters}</dt><dd>{number.format(summary.centers)}</dd></div>
+        <div><dt>{ui.ops.playerCenters}</dt><dd>{ui.ops.sharedCenters(summary.centers, summary.unlockedLimit, summary.occupiedCenters, summary.totalSlots)}</dd></div>
         {summary.subsidyDaysLeft > 0 && <div><dt>{scenario.actions["market-subsidy"].name}</dt><dd>{ui.ops.subsidyActive(summary.subsidyDaysLeft)}</dd></div>}
         <div><dt>{ui.ops.milestones}</dt><dd>{btoken.adoptionMilestones.map(m =>
           `${percent.format(m.adoptionBps / 10000)}${summary.milestonesClaimed.includes(m.adoptionBps) ? " ✓" : ` (+${m.reward})`}`).join(" · ")}</dd></div>
       </> : place && <>
-        <div><dt>{ui.regions}</dt><dd>{Object.keys(regions[place.id].slots).length}</dd></div>
+        <div><dt>{ui.regions}</dt><dd>{regions[place.id].countries.length}</dd></div>
         <div><dt>{ui.capacity}</dt><dd>{regionCapacity(place.id)}</dd></div>
       </>}
       {site && <div><dt>{ui.computeSite}</dt><dd>{computePlaceLabel(site, language)}</dd></div>}
@@ -80,26 +80,24 @@ export function RegionPanel({
       {!place && location && <Reading atlas={atlas} place={location}/>}
     </dl>}
     {run && place && <FactionStandings run={run} regionId={place.id}/>}
-    {run && place && keyCountries.length > 0 && (
+    {run && place && buildOpt && (
       <details open>
-        <summary>{ui.ops.keyCountries} · {ui.ops.ownedCards(run.buildCards)}</summary>
-        <ul className="region-country-list">
-          {keyCountries.map(option => {
-            const name = countryName(atlas.countryById.get(option.country.id), locale) ?? option.country.id
-            return (
-              <li key={option.country.id} className="region-country-item">
-                <div>
-                  <strong>{name}</strong> · {ui.ops.playerRegionAdoption} {percent.format(option.adoptionBps / 10000)}
-                  {option.syntheticBps > 0 ? ` · ${ui.ops.playerRegionSynthetic} ${percent.format(option.syntheticBps / 10000)}` : ""}
-                  <small>{ui.ops.sharedCenters(option.centers, option.unlockedLimit, option.occupiedCenters, option.country.slots)}</small>
-                </div>
-                {buildCenter && option.status === "available" && (
-                  <button type="button" onClick={() => buildCenter(option.country.id)}>{ui.ops.buildHere}</button>
-                )}
-              </li>
-            )
-          })}
-        </ul>
+        <summary>{ui.ops.regionCentersSection} · {ui.ops.ownedCards(run.buildCards)}</summary>
+        <div className="region-country-item">
+          <div>
+            <strong>{buildOpt.isOrigin ? ui.ops.originBadge : buildOpt.entered ? ui.ops.tierBadge(buildOpt.unlockedTier) : ui.ops.unentered}</strong>
+            <small>
+              {ui.ops.sharedCenters(buildOpt.centers, buildOpt.unlockedLimit, buildOpt.occupiedCenters, buildOpt.region.slots)}
+              {" · "}
+              {ui.ops.localCap(formatCompactPeople(buildOpt.localCapacity, locale, number))}
+            </small>
+          </div>
+          {buildCenter && (
+            <button type="button" disabled={buildOpt.status !== "available"} onClick={() => buildCenter(place.id)}>
+              {buildOpt.status === "available" ? ui.ops.buildHere : ui.ops.unavailable[buildOpt.status]}
+            </button>
+          )}
+        </div>
       </details>
     )}
     {run && (openActions || (place && toggleSynthetic && summary?.entered)) && (

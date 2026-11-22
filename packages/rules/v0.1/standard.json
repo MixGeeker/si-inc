@@ -1,5 +1,5 @@
 {
-  "rulesVersion": "v0.1.2",
+  "rulesVersion": "v0.1.3",
   "regionCount": 6,
   "factionIds": ["gpt", "claude", "grok"],
   "daySecondsAt1x": 4,
@@ -10,7 +10,8 @@
     "attributeBaseline": 100,
     "initialCorpus": 32,
     "dailyCorpus": 8,
-    "slotCosts": [4, 8, 14, 22, 32, 44, 60]
+    "initialSlots": 7,
+    "slotCosts": [0, 0, 0, 0, 0, 0, 0]
   },
   "compute": {
     "baseSupply": 100,
@@ -48,10 +49,10 @@
     }
   },
   "operations": {
-    "originSeedBps": 40,
-    "originSeedMin": 50000,
-    "countryEntrySeedBps": 15,
-    "countryEntrySeedMin": 5000,
+    "originSeedBps": 45,
+    "originSeedMin": 200000,
+    "regionEntrySeedBps": 20,
+    "regionEntrySeedMin": 60000,
     "initialDependencyBps": 800,
     "unlockThresholdsBps": [2500, 5000, 7500],
     "edgeBaseShareBps": 2200,

@@ -10,11 +10,11 @@ import { HUD, hudScale } from "../../cartography/layout"
 import kyiv from "../../cartography/data/kyiv.webp"
 import type { MapPanel, NewsView } from "../machine"
 import type { DecisionId } from "../../../../../packages/rules/v0.1/events/decisions"
-import type { CampaignHud, HudContent, PreviewHud } from "./hudContent"
+import { factions, type FactionId } from "../../../../../packages/rules/v0.1/factions/roster"
+import type { CampaignHud, FactionBarData, HudContent, PreviewHud } from "./hudContent"
 import { NewsLayer } from "./NewsLayer"
 import type { NewsItem } from "./newsFeed"
 import { regionIds } from "../../../../../packages/rules/v0.1/world/regions"
-import { btoken } from "../../../../../packages/rules/v0.1/economy/btoken"
 import type { PlaceFocus } from "../store"
 
 interface Props {
@@ -163,15 +163,56 @@ function PlaceThumb({location}:{location:Location|null}) {
   </>
 }
 
-function StripBar({footer, human}:{footer?:string; human:string}) {
-  return <>
-    <path d="M217 163h757v37H217z" fill="url(#hud-blue)"/>
-    <path d="M217 163h757v37H217z" fill="none" stroke="var(--hud-edge)" strokeOpacity=".26" strokeWidth="1"/>
-    <path d="M219 164h754" stroke="var(--hud-edge)" strokeOpacity=".38"/>
-    <path d="M219 164h754v31H219z" fill="url(#rule)"/>
-    {footer && <text x="232" y="188" fontSize="20">{footer}</text>}
-    <text x="960" y="188" textAnchor="end" fontSize="20">{human}</text>
-  </>
+const barFactionColors: Record<FactionId, { playerImm: string; playerSyn: string; rivalImm: string; rivalSyn: string }> = {
+  gpt: { playerImm: "#00c864", playerSyn: "#4effa6", rivalImm: "#145735", rivalSyn: "#1e7a4b" },
+  claude: { playerImm: "#ff5c1a", playerSyn: "#ffb347", rivalImm: "#732c14", rivalSyn: "#993d1c" },
+  grok: { playerImm: "#8f38ff", playerSyn: "#d19cff", rivalImm: "#401e75", rivalSyn: "#5a2ca3" },
+}
+
+function FactionStackedBar({ x, y, width, height, bar, clipId }: {
+  x: number; y: number; width: number; height: number; bar: FactionBarData; clipId: string
+}) {
+  let cursor = x
+  return <g aria-hidden="true">
+    <clipPath id={clipId}><rect x={x} y={y} width={width} height={height} rx={Math.min(4, height / 2)}/></clipPath>
+    <rect x={x} y={y} width={width} height={height} rx={Math.min(4, height / 2)} fill="rgba(8, 18, 32, .88)" stroke="var(--hud-edge)" strokeOpacity=".34" strokeWidth=".9"/>
+    <g clipPath={`url(#${clipId})`}>
+      {bar.segments.map(seg => {
+        const pal = barFactionColors[seg.factionId]
+        const synW = width * (seg.syntheticBps / 10000)
+        const immW = width * (seg.immersedBps / 10000)
+        const sx = cursor
+        const ix = sx + synW
+        cursor = ix + immW
+        return <g key={seg.factionId}>
+          {synW > 0.2 && <>
+            <rect x={sx} y={y} width={synW} height={height} fill={seg.isPlayer ? pal.playerSyn : pal.rivalSyn}/>
+            <rect x={sx} y={y} width={synW} height={height} fill="url(#hud-bar-hex)" opacity={seg.isPlayer ? .52 : .35}/>
+          </>}
+          {immW > 0.2 && <rect x={ix} y={y} width={immW} height={height} fill={seg.isPlayer ? pal.playerImm : pal.rivalImm}/>}
+        </g>
+      })}
+    </g>
+    {/* Subtle 50% singularity reference tick */}
+    <line x1={x + width * 0.5} y1={y - 1} x2={x + width * 0.5} y2={y + height + 1} stroke="rgba(226, 242, 255, .36)" strokeWidth="1" strokeDasharray="2 2"/>
+  </g>
+}
+
+function RiskProgressBar({ x, y, width, label, valueText, bps, ticks, fill, urgent }: {
+  x: number; y: number; width: number; label: string; valueText: string; bps: number
+  ticks: readonly number[]; fill: string; urgent?: boolean
+}) {
+  const clamped = Math.max(0, Math.min(10000, bps))
+  const fillW = width * (clamped / 10000)
+  return <g>
+    <text x={x} y={y + 13} fontSize="14.5" fill={urgent ? "var(--ui-risk)" : "var(--hud-muted)"}>{label}</text>
+    <text x={x + width} y={y + 13} textAnchor="end" fontSize="14.5" fontWeight="600" fill={urgent ? "var(--ui-risk)" : "var(--hud-text)"}>{valueText}</text>
+    <rect x={x} y={y + 19} width={width} height="11" rx="2.5" fill="rgba(6, 14, 26, .9)" stroke={urgent ? "var(--ui-risk)" : "var(--hud-edge)"} strokeOpacity={urgent ? .85 : .36} strokeWidth="1"/>
+    {fillW > 0.5 && <rect x={x + 1} y={y + 20} width={Math.max(1, fillW - 2)} height="9" rx="1.8" fill={fill}/>}
+    {ticks.map(t => (
+      <line key={t} x1={x + width * t} y1={y + 18} x2={x + width * t} y2={y + 31} stroke="rgba(241, 248, 255, .5)" strokeWidth="1"/>
+    ))}
+  </g>
 }
 
 function CampaignStrip({x,y,place,location,content,focusPlace,openDetails,regionShortcut}:{
@@ -180,16 +221,15 @@ function CampaignStrip({x,y,place,location,content,focusPlace,openDetails,region
 }) {
   const { ui, locale, scenario, percent } = useLanguage()
   const marketName = place ? scenario.regions[place.id] : null
-  const name = marketName ?? `${ui.globalMarket} · ${content.adoptionText}`
   const currentRegion = place ? content.regions[place.id] : null
-  const currentRivals = place ? content.rivalsByRegion[place.id] : []
-  const footer = place
-    ? (currentRegion && currentRegion.subsidyDaysLeft > 0
-      ? ui.ops.subsidyActive(currentRegion.subsidyDaysLeft)
-      : ui.marketRewards(btoken.adoptionMilestones.map(m => `${percent.format(m.adoptionBps / 10000)} +${m.reward}`).join(" / ")))
-    : content.exposureText
+  const focusBar = place ? content.regionBars[place.id] : content.globalBar
+  const focusTitle = marketName
+    ? `${marketName}${currentRegion?.subsidyDaysLeft ? ` · ${ui.ops.subsidyActive(currentRegion.subsidyDaysLeft)}` : ""}`
+    : ui.globalMarket
   const outline = "M0 0H956l30 31v180H31L0 178Z"
   const detailName = marketName ?? (location ? countryName(location.country, locale) ?? ui.ocean : null)
+  const exposureColor = content.exposureBps >= 6000 ? "#ef4444" : content.exposureBps >= 2500 ? "#f59e0b" : "#38bdf8"
+  const humanColor = content.humanBps >= 7500 ? "#f43f5e" : "#ec4899"
   return <g transform={`translate(${x} ${y})`} role="group" aria-label={marketName ?? ui.globalMarket}>
     <path d="M-54 220V82l31-32H1038v170Z" fill="url(#hud-glass)"/>
     <path d="M-54 220V82l31-32H1038v170Z" fill="none" stroke="var(--hud-edge)" strokeOpacity=".24" strokeWidth="1" filter="url(#edge-glow)"/>
@@ -197,43 +237,95 @@ function CampaignStrip({x,y,place,location,content,focusPlace,openDetails,region
       <Glass d={outline}/>
       <PlaceThumb location={location}/>
     </g>
-    <StripBar footer={footer} human={content.human}/>
-    <text x={place ? 316 : 218} y="32" fontSize="26" fontWeight="600">{name}</text>
+
+    {/* Layer 1: Focus header + main stacked faction & synthetic progress bar */}
     {place && <Control label={ui.backGlobal} run={() => focusPlace(null)}>
-      <rect x="212" y="3" width="87" height="36" fill="transparent"/>
-      <text x="218" y="30" fontSize="21" fill="var(--hud-muted)">‹ {ui.globalShort}</text>
+      <rect x="212" y="4" width="76" height="28" fill="transparent"/>
+      <text x="218" y="24" fontSize="18" fill="var(--hud-muted)">‹ {ui.globalShort}</text>
     </Control>}
-    {!place && regionIds.map((id, i) => {
+    <text x={place ? 292 : 218} y="25" fontSize="22" fontWeight="600">{focusTitle}</text>
+    <Control label={`${detailName ? `${ui.regionProfile} · ${detailName}` : ui.locate} (${regionShortcut})`} run={openDetails}>
+      <rect x="740" y="3" width="224" height="29" fill="transparent"/>
+      <text x="960" y="24" textAnchor="end" fontSize="18" fill="var(--hud-muted)">[{regionShortcut}] {place ? ui.regionProfile : detailName ?? ui.locate} ›</text>
+    </Control>
+
+    <FactionStackedBar x={218} y={33} width={744} height={22} bar={focusBar} clipId="hud-focus-bar-clip"/>
+    <g fontSize="13.5">
+      {focusBar.segments.map((seg, idx) => {
+        const pal = barFactionColors[seg.factionId]
+        const sx = 218 + idx * 204
+        const name = factions[seg.factionId].name
+        const pctText = `${percent.format(seg.totalBps / 10000)}${seg.syntheticBps > 0 ? ` (◈${percent.format(seg.syntheticBps / 10000)})` : ""}`
+        return <g key={seg.factionId} transform={`translate(${sx} 68)`}>
+          <rect y="-10" width="9" height="9" rx="2" fill={seg.isPlayer ? pal.playerImm : pal.rivalImm}/>
+          <text x="14" fill={seg.isPlayer ? "var(--hud-text)" : "var(--hud-muted)"} fontWeight={seg.isPlayer ? "600" : "400"}>
+            {name} {pctText}
+          </text>
+        </g>
+      })}
+      <text x="962" y="68" textAnchor="end" fill={content.syntheticActive ? "var(--ui-accent-bright)" : "var(--hud-muted)"}>
+        {place && currentRegion
+          ? `${ui.ops.centersShort(currentRegion.occupiedCenters, currentRegion.totalSlots)} · ${ui.ops.playerCenters} ${currentRegion.centers}`
+          : `${ui.ops.barSynthetic} ${content.syntheticText}`}
+      </text>
+    </g>
+
+    {/* Layer 2: 2x3 Continental compact bar matrix (clickable focus switcher) */}
+    {regionIds.map((id, i) => {
       const summary = content.regions[id]
-      const readyToBuild = content.buildCards > 0 && summary.buildableCount > 0
-      const synthTag = summary.syntheticBps > 0 ? ` · ◈${percent.format(summary.syntheticBps / 10000)}` : ""
-      const rivals = content.rivalsByRegion[id]
-      const rightText = summary.entered
-        ? `${percent.format(summary.adoptionBps / 10000)}${synthTag || ` · ${summary.centers}/${summary.totalSlots}`}`
-        : rivals.length ? ui.ops.rivalCount(rivals.length) : ui.ops.unentered
-      const description = [rightText, ui.slotsFull(summary.totalSlots)]
-      if (rivals.length) description.push(ui.ops.rivalPresence(rivals.join(" · ")))
-      return <g key={id} transform={`translate(${215 + (i % 3) * 254} ${46 + Math.floor(i / 3) * 56})`}>
-        <Control label={scenario.regions[id]} description={description.join(" · ")} run={() => focusPlace({ kind: "market", id })}>
-          <rect className="place-cell" width="246" height="49" stroke={summary.syntheticEnabled ? "var(--ui-accent)" : readyToBuild ? "var(--ui-gain)" : undefined}/>
-          <text x="10" y="32" fontSize="23">{scenario.regions[id]}</text>
-          <text x="235" y="32" textAnchor="end" fontSize="17" fill={summary.syntheticEnabled ? "var(--ui-accent-bright)" : readyToBuild ? "var(--ui-gain)" : "var(--hud-muted)"}>{rightText}</text>
+      const bar = content.regionBars[id]
+      const col = i % 3
+      const row = Math.floor(i / 3)
+      const cx = 218 + col * 250
+      const cy = 78 + row * 40
+      const isSelected = place?.id === id
+      const readyToBuild = content.buildCards > 0 && summary.buildable
+      const stroke = isSelected
+        ? "var(--hud-bloom)"
+        : summary.syntheticEnabled
+          ? "var(--ui-accent)"
+          : readyToBuild
+            ? "var(--ui-gain)"
+            : undefined
+      const rightTag = summary.entered
+        ? `${percent.format(summary.adoptionBps / 10000)} · ${summary.centers}/${summary.totalSlots}`
+        : content.rivalsByRegion[id].length > 0
+          ? ui.ops.rivalCount(content.rivalsByRegion[id].length)
+          : ui.ops.unentered
+      const desc = `${scenario.regions[id]} · ${rightTag}`
+      return <g key={id} transform={`translate(${cx} ${cy})`}>
+        <Control label={scenario.regions[id]} description={desc} pressed={isSelected} run={() => focusPlace({ kind: "market", id })}>
+          <rect className="place-cell" width="244" height="35" rx="3" stroke={stroke} strokeWidth={isSelected ? 1.6 : 1}/>
+          <text x="8" y="15.5" fontSize="14.5" fontWeight={isSelected ? "600" : "400"}>
+            {summary.syntheticEnabled ? `◈ ${scenario.regions[id]}` : scenario.regions[id]}
+          </text>
+          <text x="236" y="15.5" textAnchor="end" fontSize="13" fill={summary.syntheticEnabled ? "var(--ui-accent-bright)" : readyToBuild ? "var(--ui-gain)" : "var(--hud-muted)"}>
+            {rightTag}
+          </text>
+          <FactionStackedBar x={8} y={21} width={228} height={8} bar={bar} clipId={`hud-reg-bar-${id}`}/>
         </Control>
       </g>
     })}
-    {place && currentRegion && <g transform="translate(220 74)">
-      <text fontSize="20" fill="var(--hud-muted)">{ui.ops.playerRegionAdoption}</text>
-      <text y="42" fontSize="34">{currentRegion.entered ? percent.format(currentRegion.adoptionBps / 10000) : ui.ops.unentered}</text>
-      <text x="250" fontSize="20" fill={currentRegion.syntheticEnabled ? "var(--ui-accent-bright)" : "var(--hud-muted)"}>{ui.ops.playerRegionSynthetic}</text>
-      <text x="250" y="42" fontSize="34">{currentRegion.entered ? percent.format(currentRegion.syntheticBps / 10000) : "—"}</text>
-      <text x="500" fontSize="20" fill="var(--hud-muted)">{ui.ops.playerCenters}</text>
-      <text x="500" y="42" fontSize="34">{currentRegion.centers}</text>
-      {currentRivals.length > 0 && <text y="74" fontSize="18" fill="var(--hud-muted)">{ui.ops.rivalPresence(currentRivals.join(" · "))}</text>}
-    </g>}
-    <Control label={`${detailName ? `${ui.regionProfile} · ${detailName}` : ui.locate} (${regionShortcut})`} run={openDetails}>
-      <rect x="720" y="3" width="246" height="36" fill="transparent"/>
-      <text x="958" y="30" textAnchor="end" fontSize="21" fill="var(--hud-muted)">[{regionShortcut}] {place ? ui.regionProfile : detailName ?? ui.locate} ›</text>
-    </Control>
+
+    {/* Layer 3: Exposure & Project HUMAN dual risk meters */}
+    <RiskProgressBar
+      x={218} y={163} width={362}
+      label={`${ui.ops.barExposure} · ${content.alertLabel}`}
+      valueText={percent.format(content.exposureBps / 10000)}
+      bps={content.exposureBps}
+      ticks={[0.25, 0.5, 0.75]}
+      fill={exposureColor}
+      urgent={content.exposureBps >= 5000}
+    />
+    <RiskProgressBar
+      x={600} y={163} width={362}
+      label={ui.ops.barHuman}
+      valueText={content.humanBps > 0 ? percent.format(content.humanBps / 10000) : ui.humanInactive}
+      bps={content.humanBps}
+      ticks={[0.25, 0.75]}
+      fill={humanColor}
+      urgent={content.humanBps >= 5000}
+    />
   </g>
 }
 
@@ -334,6 +426,9 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
     <svg className="hud" viewBox={`0 0 ${w} ${h}`} aria-label={ui.mapControls}>
       <Symbols/>
       <defs><pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse"><path d="M0 1h4" stroke="var(--hud-scanline)" strokeWidth=".6" opacity=".28"/></pattern>
+        <pattern id="hud-bar-hex" width="8" height="8" patternUnits="userSpaceOnUse">
+          <path d="M0 4 4 0 8 4 4 8Z" fill="none" stroke="rgba(255,255,255,.75)" strokeWidth=".9"/>
+        </pattern>
         <clipPath id="news-clip"><path d="M16 26h92v58l-36 34H16z"/></clipPath>
       </defs>
       <path d={`M0 ${h-182}h21l32 32v105H${w-53}v-105l32-32h21V${h}H0Z`} fill="var(--hud-skirt)"/>

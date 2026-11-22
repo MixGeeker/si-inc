@@ -206,6 +206,80 @@
   border-color: var(--ui-accent-line);
 }
 
+.ops-continent-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: .55em;
+}
+
+.ops-continent-card {
+  display: grid;
+  gap: .5em;
+  align-content: space-between;
+  padding: .62em .74em;
+  border: 1px solid var(--ui-divider-soft);
+  background: rgba(8, 12, 24, .38);
+}
+
+.ops-continent-card.ready {
+  border-color: var(--ui-cyan-line-strong);
+  background: linear-gradient(150deg, rgba(12, 34, 52, .52), rgba(8, 12, 24, .44));
+}
+
+.ops-continent-card.unentered {
+  opacity: .68;
+}
+
+.ops-continent-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ops-continent-action button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.ops-slot-pips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: .18em 0;
+}
+
+.ops-slot-pips i {
+  display: inline-block;
+  width: 14px;
+  height: 7px;
+  border-radius: 2px;
+  border: 1px solid rgba(148, 163, 184, .32);
+}
+
+.ops-slot-pips i.is-player {
+  background: var(--ui-gain);
+  border-color: #86efac;
+}
+
+.ops-slot-pips i.is-rival {
+  background: rgba(148, 163, 184, .52);
+  border-color: rgba(203, 213, 225, .45);
+}
+
+.ops-slot-pips i.is-open {
+  background: rgba(56, 189, 248, .2);
+  border-color: rgba(56, 189, 248, .65);
+}
+
+.ops-slot-pips i.is-locked {
+  background: rgba(15, 23, 42, .55);
+  border-style: dashed;
+  opacity: .65;
+}
+
 .ending-rating {
   margin: .75em 0;
   padding: .75em .95em;

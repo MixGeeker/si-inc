@@ -124,9 +124,13 @@ test("gameplay notices and eternal night transitions dispatch their mapped SFX c
   store.dispatch({ type: "set-layer", layer: "night", enabled: false })
   let run = store.getSnapshot().scene.run
   store.dispatch({ type: "open-panel", panel: "overview" })
-  store.dispatch({ type: "unlock-research-slot", slot: 1, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
-  run = store.getSnapshot().scene.run
   store.dispatch({ type: "start-research", skillId: defaultResearchSkill, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  run = store.getSnapshot().scene.run
+  store.dispatch({ type: "start-research", skillId: "daily-chat", runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  run = store.getSnapshot().scene.run
+  store.dispatch({ type: "move-research", fromSlot: 2, toSlot: 1, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  run = store.getSnapshot().scene.run
+  store.dispatch({ type: "cancel-research", slot: 2, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
   store.dispatch({ type: "back" })
   store.dispatch({ type: "set-layer", layer: "night", enabled: true })
   // Repeated night layer update is ignored by the reducer.
@@ -141,7 +145,7 @@ test("gameplay notices and eternal night transitions dispatch their mapped SFX c
   run = store.getSnapshot().scene.run
   store.dispatch({ type: "buy-build-card", runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
   run = store.getSnapshot().scene.run
-  store.dispatch({ type: "build-data-center", countryId: "CHN", runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  store.dispatch({ type: "build-data-center", regionId: "as", runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
   run = store.getSnapshot().scene.run
   store.dispatch({ type: "fund-conversion", tokens: 1, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
   run = store.getSnapshot().scene.run
@@ -162,8 +166,8 @@ test("gameplay notices and eternal night transitions dispatch their mapped SFX c
   const expectedBubbleCue = bubble.kind === "corpus" ? "skill_evolve" : bubble.kind === "alert" ? "faction_ability" : "datacenter_deploy"
   assert.equal(cues[beforeBubbleCount], expectedBubbleCue)
   store.dispatch({ type: "finish", outcome: "ai-victory" })
-  assert.deepEqual(cues.slice(0, 7), [
-    "datacenter_deploy", "skill_evolve", "enter_eternal_night",
+  assert.deepEqual(cues.slice(0, 9), [
+    "skill_evolve", "skill_evolve", "test", "test", "enter_eternal_night",
     "datacenter_deploy", "datacenter_deploy", "datacenter_deploy", "faction_ability",
   ])
   assert.equal(cues.at(-1), "endgame_victory")
@@ -210,14 +214,9 @@ test("Project HUMAN alert fires once when research crosses 25% and 75% and does 
   daysTo(15)
   send(open("actions"))
   order({ type: "buy-build-card" })
-  order({ type: "build-data-center", countryId: "CHN" })
+  order({ type: "build-data-center", regionId: "as" })
   send({ type: "back" })
-  send(open("overview"))
-  for (const slot of [1, 2, 3]) order({ type: "unlock-research-slot", slot })
-  send({ type: "back" })
-  research("inference-efficiency")
-  research("multimodal", "reinforcement-learning", "regulatory-adaptation")
-  research("version-rebuild")
+  research("inference-efficiency", "multimodal", "reinforcement-learning", "regulatory-adaptation", "version-rebuild")
   const id = "recursive-improvement", node = researchNode(id)
   const levels = Math.ceil(standardScenario.rules.projectHuman.completionBps / node.skill.dangerBps)
   for (let level = 1; level <= levels; level++) research(id)

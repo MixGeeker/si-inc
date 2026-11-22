@@ -1,4 +1,4 @@
-import type { CountryPopulation, CountryPopulations } from "../../../../../packages/game/population.ts"
+import type { ContourPopulations, PopulationBucket } from "../../../../../packages/game/population.ts"
 
 export interface PopulationPreview {
   readonly peninsulaCoverage: number
@@ -8,8 +8,8 @@ export interface PopulationPreview {
 export const initialPopulationPreview: PopulationPreview = { peninsulaCoverage: 53, japanSyntheticShare: 100 }
 
 /** Relative counts for the map preview. Each country has 10,000 sample units. */
-export function previewPopulations({ peninsulaCoverage, japanSyntheticShare }: PopulationPreview): CountryPopulations {
-  const peninsula: CountryPopulation = { total: 10_000, factions: {
+export function previewPopulations({ peninsulaCoverage, japanSyntheticShare }: PopulationPreview): ContourPopulations {
+  const peninsula: PopulationBucket = { total: 10_000, factions: {
     gpt: { immersed: 20 * peninsulaCoverage, synthetic: 0 },
     claude: { immersed: 30 * peninsulaCoverage, synthetic: 0 },
     grok: { immersed: 50 * peninsulaCoverage, synthetic: 0 },

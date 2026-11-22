@@ -9,7 +9,6 @@ import {
   computePressure,
   conversionPackTokens,
   corpusYieldBreakdown,
-  countryBuildOptions,
   currentAlertLevel,
   estimatedDailyTokenIncome,
   factionAbilityCooldownLeft,
@@ -17,6 +16,7 @@ import {
   hallucinationWindfallTokens,
   newMarketReward,
   publicStatementReliefBps,
+  regionBuildOptions,
   regionSummary,
   syntheticActivationExposureBps,
   syntheticPeoplePerToken,
@@ -28,8 +28,6 @@ import { actions, type ActionId } from "../../../../../packages/rules/v0.1/evolu
 import { factions, type FactionAbilityId } from "../../../../../packages/rules/v0.1/factions/roster"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
 import { regionIds, type RegionId } from "../../../../../packages/rules/v0.1/world/regions"
-import type { Atlas } from "../../cartography/atlas"
-import { countryName } from "../../cartography/place-names"
 import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
 import { useGameSnapshot, useGameStore } from "../GameContext"
@@ -42,12 +40,10 @@ type OpsTab = typeof opsTabs[number]
 
 export function ActionsDialog({
   run,
-  atlas,
   initialRegionId,
   back,
 }: {
   run: RunState
-  atlas: Atlas
   initialRegionId?: RegionId
   back: () => void
 }) {
@@ -57,9 +53,6 @@ export function ActionsDialog({
   const enteredRegions = useMemo(() => regionIds.filter(id => run.markets[id].enteredDay !== null), [run.markets])
   const unenteredRegions = useMemo(() => regionIds.filter(id => run.markets[id].enteredDay === null), [run.markets])
   const [tab, setTab] = useState<OpsTab>("actions")
-  const [filterRegion, setFilterRegion] = useState<RegionId | "all">(
-    initialRegionId && run.markets[initialRegionId].enteredDay !== null ? initialRegionId : "all",
-  )
   const [cloudTarget, setCloudTarget] = useState<RegionId | "">(unenteredRegions[0] ?? "")
   const [subsidyTarget, setSubsidyTarget] = useState<RegionId | "">(
     initialRegionId && run.markets[initialRegionId].enteredDay !== null ? initialRegionId : (enteredRegions[0] ?? ""),
@@ -108,17 +101,14 @@ export function ActionsDialog({
   const factionCost = actionCost(run, factionAbility.id)
   const factionCooldown = factionAbilityCooldownLeft(run)
   const factionActiveDays = factionAbilityEffectDaysLeft(run)
-  const buildOptions = useMemo(
-    () => tab === "centers" ? countryBuildOptions(run, filterRegion === "all" ? undefined : filterRegion) : [],
-    [run, filterRegion, tab],
-  )
+  const buildOptions = useMemo(() => tab === "centers" ? regionBuildOptions(run) : [], [run, tab])
 
   function dispatchBuyCard() {
     store.dispatch({ type: "buy-build-card", runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
   }
 
-  function dispatchBuild(countryId: string) {
-    store.dispatch({ type: "build-data-center", countryId, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  function dispatchBuild(regionId: RegionId) {
+    store.dispatch({ type: "build-data-center", regionId, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
   }
 
   function dispatchFund(tokens: number) {
@@ -364,7 +354,10 @@ export function ActionsDialog({
         {tab === "centers" && (
           <section className="ops-section">
             <div className="ops-card-bar">
-              <p>{ui.ops.buyCardHint}</p>
+              <div>
+                <p>{ui.ops.buyCardHint}</p>
+                <p className="ops-action-note">{ui.ops.continentBuildHint}</p>
+              </div>
               <div className="ops-badges">
                 {cardStatus !== "available" && <span className="ops-action-note">{ui.ops.unavailable[cardStatus]}</span>}
                 <button type="button" disabled={cardStatus !== "available"} onClick={dispatchBuyCard}>
@@ -373,52 +366,48 @@ export function ActionsDialog({
               </div>
             </div>
 
-            <div className="ops-tabs" role="group" aria-label={ui.ops.targetMarket}>
-              <button type="button" aria-pressed={filterRegion === "all"} onClick={() => setFilterRegion("all")}>
-                {ui.ops.allContinents}
-              </button>
-              {enteredRegions.map(id => (
-                <button key={id} type="button" aria-pressed={filterRegion === id} onClick={() => setFilterRegion(id)}>
-                  {scenario.regions[id]}
-                </button>
-              ))}
-            </div>
-
-            {!buildOptions.length ? (
-              <p className="ops-action-note">{ui.ops.noBuildable}</p>
-            ) : (
-              <ul className="ops-country-list">
-                {buildOptions.slice(0, 24).map(option => {
-                  const name = countryName(atlas.countryById.get(option.country.id), locale) ?? option.country.id
-                  const { status } = option
-                  const canBuild = status === "available"
-                  return (
-                    <li key={option.country.id} className={`ops-country-row${canBuild ? " ready" : ""}`}>
-                      <div className="ops-country-meta">
-                        <div className="ops-country-title">
-                          <strong>{name}</strong>
-                          <span className={`ops-pill${option.isOrigin || option.unlockedTier === 3 ? " gain" : ""}`}>
-                            {option.isOrigin ? ui.ops.originBadge : ui.ops.tierBadge(option.unlockedTier)}
-                          </span>
-                        </div>
-                        <div className="ops-country-sub">
-                          <span>{scenario.regions[option.country.regionId]}</span>
-                          <span>{ui.ops.playerRegionAdoption} {percent.format(option.adoptionBps / 10000)}</span>
-                          <span>{ui.ops.playerRegionSynthetic} {percent.format(option.syntheticBps / 10000)}</span>
-                          <span>{ui.ops.sharedCenters(option.centers, option.unlockedLimit, option.occupiedCenters, option.country.slots)}</span>
-                          <span>{ui.ops.localCap(formatCompactPeople(option.localCapacity, locale, number))}</span>
-                        </div>
+            <ul className="ops-continent-grid">
+              {buildOptions.map(option => {
+                const { region, status } = option
+                const canBuild = status === "available"
+                const rivalCenters = Math.max(0, option.occupiedCenters - option.centers)
+                return (
+                  <li key={region.id} className={`ops-continent-card${canBuild ? " ready" : ""}${!option.entered ? " unentered" : ""}`}>
+                    <div className="ops-country-meta">
+                      <div className="ops-country-title">
+                        <strong>{scenario.regions[region.id]}</strong>
+                        <span className={`ops-pill${option.isOrigin || option.unlockedTier === 3 ? " gain" : ""}`}>
+                          {!option.entered ? ui.ops.unentered : option.isOrigin ? ui.ops.originBadge : ui.ops.tierBadge(option.unlockedTier)}
+                        </span>
                       </div>
-                      <div>
-                        <button type="button" disabled={!canBuild} onClick={() => dispatchBuild(option.country.id)}>
-                          {canBuild ? ui.ops.buildHere : ui.ops.unavailable[status]}
-                        </button>
+                      <div className="ops-slot-pips" aria-hidden="true">
+                        {Array.from({ length: region.slots }, (_, idx) => {
+                          const cls = idx < option.centers
+                            ? "is-player"
+                            : idx < option.centers + rivalCenters
+                              ? "is-rival"
+                              : idx < option.unlockedLimit && option.entered
+                                ? "is-open"
+                                : "is-locked"
+                          return <i key={idx} className={cls}/>
+                        })}
                       </div>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
+                      <div className="ops-country-sub">
+                        <span>{ui.ops.playerRegionAdoption} {option.entered ? percent.format(option.adoptionBps / 10000) : "—"}</span>
+                        {option.syntheticBps > 0 && <span>{ui.ops.playerRegionSynthetic} {percent.format(option.syntheticBps / 10000)}</span>}
+                        <span>{ui.ops.sharedCenters(option.centers, option.unlockedLimit, option.occupiedCenters, region.slots)}</span>
+                        <span>{ui.ops.localCap(formatCompactPeople(option.localCapacity, locale, number))}</span>
+                      </div>
+                    </div>
+                    <div className="ops-continent-action">
+                      <button type="button" disabled={!canBuild} onClick={() => dispatchBuild(region.id)}>
+                        {canBuild ? ui.ops.buildHere : ui.ops.unavailable[status]}
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
           </section>
         )}
       </div>

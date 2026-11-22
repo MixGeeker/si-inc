@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { useFrame, useLoader, useThree } from "@react-three/fiber"
 import { Color, Group, MathUtils, TextureLoader } from "three"
-import type { CountryPopulations } from "../../../../packages/game/population.ts"
+import type { ContourPopulations } from "../../../../packages/game/population.ts"
+import type { FactionId } from "../../../../packages/rules/v0.1/factions/roster.ts"
 import { Atlas, relief, surfaceUrl, nightLightsUrl, vaporUrl, type Country } from "./atlas"
 import humidityUrl from "./data/humidity.png"
-import { buildCountryFieldTexture, createCountryPopulationTexture, updateCountryPopulationTexture } from "./country-field"
+import { buildCountryFieldTexture, createCountryPopulationTexture, factionShaderIndex, updateCountryPopulationTexture } from "./country-field"
 import { MapCamera } from "./camera"
 import { WORLD_WIDTH, WORLD_HEIGHT, Y_SCALE } from "./layout"
 import { CurrentTraces } from "./currents"
@@ -23,12 +24,12 @@ export function preloadTerrainTextures() {
 export type LayerState = { cloud:boolean; current:boolean; speed:number; reduced:boolean; night:boolean }
 type Props = {
   terrainLabel:string; atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState
-  populations:CountryPopulations; populationScope:string | null
+  populations:ContourPopulations; populationScope:string | null; playerFaction:FactionId | null
   project:(time:number)=>void; onReady:()=>void
 }
 
 export default function TerrainScene({
-  terrainLabel, atlas, rig, selected, layers, populations, populationScope, project, onReady,
+  terrainLabel, atlas, rig, selected, layers, populations, populationScope, playerFaction, project, onReady,
 }:Props) {
   const {gl, invalidate, set} = useThree()
   const [surface,nightLights,vapor,humidity] = useLoader(TextureLoader, terrainTextures)
@@ -64,6 +65,7 @@ export default function TerrainScene({
   },[rig])
   useLayoutEffect(() => { gl.domElement.setAttribute("aria-label", terrainLabel) }, [gl, terrainLabel])
   useLayoutEffect(()=>{
+    mat.uniforms.playerFaction.value = factionShaderIndex(playerFaction)
     if (populationScope !== null) {
       updateCountryPopulationTexture(countryPop, atlas, populations)
       mat.uniforms.popEnabled.value = 1
@@ -71,7 +73,7 @@ export default function TerrainScene({
       mat.uniforms.popEnabled.value = 0
     }
     invalidate()
-  },[atlas, countryPop, invalidate, mat, populationScope, populations])
+  },[atlas, countryPop, invalidate, mat, playerFaction, populationScope, populations])
   useLayoutEffect(()=>{
     set({camera:rig.camera})
     rig.setFlat(false)

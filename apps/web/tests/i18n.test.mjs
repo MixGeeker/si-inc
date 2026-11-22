@@ -114,10 +114,15 @@ test("both catalogs cover the same script, map features and compute markers", ()
       assert.doesNotMatch(b, /\p{Script=Han}/u, path)
       return
     }
+    if (typeof a === "function") {
+      assert.equal(typeof b, "function", path)
+      return
+    }
     assert.deepEqual(Object.keys(a).sort(), Object.keys(b).sort(), path)
     for (const key of Object.keys(a)) compare(a[key], b[key], `${path}.${key}`)
   }
   compare(zh.scenario, en.scenario, "scenario")
+  compare(zh.ui, en.ui, "ui")
   const svg = readFileSync(new URL("../src/cartography/data/countries.svg", import.meta.url), "utf8")
   for (const match of svg.matchAll(/<path id="([^"]+)" data-name="([^"]+)"/g)) {
     const country = { id: match[1], name: match[2] }

@@ -8,8 +8,7 @@ import { actions } from "../v0.1/evolution/actions.ts"
 import { btoken } from "../v0.1/economy/btoken.ts"
 import { channels } from "../v0.1/world/channels.ts"
 import { computeSnapshot } from "../v0.1/world/compute.ts"
-import { countries, countryIds, globalPlayablePopulation, originCountries, slotUnlockLimit } from "../v0.1/world/countries.ts"
-import { regionCapacity, regionIds, regionOfCountry, regions } from "../v0.1/world/regions.ts"
+import { globalPlayablePopulation, regionCapacity, regionIds, regionOfCountry, regions, slotUnlockLimit } from "../v0.1/world/regions.ts"
 import placesFile from "../v0.1/world/compute-places.json" with { type: "json" }
 import { decisions } from "../v0.1/events/decisions.ts"
 import { news } from "../v0.1/events/news.ts"
@@ -19,14 +18,16 @@ import { zhCN } from "../v0.1/locales/zh-CN.ts"
 import { en } from "../v0.1/locales/en.ts"
 
 test("every playable faction, start market and faction epilogue belongs to the standard scenario", () => {
-  const { factions, regions, rules } = standardScenario
+  const { factions, regions: scenarioRegions, rules } = standardScenario
   assert.deepEqual(Object.keys(factions).sort(), [...rules.factionIds].sort())
   assert.deepEqual(Object.keys(victoryEpilogues).sort(), [...rules.factionIds].sort())
   assert.equal(new Set(Object.values(factions).map(f => f.ability.id)).size, rules.factionIds.length)
-  assert.equal(Object.keys(regions).length, rules.regionCount)
+  assert.equal(Object.keys(scenarioRegions).length, rules.regionCount)
   assert.equal(Object.keys(channels).length, 5)
   assert.equal(rules.daySecondsAt1x, 4)
   assert.deepEqual(rules.speedMultipliers, [1, 2, 5])
+  assert.equal(rules.research.initialSlots, 7)
+  assert.equal(rules.research.slotCosts.length, 7)
   assert.equal(Object.hasOwn(rules, "maxDays"), false)
   const outcomes = ["ai-victory", "human-victory", "rival-victory"]
   assert.deepEqual(Object.keys(endings).sort(), outcomes)
@@ -35,51 +36,34 @@ test("every playable faction, start market and faction epilogue belongs to the s
   for (const id of ["we", "ee", "sa", "latam", "__proto__", ["as"]]) assert.equal(resolveStartRegionId(id), undefined)
 })
 
-test("every map selection outside Antarctica belongs to one continent and keeps its reference capacity", () => {
-  const reference = readFileSync(new URL("../../../docs/data-center-capacity.csv", import.meta.url), "utf8")
-  const [header, ...rows] = reference.trimEnd().split(/\r?\n/).map(line => line.split(","))
-  const column = header.indexOf("建议总槽位")
-  assert.ok(column > 0)
+test("every map contour outside Antarctica belongs to one continent and continental slots/populations are consistent", () => {
   const atlas = readFileSync(new URL("../../../apps/web/src/cartography/data/countries.svg", import.meta.url), "utf8")
   const shapes = [...atlas.matchAll(/<path id="([^"]+)"/g)].map(match => match[1])
-  assert.deepEqual(shapes.sort(), rows.map(row => row[0]).sort())
-
-  const slots = new Map()
-  for (const region of regionIds) {
-    for (const [id, count] of Object.entries(regions[region].slots)) {
-      assert.equal(slots.has(id), false, id)
-      slots.set(id, count)
-      assert.equal(regionOfCountry(id), region)
+  const mapped = new Set()
+  for (const regionId of regionIds) {
+    const spec = regions[regionId]
+    assert.ok(spec.population > 0, regionId)
+    assert.ok(spec.internetBps > 0 && spec.internetBps <= 10000, regionId)
+    assert.ok(spec.slots >= 3, regionId)
+    assert.equal(spec.slotCapacity, Math.ceil(spec.population / spec.slots), regionId)
+    assert.ok(spec.bubblePoints.length >= 5, regionId)
+    for (const [lon, lat] of spec.bubblePoints) {
+      assert.ok(lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90, regionId)
+    }
+    assert.equal(slotUnlockLimit(spec.slots, 0), 1, regionId)
+    assert.ok(slotUnlockLimit(spec.slots, 1) >= 2 && slotUnlockLimit(spec.slots, 1) <= spec.slots, regionId)
+    assert.ok(slotUnlockLimit(spec.slots, 2) >= slotUnlockLimit(spec.slots, 1), regionId)
+    assert.equal(slotUnlockLimit(spec.slots, 3), spec.slots, regionId)
+    for (const countryId of spec.countries) {
+      assert.equal(mapped.has(countryId), false, countryId)
+      mapped.add(countryId)
+      assert.equal(regionOfCountry(countryId), regionId)
     }
   }
-  assert.deepEqual(slots, new Map(rows.filter(([id]) => id !== "ATA").map(row => [row[0], row[column] ? Number(row[column]) : null])))
-  assert.equal([...slots.values()].filter(n => n !== null).length, 215)
-  assert.equal(regionIds.reduce((sum, id) => sum + regionCapacity(id), 0), 339)
+  assert.deepEqual([...mapped].sort(), shapes.filter(id => id !== "ATA").sort())
+  assert.equal(regionIds.reduce((sum, id) => sum + regionCapacity(id), 0), 36)
+  assert.equal(globalPlayablePopulation, regionIds.reduce((sum, id) => sum + regions[id].population, 0))
   for (const id of ["ATA", "unknown", "__proto__"]) assert.equal(regionOfCountry(id), undefined)
-
-  const popCol = header.indexOf("总人口")
-  const capCol = header.indexOf("单座额定服务人数（试玩）")
-  const l25Col = header.indexOf("25%累计上限")
-  const l50Col = header.indexOf("50%累计上限")
-  const l75Col = header.indexOf("75%累计上限")
-  const capacityRows = rows.filter(row => row[column])
-  assert.equal(countryIds.length, capacityRows.length)
-  assert.equal(globalPlayablePopulation, capacityRows.reduce((sum, row) => sum + Number(row[popCol]), 0))
-  for (const row of capacityRows) {
-    const spec = countries[row[0]]
-    assert.ok(spec, row[0])
-    assert.equal(spec.population, Number(row[popCol]), row[0])
-    assert.equal(spec.slots, Number(row[column]), row[0])
-    assert.equal(spec.slotCapacity, Number(row[capCol]), row[0])
-    assert.equal(spec.regionId, regionOfCountry(row[0]), row[0])
-    assert.equal(slotUnlockLimit(spec.slots, 1), Number(row[l25Col]), row[0])
-    assert.equal(slotUnlockLimit(spec.slots, 2), Number(row[l50Col]), row[0])
-    assert.equal(slotUnlockLimit(spec.slots, 3), Number(row[l75Col]), row[0])
-  }
-  for (const id of regionIds) {
-    const origin = countries[originCountries[id]]
-    assert.ok(origin && origin.regionId === id, id)
-  }
   assert.equal(btoken.buildCardCost, 12)
 })
 
@@ -92,13 +76,13 @@ test("the six starting markets follow continental borders and share the all-mark
     na: ["USA", "CAN", "GRL", "MEX", "PAN", "CUB", "HTI"], sam: ["COL", "VEN", "BRA", "ARG", "FLK"],
     oc: ["AUS", "NZL", "PNG", "FJI", "COK"],
   }
-  for (const [continent, countries] of Object.entries(borders)) {
-    for (const country of countries) assert.equal(regionOfCountry(country), continent, country)
+  for (const [continent, countryList] of Object.entries(borders)) {
+    for (const country of countryList) assert.equal(regionOfCountry(country), continent, country)
   }
 })
 
 test("the three research pages contain fifty distinct technologies and reciprocal exclusive choices", () => {
-  assert.deepEqual(trees.map(t => t.skills.length), [17,17,16])
+  assert.deepEqual(trees.map(t => t.skills.length), [17, 17, 16])
   const skills = researchNodes.map(n => n.skill)
   assert.equal(new Set(skills.map(s => s.id)).size, 50)
   assert.equal(skills.filter(s => s.repeatCostStep).length, 4)

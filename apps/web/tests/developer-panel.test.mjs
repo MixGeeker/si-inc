@@ -51,7 +51,6 @@ test("the next-event readout and manual stepping include earlier research milest
     store.dispatch({ ...event, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
   }
   store.dispatch({ type: "open-panel", panel: "overview" })
-  order({ type: "unlock-research-slot", slot: 1 })
   order({ type: "start-research", skillId: "daily-chat" })
   store.dispatch({ type: "back" })
   for (let day = 0; day < 2; day++) {

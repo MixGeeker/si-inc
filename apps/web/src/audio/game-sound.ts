@@ -72,6 +72,12 @@ export function attachGameSound(
     store.on("research-started", (_, snapshot) => {
       if (snapshot.scene.kind !== "ending") emit("skill_evolve")
     }),
+    store.on("research-cancelled", (_, snapshot) => {
+      if (snapshot.scene.kind !== "ending") emit("test")
+    }),
+    store.on("research-reordered", (_, snapshot) => {
+      if (snapshot.scene.kind !== "ending") emit("test")
+    }),
     store.on("research-slot-unlocked", (_, snapshot) => {
       if (snapshot.scene.kind !== "ending") emit("datacenter_deploy")
     }),

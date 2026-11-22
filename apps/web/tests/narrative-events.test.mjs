@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { advanceDay, createRun, decisionChoiceForRun, nextCommandSeq, resolveDecision, startResearch, unlockResearchSlot, useAction } from "../../../packages/game/run.ts"
+import { advanceDay, createRun, decisionChoiceForRun, nextCommandSeq, resolveDecision, startResearch, useAction } from "../../../packages/game/run.ts"
 import { decisions } from "../../../packages/rules/v0.1/events/decisions.ts"
 import { standardScenario } from "../../../packages/rules/v0.1/scenario.ts"
 import { sceneReducer, visibleRunState } from "../src/scenes/machine.ts"
@@ -26,7 +26,6 @@ function until(run, target) {
 
 function codingRun() {
   let run = createRun(setup, 42)
-  run = unlockResearchSlot(run, 1, nextCommandSeq(run))
   run = startResearch(run, "daily-chat", nextCommandSeq(run))
   run = until(run, 2)
   run = startResearch(run, "agent-tasks", nextCommandSeq(run))

@@ -2,10 +2,12 @@ import {
   advanceDay,
   buildDataCenter,
   buyBuildCard,
+  cancelResearch,
   collectMapBubble,
   createRun,
   dailyOutcome,
   fundConversion,
+  moveResearch,
   pendingDecision,
   resolveDecision,
   startResearch,
@@ -93,8 +95,10 @@ export type SceneEvent =
   | { type: "select-research"; skillId: SkillId }
   | { type: "unlock-research-slot"; slot: number; runId: string; completedDay: number; seq: number }
   | { type: "start-research"; skillId: SkillId; runId: string; completedDay: number; seq: number }
+  | { type: "cancel-research"; slot: number; runId: string; completedDay: number; seq: number }
+  | { type: "move-research"; fromSlot: number; toSlot: number; runId: string; completedDay: number; seq: number }
   | { type: "buy-build-card"; runId: string; completedDay: number; seq: number }
-  | { type: "build-data-center"; countryId: string; runId: string; completedDay: number; seq: number }
+  | { type: "build-data-center"; regionId: RegionId; runId: string; completedDay: number; seq: number }
   | { type: "fund-conversion"; tokens: number; runId: string; completedDay: number; seq: number }
   | { type: "toggle-synthetic"; regionId: RegionId; enabled: boolean; runId: string; completedDay: number; seq: number }
   | { type: "use-action"; abilityId: ActionId | FactionAbilityId; targetRegionId?: RegionId; runId: string; completedDay: number; seq: number }
@@ -203,11 +207,18 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
         && event.skillId !== (scene.researchSkillId ?? defaultResearchSkill)) return { ...scene, researchSkillId: event.skillId }
       break
     case "unlock-research-slot":
-    case "start-research": {
+    case "start-research":
+    case "cancel-research":
+    case "move-research": {
       if (scene.kind !== "campaign" || scene.panel !== "overview"
         || scene.run.runId !== event.runId || scene.run.completedDay !== event.completedDay) return scene
-      const run = event.type === "start-research" ? startResearch(scene.run, event.skillId, event.seq)
-        : unlockResearchSlot(scene.run, event.slot, event.seq)
+      const run = event.type === "start-research"
+        ? startResearch(scene.run, event.skillId, event.seq)
+        : event.type === "cancel-research"
+          ? cancelResearch(scene.run, event.slot, event.seq)
+          : event.type === "move-research"
+            ? moveResearch(scene.run, event.fromSlot, event.toSlot, event.seq)
+            : unlockResearchSlot(scene.run, event.slot, event.seq)
       return run === scene.run ? scene : { ...scene, run }
     }
     case "buy-build-card":
@@ -220,7 +231,7 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
       const run = event.type === "buy-build-card"
         ? buyBuildCard(scene.run, event.seq)
         : event.type === "build-data-center"
-          ? buildDataCenter(scene.run, event.countryId, event.seq)
+          ? buildDataCenter(scene.run, event.regionId, event.seq)
           : event.type === "fund-conversion"
             ? fundConversion(scene.run, event.tokens, event.seq)
             : event.type === "toggle-synthetic"

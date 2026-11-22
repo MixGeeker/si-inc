@@ -81,9 +81,7 @@ test("research orders bind to the open campaign, commit once, and complete along
   startGame(store)
   const order = payload => ({ runId: run().runId, completedDay: run().completedDay, seq: nextCommandSeq(run()), ...payload })
   const tick = () => ({ type: "advance-day", runId: run().runId, completedDay: run().completedDay })
-  const opening = { type: "unlock-research-slot", slot: 1 }
   const project = { type: "start-research", skillId: "daily-chat" }
-  blocked(order(opening))
   blocked(order(project))
   const deadline = run().schedule.nextDay
   while (run().completedDay < deadline - researchNode(project.skillId).skill.days) send(tick())
@@ -93,20 +91,16 @@ test("research orders bind to the open campaign, commit once, and complete along
   blocked({ ...select, skillId: "unknown" })
   blocked(tick())
   const notices = []
-  for (const type of ["research-slot-unlocked", "research-started", "research-completed", "event-occurred"]) {
+  for (const type of ["research-started", "research-completed", "event-occurred"]) {
     store.on(type, (event, state) => {
       assert.strictEqual(state, snapshot())
       notices.push(event.type)
     })
   }
-  for (const override of [{ runId: "expired-run" }, { completedDay: 0 }, { seq: 99 }, { slot: 2 }]) blocked(order({ ...opening, ...override }))
-  const first = order(opening)
+  for (const override of [{ runId: "expired-run" }, { completedDay: 0 }, { seq: 99 }]) blocked(order({ ...project, ...override }))
+  const first = order(project)
   send(first)
   blocked(first)
-  const second = order(project)
-  blocked({ ...second, runId: "expired-run" })
-  send(second)
-  blocked(second)
   blocked(order(project))
   assert.equal(slotProject(run(), 1).skillId, "daily-chat")
   send({ type: "back" })
@@ -118,7 +112,7 @@ test("research orders bind to the open campaign, commit once, and complete along
     send(step)
     blocked(step)
   }
-  assert.deepEqual(notices, ["research-slot-unlocked", "research-started", "research-completed", "event-occurred"])
+  assert.deepEqual(notices, ["research-started", "research-completed", "event-occurred"])
   const scene = snapshot().scene
   assert.equal(slotProject(scene.kind === "decision" ? scene.back.run : scene.run, 1), undefined)
 })
@@ -167,15 +161,10 @@ test("each dangerous level settles once and HUMAN completion ends a campaign aft
   daysTo(15)
   send(panel("actions"))
   order({ type: "buy-build-card" })
-  order({ type: "build-data-center", countryId: "CHN" })
+  order({ type: "build-data-center", regionId: "as" })
   send({ type: "back" })
-  send(panel("overview"))
-  for (const slot of [1, 2, 3]) order({ type: "unlock-research-slot", slot })
-  send({ type: "back" })
-  research("inference-efficiency")
-  research("multimodal", "reinforcement-learning", "regulatory-adaptation")
-  research("version-rebuild")
-  daysTo(75)
+  research("inference-efficiency", "multimodal", "reinforcement-learning", "regulatory-adaptation", "version-rebuild")
+  daysTo(65)
   const id = "recursive-improvement", node = researchNode(id)
   const threshold = standardScenario.rules.projectHuman.completionBps
   let completedLevels = 0

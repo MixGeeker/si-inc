@@ -5,17 +5,16 @@ import { actionById } from "../rules/v0.1/evolution/actions.ts"
 import { researchNode, type SkillId } from "../rules/v0.1/evolution/trees.ts"
 import type { Outcome } from "../rules/v0.1/endings/standard.ts"
 import { factions, type FactionId } from "../rules/v0.1/factions/roster.ts"
-import { isFactionId, resolveStartRegionId, standardScenario } from "../rules/v0.1/scenario.ts"
-import { countrySpec } from "../rules/v0.1/world/countries.ts"
+import { isFactionId, isRegionId, resolveStartRegionId, standardScenario } from "../rules/v0.1/scenario.ts"
 import type { RegionId } from "../rules/v0.1/world/regions.ts"
 import type { GameCommand, RunCommand, TokenGrant } from "./types.ts"
-import type { CountryPopulations } from "./population.ts"
+import type { RegionPopulations } from "./population.ts"
 import type { ComputerFactions } from "./competition.ts"
 import { marketResearchValue } from "./market-research.ts"
 import {
   actionCost,
   buildCardCost,
-  buildCountryPopulations,
+  buildRegionPopulations,
   canBuildDataCenter,
   canBuyBuildCard,
   canCollectBubble,
@@ -38,24 +37,27 @@ import {
   tokenScaleOf,
   totalCenters,
   type ActionCooldowns,
-  type CountryRunState,
   type MapBubble,
   type MarketRunState,
 } from "./operations.ts"
 import {
-  advanceResearchProjects,
+  activateQueueHeadState,
+  advanceResearchQueue,
+  canCancelResearch,
+  canMoveResearch,
+  canQueueResearch,
+  cancelCascadeSlots,
   completedLevel,
   completionDay,
   dailyCorpus,
   firstIdleSlot,
   initialResearch,
   isProjectCompleted,
-  parallelCompletionCorpus,
-  projectRemainingDays,
-  researchCost,
+  projectQueueEstimatedDays,
+  queuedResearchProjects,
   researchLevels,
   researchState,
-  researchStatus,
+  type ResearchProject,
   type ResearchState,
 } from "./research.ts"
 
@@ -96,7 +98,7 @@ export interface RunState {
   readonly operatingRemainder?: number
   readonly adoptionBps: number | null
   readonly dependencyBps: number | null
-  readonly countryPopulations?: CountryPopulations
+  readonly regionPopulations: RegionPopulations
   readonly syntheticBps: number
   readonly playerSyntheticBps: number
   readonly conversionBudgetPeople: number
@@ -104,7 +106,6 @@ export interface RunState {
   readonly exposureBps: number
   readonly buildCards: number
   readonly markets: Readonly<Record<RegionId, MarketRunState>>
-  readonly countries: Readonly<Record<string, CountryRunState>>
   readonly opponents: ComputerFactions
   readonly corpusRemainder: number
   readonly crossRegionProgress: number
@@ -199,7 +200,7 @@ function codingMilestoneDay(run: RunState): number | undefined {
     .filter(project => project.skillId === definition.requiresSkill)
     .map(project => isProjectCompleted(run, project)
       ? completionDay(project)
-      : run.completedDay + projectRemainingDays(run, project, workPerDay))
+      : run.completedDay + projectQueueEstimatedDays(run, project.slot, workPerDay))
   if (!completions.length) return undefined
   const completed = Math.min(...completions)
   const draw = nextRandom((run.seed ^ completed ^ 0x9e3779b9) >>> 0)
@@ -253,7 +254,6 @@ function advanceNarrativeEvents(run: RunState): RunState {
         remaining.filter(report => report.kind !== content.kind || report.id !== content.id))
     } else schedule = scheduleAfter(run.completedDay, schedule.randomState, remaining)
   }
-  // Scene entry points open the final decision while all reports remain in the archive.
   if (decision) additions.push(decision)
   return { ...run, schedule, events: additions.length ? [...run.events, ...additions] : run.events }
 }
@@ -285,16 +285,17 @@ export function advanceDay(run: RunState): RunState {
   const research = researchState(run)
   const op = settleOperationsDay(run, day)
   const payment = op.operatingPayment + op.tokenReward
-  const { projects, finishing } = advanceResearchProjects(run, day, op.compute.researchWorkPerDay)
-  const danger = finishing.reduce((sum, p) => sum + (researchNode(p.skillId).skill.dangerBps ?? 0), 0)
-  const corpusIncome = dailyCorpus(run) + parallelCompletionCorpus(run, finishing.length) + op.populationCorpus
+  const baseCorpusIncome = dailyCorpus(run) + op.populationCorpus
   if (!Number.isSafeInteger(run.balance) || run.balance < 0 || !Number.isSafeInteger(research.corpus) || research.corpus < 0
-    || !Number.isSafeInteger(payment) || payment < 0 || !Number.isSafeInteger(corpusIncome) || corpusIncome < 0) return run
-  // Natural income saturates at the representable limit without stopping the day clock.
+    || !Number.isSafeInteger(payment) || payment < 0 || !Number.isSafeInteger(baseCorpusIncome) || baseCorpusIncome < 0) return run
+
+  const corpusWithIncome = research.corpus + Math.min(baseCorpusIncome, Number.MAX_SAFE_INTEGER - research.corpus)
+  const queueResult = advanceResearchQueue(run, day, corpusWithIncome, activeLoad => computePressure(run, activeLoad).researchWorkPerDay)
+  const danger = queueResult.finishing.reduce((sum, p) => sum + (researchNode(p.skillId).skill.dangerBps ?? 0), 0)
+
   const balanceGain = Math.min(payment, Number.MAX_SAFE_INTEGER - run.balance)
   const balance = run.balance + balanceGain
   const lifetimeTokens = run.lifetimeTokens + Math.min(payment, Number.MAX_SAFE_INTEGER - run.lifetimeTokens)
-  const corpus = research.corpus + Math.min(corpusIncome, Number.MAX_SAFE_INTEGER - research.corpus)
   const next: RunState = {
     ...run,
     completedDay: day,
@@ -304,21 +305,20 @@ export function advanceDay(run: RunState): RunState {
     operatingRemainder: op.operatingRemainder,
     adoptionBps: op.adoptionBps,
     dependencyBps: op.dependencyBps,
-    countryPopulations: op.countryPopulations,
+    regionPopulations: op.regionPopulations,
     syntheticBps: op.syntheticBps,
     playerSyntheticBps: op.playerSyntheticBps,
     syntheticActivatedDay: op.syntheticActivatedDay,
     conversionBudgetPeople: op.conversionBudgetPeople,
     exposureBps: op.exposureBps,
     markets: op.markets,
-    countries: op.countries,
     opponents: op.opponents,
     corpusRemainder: op.corpusRemainder,
     crossRegionProgress: op.crossRegionProgress,
     bubbles: op.bubbles,
     bubbleRandomState: op.bubbleRandomState,
     researchBps: Math.min(rules.projectHuman.completionBps, run.researchBps + op.humanAdvanceBps + danger),
-    research: { ...research, corpus, projects },
+    research: { ...research, corpus: queueResult.corpus, projects: queueResult.projects },
   }
   if (dailyOutcome(next)) return next
   const milestones = milestoneAdditions(run, next, op.compute.status)
@@ -353,20 +353,69 @@ export function unlockResearchSlot(run: RunState, slot: number, seq: number): Ru
     research: { ...research, unlockedSlots: slot, corpus: research.corpus - rules.research.slotCosts[slot - 1] } }
 }
 
+/** Append a technology to the serial blueprint queue; auto-pays and starts immediately if slot 1 is affordable. */
 export function startResearch(run: RunState, skillId: string, seq: number): RunState {
-  if (dailyOutcome(run) || !isNextCommandSeq(run, seq)) return run
+  if (dailyOutcome(run) || !isNextCommandSeq(run, seq) || !canQueueResearch(run, skillId)) return run
   const node = researchNode(skillId)
   if (!node) return run
-  const research = researchState(run)
-  const status = researchStatus(run, node)
-  const cost = researchCost(run, node)
-  if ((status !== "available" && status !== "upgradable") || research.corpus < cost) return run
   const slot = firstIdleSlot(run)
   if (slot === null) return run
-  const project = { skillId: node.skill.id, slot, startedDay: run.completedDay, workDone: 0 }
+  const research = researchState(run)
+  const appended: ResearchProject = { skillId: node.skill.id, slot, startedDay: run.completedDay, workDone: 0 }
+  const nextResearch = activateQueueHeadState(
+    { ...research, projects: [...research.projects, appended] },
+    run.completedDay,
+  )
   const command: GameCommand = { kind: "buySkill", skillId, day: run.completedDay, seq }
-  return { ...run, commands: [...run.commands, command],
-    research: { ...research, corpus: research.corpus - cost, projects: [...research.projects, project] } }
+  return { ...run, commands: [...run.commands, command], research: nextResearch }
+}
+
+/** Remove a slot (including active slot 1) from the serial queue, refunding paid corpus and cascading invalid dependents. */
+export function cancelResearch(run: RunState, slot: number, seq: number): RunState {
+  if (dailyOutcome(run) || !isNextCommandSeq(run, seq) || !canCancelResearch(run, slot)) return run
+  const research = researchState(run)
+  const cascade = new Set(cancelCascadeSlots(run, slot))
+  if (!cascade.size) return run
+
+  const done: ResearchProject[] = []
+  const remainingQueue: ResearchProject[] = []
+  let refunded = 0
+  for (const project of research.projects) {
+    if (isProjectCompleted(run, project)) {
+      done.push(project)
+    } else if (cascade.has(project.slot)) {
+      refunded += project.paidCost ?? 0
+    } else {
+      remainingQueue.push(project)
+    }
+  }
+  remainingQueue.sort((a, b) => a.slot - b.slot)
+  const compacted = remainingQueue.map((project, index) => ({ ...project, slot: index + 1 }))
+  const nextCorpus = research.corpus + Math.min(refunded, Number.MAX_SAFE_INTEGER - research.corpus)
+  const nextResearch = activateQueueHeadState(
+    { ...research, corpus: nextCorpus, projects: [...done, ...compacted] },
+    run.completedDay,
+  )
+  const command: GameCommand = { kind: "cancelResearch", slot, day: run.completedDay, seq }
+  return { ...run, commands: [...run.commands, command], research: nextResearch }
+}
+
+/** Reorder slots in the serial queue (e.g. rush-promote an urgent tech to slot 1 while preserving displaced progress). */
+export function moveResearch(run: RunState, fromSlot: number, toSlot: number, seq: number): RunState {
+  if (dailyOutcome(run) || !isNextCommandSeq(run, seq) || !canMoveResearch(run, fromSlot, toSlot)) return run
+  const research = researchState(run)
+  const done = research.projects.filter(project => isProjectCompleted(run, project))
+  const queue = queuedResearchProjects(run)
+  const reordered = [...queue]
+  const [moved] = reordered.splice(fromSlot - 1, 1)
+  reordered.splice(toSlot - 1, 0, moved)
+  const compacted = reordered.map((project, index) => ({ ...project, slot: index + 1 }))
+  const nextResearch = activateQueueHeadState(
+    { ...research, projects: [...done, ...compacted] },
+    run.completedDay,
+  )
+  const command: GameCommand = { kind: "moveResearch", fromSlot, toSlot, day: run.completedDay, seq }
+  return { ...run, commands: [...run.commands, command], research: nextResearch }
 }
 
 export function canGrantTokens(run: RunState, amount: number) {
@@ -393,29 +442,17 @@ export function buyBuildCard(run: RunState, seq: number): RunState {
   }
 }
 
-export function buildDataCenter(run: RunState, countryId: string, seq: number): RunState {
-  if (!isNextCommandSeq(run, seq) || canBuildDataCenter(run, countryId) !== "available") return run
-  const spec = countrySpec(countryId)
-  if (!spec) return run
-  const existing = run.countries[countryId]
-  const nextCountry: CountryRunState = existing
-    ? { ...existing, centers: existing.centers + 1 }
-    : {
-      users: 0,
-      synthetics: 0,
-      newlyConverted: 0,
-      prevUsers: 0,
-      retainedDays: 0,
-      centers: 1,
-      unlockedTier: 3,
-      carry: 0,
-      dependencyBps: rules.operations.initialDependencyBps,
-    }
-  const command: GameCommand = { kind: "buildDataCenter", countryId, day: run.completedDay, seq }
+export function buildDataCenter(run: RunState, regionId: string, seq: number): RunState {
+  if (!isNextCommandSeq(run, seq) || !isRegionId(regionId) || canBuildDataCenter(run, regionId) !== "available") return run
+  const market = run.markets[regionId]
+  const command: GameCommand = { kind: "buildDataCenter", regionId, day: run.completedDay, seq }
   return {
     ...run,
     buildCards: run.buildCards - 1,
-    countries: { ...run.countries, [countryId]: nextCountry },
+    markets: {
+      ...run.markets,
+      [regionId]: { ...market, centers: market.centers + 1 },
+    },
     commands: [...run.commands, command],
   }
 }
@@ -475,9 +512,13 @@ export function collectMapBubble(run: RunState, bubbleId: string, seq: number): 
   if (bubble.kind === "corpus") {
     const research = researchState(run)
     const gain = Math.min(bubble.value, Number.MAX_SAFE_INTEGER - research.corpus)
+    const nextResearch = activateQueueHeadState(
+      { ...research, corpus: research.corpus + gain },
+      run.completedDay,
+    )
     return {
       ...run,
-      research: { ...research, corpus: research.corpus + gain },
+      research: nextResearch,
       bubbles: remaining,
       commands: [...run.commands, command],
     }
@@ -555,9 +596,8 @@ export function useAction(run: RunState, abilityId: string, seq: number, targetR
 
   if (action.id === "cross-border-cloud" && targetRegionId) {
     const markets = { ...run.markets } as Record<RegionId, MarketRunState>
-    const countries = { ...run.countries } as Record<string, CountryRunState>
-    if (!enterMarketState(run, targetRegionId, run.completedDay, markets, countries)) return run
-    const { adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps } = computeGlobalMetrics(countries, run.opponents)
+    if (!enterMarketState(run, targetRegionId, run.completedDay, markets)) return run
+    const { adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps } = computeGlobalMetrics(markets, run.opponents)
     const reward = newMarketReward(run)
     const lifetimeTokens = run.lifetimeTokens + Math.min(reward, Number.MAX_SAFE_INTEGER - run.lifetimeTokens)
     return {
@@ -565,8 +605,7 @@ export function useAction(run: RunState, abilityId: string, seq: number, targetR
       balance: run.balance - cost + reward,
       lifetimeTokens,
       markets,
-      countries,
-      countryPopulations: buildCountryPopulations(countries, run.setup.factionId, run.opponents),
+      regionPopulations: buildRegionPopulations(markets, run.setup.factionId, run.opponents),
       adoptionBps,
       syntheticBps,
       playerSyntheticBps,
@@ -619,7 +658,6 @@ export function decisionChoiceForRun(run: RunState, id: DecisionId, choiceId: st
   }
 }
 
-/** Preview the same net changes that settlement records, even before the player can afford them. */
 export function decisionEffectForRun(run: RunState, id: DecisionId, choiceId: string): DecisionEffect | undefined {
   const choice = decisionChoiceForRun(run, id, choiceId)
   if (!choice || !Number.isSafeInteger(choice.cost) || choice.cost < 0
@@ -671,11 +709,12 @@ export function resolveDecision(run: RunState, instanceId: string, id: DecisionI
   const balance = run.balance + effect.tokens
   const lifetimeGain = effect.tokens > 0 ? Math.min(effect.tokens, Number.MAX_SAFE_INTEGER - run.lifetimeTokens) : 0
   const corpus = research.corpus + effect.corpus
+  const nextResearch = activateQueueHeadState({ ...research, corpus }, run.completedDay)
   const researchBps = run.researchBps + effect.humanBps
   const resolved = { ...entry, choiceId, resolvedDay: run.completedDay, effect,
     ...(choice.followUp ? { followUpDay: run.completedDay + choice.followUp.delayDays } : {}) }
   return {
-    ...run, balance, lifetimeTokens: run.lifetimeTokens + lifetimeGain, researchBps, research: { ...research, corpus },
+    ...run, balance, lifetimeTokens: run.lifetimeTokens + lifetimeGain, researchBps, research: nextResearch,
     events: run.events.map(event => event === entry ? resolved : event),
     commands: [...run.commands, command],
   }

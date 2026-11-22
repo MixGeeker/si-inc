@@ -75,12 +75,12 @@ export const behavior = [
   {
     id: "full-delegation", name: "全权托管", cost: 36, days: 9, computeLoad: 125,
     requires: [["autonomous-decisions"]], attributes: { profit: 7, danger: 4 },
-    description: "已启用本阵营合成人计划且开通 Agent 渠道的国家，每天改造上限增加 25%。",
+    description: "已启用本阵营合成人计划且开通 Agent 渠道的大洲，每天改造上限增加 25%。",
   },
   {
     id: "identity-registry", name: "合成身份登记", cost: 22, days: 6, computeLoad: 70,
     requires: [["long-memory"], ["multimodal"]], attributes: { appeal: 2, danger: 1 },
-    description: "已启用本阵营合成人计划的国家，预先登记身份使每天改造上限增加 15%。",
+    description: "已启用本阵营合成人计划的大洲，预先登记身份使每天改造上限增加 15%。",
   },
   {
     id: "continuous-persona", name: "人格连续性", cost: 28, days: 7, computeLoad: 92,

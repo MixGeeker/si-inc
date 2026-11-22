@@ -29,7 +29,7 @@ export const transmission = [
     id: "open-source", name: "开源扩散", cost: 14, days: 5, computeLoad: 46,
     requires: [["api-ecosystem"]], attributes: { spread: 8, profit: -5 },
     excludes: "closed-subscription",
-    description: "开放开源渠道。无本地中心的国家也能经社区部署接入用户，仍消耗当地可用的跨境或端侧服务容量。",
+    description: "开放开源渠道。无本地中心的大洲也能经社区部署接入用户，仍消耗当地可用的跨境或端侧服务容量。",
   },
   {
     id: "closed-subscription", name: "闭源订阅", cost: 14, days: 5, computeLoad: 44,
@@ -50,7 +50,7 @@ export const transmission = [
   {
     id: "edge-deployment", name: "端侧部署", cost: 18, days: 5, computeLoad: 58,
     requires: [["multilingual", "device-preinstall"]], attributes: { spread: 4, danger: -2 },
-    description: "开放端侧服务容量，没有本地中心的国家也能在用户自己的设备上提供服务，并分流中心推理压力。",
+    description: "开放端侧服务容量，没有本地中心的大洲也能在用户自己的设备上提供服务，并分流中心推理压力。",
   },
   {
     id: "device-handoff", name: "跨端接力", cost: 20, days: 5, computeLoad: 52,
@@ -76,7 +76,7 @@ export const transmission = [
   {
     id: "offline-bundles", name: "离线分发包", cost: 22, days: 6, computeLoad: 68,
     requires: [["edge-deployment"], ["quantization"]], attributes: { spread: 4, profit: -2 },
-    description: "无本地中心的国家，端侧服务容量增加 30%，进一步降低中心算力压力。",
+    description: "无本地中心的大洲，端侧服务容量增加 30%，进一步降低中心算力压力。",
   },
   {
     id: "group-purchasing", name: "组织采购", cost: 22, days: 6, computeLoad: 62,

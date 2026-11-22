@@ -14,8 +14,10 @@ function LegendSwatch({ faction, color, synthetic }: { faction: FactionId; color
   const [brightDot, deepDot] = legendAccents[faction]
   return <svg className="legend-glyph" viewBox="-8 -8 16 16" aria-hidden="true">
     <rect x="-6.4" y="-6.4" width="12.8" height="12.8" rx="3.2" fill={color}/>
-    <circle cx={synthetic ? -1.8 : 0} cy={synthetic ? -1.4 : 0} r={synthetic ? 2.6 : 2.5} fill={brightDot}/>
-    {synthetic && <circle cx="2.5" cy="2.4" r="1.9" fill={deepDot}/>}
+    {synthetic ? <>
+      <polygon points="0,-4.4 3.8,-2.2 3.8,2.2 0,4.4 -3.8,2.2 -3.8,-2.2" fill={brightDot}/>
+      <polygon points="0,-2.3 2,-1.15 2,1.15 0,2.3 -2,1.15 -2,-1.15" fill={deepDot} opacity=".6"/>
+    </> : <circle cx="0" cy="0" r="2.8" fill={brightDot}/>}
   </svg>
 }
 
