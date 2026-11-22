@@ -8,12 +8,15 @@ import {
 import { researchState } from "../../../../../packages/game/research.ts"
 import type { RunState } from "../../../../../packages/game/run.ts"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario.ts"
-import { regionIds, type RegionId } from "../../../../../packages/rules/v0.1/world/regions.ts"
+import { regionCapacity, regionIds, regionOfCountry, regions, type RegionId } from "../../../../../packages/rules/v0.1/world/regions.ts"
+import { computePlaces } from "../../cartography/compute-markers.ts"
 import { languages, type Language } from "../../i18n/languages.ts"
 import { previewSpeeds } from "../machine.ts"
-import { mapPreview } from "./preview.ts"
 
 const empty = "—"
+const globalReferenceSlots = regionIds.reduce((sum, id) => sum + regionCapacity(id), 0)
+const globalComputeSites = computePlaces.reduce((sum, place) => sum + place.sites, 0)
+const factionTotal = Object.keys(standardScenario.factions).length
 
 export function formatCompactPeople(count: number, locale: "zh-CN" | "en", number: Intl.NumberFormat): string {
   if (count <= 0) return "0"
@@ -28,17 +31,23 @@ export function formatCompactPeople(count: number, locale: "zh-CN" | "en", numbe
   return number.format(count)
 }
 
-export function hudContent(run: RunState | null, globalView: boolean, language: Language = languages["zh-CN"]) {
-  const { ui, scenario, number, percent, date } = language
+export function hudContent(
+  run: RunState | null,
+  globalView: boolean,
+  language: Language = languages["zh-CN"],
+  placeId: RegionId | null = null,
+  countryId: string | null = null,
+) {
+  const { ui, scenario, number, percent } = language
   if (run) {
     const { factions, rules } = standardScenario
     const yieldInfo = corpusYieldBreakdown(run)
     const alertId = currentAlertLevel(run.exposureBps)
     const opponents = Object.values(run.opponents)
-    const regions = {} as Record<RegionId, RegionSummary>
+    const regionMap = {} as Record<RegionId, RegionSummary>
     const rivalsByRegion = {} as Record<RegionId, readonly string[]>
     for (const id of regionIds) {
-      regions[id] = regionSummary(run, id)
+      regionMap[id] = regionSummary(run, id)
       rivalsByRegion[id] = opponents.filter(opponent => opponent.markets[id] !== null)
         .map(opponent => factions[opponent.factionId].name)
     }
@@ -63,17 +72,36 @@ export function hudContent(run: RunState | null, globalView: boolean, language: 
       dependencyText: run.dependencyBps === null ? empty : percent.format(run.dependencyBps / 10000),
       exposureText: `${ui.exposure} ${percent.format(run.exposureBps / 10000)} · ${scenario.alerts[alertId]}`,
       human: run.researchBps ? ui.lab.humanProgress(percent.format(run.researchBps / 10000)) : ui.humanInactive,
-      regions,
+      regions: regionMap,
       rivalsByRegion,
     }
   }
+
+  let siteCount = globalComputeSites
+  let slotCount: number | null = globalReferenceSlots
+  if (!globalView) {
+    if (placeId) {
+      siteCount = computePlaces.reduce((sum, p) => regionOfCountry(p.country) === placeId ? sum + p.sites : sum, 0)
+      slotCount = regionCapacity(placeId)
+    } else if (countryId) {
+      siteCount = computePlaces.reduce((sum, p) => p.country === countryId ? sum + p.sites : sum, 0)
+      const owner = regionOfCountry(countryId)
+      slotCount = owner ? regions[owner].slots[countryId as keyof typeof regions[typeof owner]["slots"]] ?? null : null
+    } else {
+      siteCount = 0
+      slotCount = null
+    }
+  }
+
   return {
     kind: "preview" as const,
-    date: date.format(new Date(mapPreview.date)), overview: ui.disease,
-    currencyIcon: "dna", balance: mapPreview.dna, research: percent.format(mapPreview.research), speeds: previewSpeeds,
+    date: ui.mapPreviewTitle,
+    speeds: previewSpeeds,
+    marketValue: ui.marketCount(regionIds.length),
+    factionDetail: ui.factionCount(factionTotal),
     metrics: [
-      { icon: "bio", label: ui.infected, value: number.format(globalView ? mapPreview.infected : 0) },
-      { icon: "skull", label: ui.deaths, value: number.format(mapPreview.deaths) },
+      { icon: "lab-chip", label: ui.computeSites, value: ui.siteCount(siteCount) },
+      { icon: "token", label: ui.capacity, value: slotCount === null ? empty : ui.slots(slotCount) },
     ],
   }
 }

@@ -1,8 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { populationShares } from "../../../packages/game/population.ts"
-import { createPopulationPointBuilder, populationColors } from "../src/cartography/population-points.ts"
-import { Y_SCALE } from "../src/cartography/layout.ts"
+import { encodeCountryPopulations, flatCountryFill, populationColors } from "../src/cartography/country-field.ts"
 import { createGameStore } from "../src/scenes/store.ts"
 import { previewPopulations } from "../src/scenes/world/populationPreview.ts"
 
@@ -49,79 +48,37 @@ test("the country denominator includes uncovered people and rejects contradictor
   assert.equal(populationShares({total:100,factions:{}}),null)
 })
 
-function cloudColors(cloud) {
-  const points = new Map()
-  let offset = 0
-  for (const { color, start, count } of cloud.groups) {
-    assert.equal(start, offset)
-    for (let point = start; point < start + count; point++) {
-      const xyz = cloud.positions.subarray(point * 3, point * 3 + 3)
-      const rgb = cloud.colors.subarray(point * 3, point * 3 + 3)
-      assert.equal(`#${Array.from(rgb, value => value.toString(16).padStart(2, "0")).join("")}`, color)
-      points.set(xyz.join(","), color)
-      offset++
-    }
+test("country population texture encoding preserves coverage, faction shares, and per-faction synthetic ratios", () => {
+  const ids = ["KOR", "JPN", "EMPTY"]
+  const populations = {
+    KOR: { total: 200, factions: { gpt: { immersed: 20, synthetic: 0 }, claude: { immersed: 30, synthetic: 0 }, grok: { immersed: 50, synthetic: 0 } } },
+    JPN: { total: 100, factions: { gpt: { immersed: 10, synthetic: 40 }, claude: { immersed: 30, synthetic: 0 }, grok: { immersed: 0, synthetic: 20 } } },
   }
-  assert.equal(offset * 3, cloud.positions.length)
-  assert.equal(cloud.colors.length, cloud.positions.length)
-  return points
-}
+  const bytes = encodeCountryPopulations(ids, populations)
 
-test("country points preserve partial coverage and stable cohorts across snapshots", () => {
-  const shape = { id: "ONE", box: [0, -6, 16, 2],
-    d: "M180,88 188,88 188,96 180,96ZM182,90 185,90 185,93 182,93ZM193,91 196,91 196,94 193,94Z" }
-  const shapeData = new Int16Array(721 * 361)
-  const build = createPopulationPointBuilder([shape], shapeData)
-  const counts = (total, synthetic) => ({ ONE: { total, factions: {
-    gpt: { immersed: 70 - synthetic, synthetic }, claude: { immersed: 30, synthetic: 0 },
-  } } })
-  const full = build(counts(100, 0)), partial = build(counts(200, 20))
-  assert.ok(full.positions.length > 0)
-  assert.equal(partial.positions.length / 3, Math.round(full.positions.length / 6))
-  const cohort = color => partial.groups.find(group => group.color === color)?.count ?? 0
-  const expected = [[populationColors.gpt[0], .5], [populationColors.gpt[1], .2], [populationColors.claude[0], .3]]
-  for (const [color, fraction] of expected) {
-    assert.ok(Math.abs(cohort(color) - partial.positions.length / 3 * fraction) <= 1)
-  }
+  // Slot 1 = KOR (coverage 50%, total synthetic 0%, gpt 20%, claude 30%).
+  const kor0 = 1 * 4, kor1 = (256 + 1) * 4
+  assert.equal(bytes[kor0], Math.round(0.5 * 255))
+  assert.equal(bytes[kor0 + 1], 0)
+  assert.equal(bytes[kor0 + 2], Math.round(0.2 * 255))
+  assert.equal(bytes[kor0 + 3], Math.round(0.3 * 255))
+  assert.equal(bytes[kor1], 0)
+  assert.equal(bytes[kor1 + 1], 0)
+  assert.equal(bytes[kor1 + 2], 0)
 
-  const before = cloudColors(full), after = cloudColors(build(counts(100, 70)))
-  for (const [point, color] of before) {
-    assert.equal(after.get(point), color === populationColors.gpt[0] ? populationColors.gpt[1] : color)
-  }
-  for (const point of cloudColors(partial).keys()) assert.ok(before.has(point))
-  assert.deepEqual(build(counts(100, 0)), full)
-  assert.equal(build({}).positions.length, 0)
+  // Slot 2 = JPN (coverage 100%, total synthetic 60%, gpt 50% w/ 80% syn, claude 30% w/ 0% syn, grok 20% w/ 100% syn).
+  const jpn0 = 2 * 4, jpn1 = (256 + 2) * 4
+  assert.equal(bytes[jpn0], 255)
+  assert.equal(bytes[jpn0 + 1], Math.round(0.6 * 255))
+  assert.equal(bytes[jpn0 + 2], Math.round(0.5 * 255))
+  assert.equal(bytes[jpn0 + 3], Math.round(0.3 * 255))
+  assert.equal(bytes[jpn1], Math.round(0.8 * 255))
+  assert.equal(bytes[jpn1 + 1], 0)
+  assert.equal(bytes[jpn1 + 2], 255)
 
-  let island = 0
-  for (let i = 0; i < full.positions.length; i += 3) {
-    const x = full.positions[i] + 180, y = 90 - full.positions[i + 1] / Y_SCALE
-    if (x > 193 && x < 196 && y > 91 && y < 94) island++
-    else assert.ok(x > 180 && x < 188 && y > 88 && y < 96)
-    assert.ok(!(x > 182 && x < 185 && y > 90 && y < 93))
-  }
-  assert.ok(island > 0)
-})
-
-test("point altitude follows the terrain triangle with a fixed lift", () => {
-  const shape = { id: "ONE", box: [.02, -.48, .48, -.02], d: "M180.02,90.02 180.48,90.02 180.48,90.48 180.02,90.48Z" }
-  const heights = new Int16Array(721 * 361)
-  heights[180 * 721 + 360] = 2500
-  const build = createPopulationPointBuilder([shape], heights)
-  const { positions } = build({ ONE: { total: 1, factions: { gpt: { immersed: 1, synthetic: 0 } } } })
-  assert.ok(positions.some((z, i) => i % 3 === 2 && z > .1))
-  for (let i = 0; i < positions.length; i += 3) {
-    const fraction = Math.max(0, 1 - 2 * (positions[i] - positions[i + 1] / Y_SCALE))
-    assert.ok(Math.abs(positions[i + 2] - (.08 + 2500 * .00055 * fraction)) < .0001)
-  }
-})
-
-test("full global coverage is capped and independent of geometry insertion order", () => {
-  const countries = Array.from({ length: 60 }, (_, i) => ({ id: `T${i}`, box: [-170, 20, -80, 80],
-    d: "M10,10 100,10 100,70 10,70Z" }))
-  const populations = Object.fromEntries(countries.map(({ id }) => [id, { total: 1, factions: { grok: { immersed: 1, synthetic: 0 } } }]))
-  const heights = new Int16Array(721 * 361)
-  const full = createPopulationPointBuilder(countries, heights)(populations)
-  assert.ok(full.positions.length / 3 <= 20_000)
-  assert.ok(full.positions.length / 3 > 19_000)
-  assert.deepEqual(createPopulationPointBuilder(countries.reverse(), heights)(populations), full)
+  // Slot 3 = EMPTY stays zeroed.
+  assert.deepEqual([...bytes.subarray(3 * 4, 3 * 4 + 4)], [0, 0, 0, 0])
+  assert.equal(flatCountryFill(populations.KOR).color, populationColors.grok[0])
+  assert.equal(flatCountryFill(populations.JPN).color, populationColors.gpt[1])
+  assert.equal(flatCountryFill(undefined), null)
 })

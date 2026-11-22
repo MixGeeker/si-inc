@@ -34,6 +34,7 @@ interface Props {
   night: boolean
   toggleNight: () => void
   open: (panel: MapPanel) => void
+  openSetup: () => void
   focusPlace: (place: PlaceFocus | null) => void
   setSpeed: (speed: number) => void
   onPause: (paused: boolean) => void
@@ -106,40 +107,23 @@ function ScreenBezel({w,h}:{w:number;h:number}) {
     <path d={`M4 ${h/2-40}h7m-7 16h7m-7 16h7m-7 16h7M${w-4} ${h/2-40}h-7m7 16h-7m7 16h-7m7 16h-7`} fill="none" stroke="var(--hud-edge)" strokeWidth="1" strokeOpacity=".38"/>
   </g>
 }
-function SideMeter({world,x,y,open,content}:{world?:boolean;x:number;y:number;open:(p:MapPanel)=>void;content:PreviewHud}) {
-  const { ui } = useLanguage()
-  const label = world ? ui.world : content.overview
-  return <g transform={`translate(${x} ${y})`}>
-    <Control label={label} run={()=>open(world ? "world" : "overview")}>
-      <Glass d="M0 1H312L345 33V120H0Z"/>
-      <path d="M2 54h141l14-14M2 72h43" fill="none" stroke="var(--hud-hairline)" strokeOpacity=".28" strokeWidth="1"/>
-      <path d="M245 6h64l30 28v13h-64l-30-29Z" fill={world ? "url(#hud-blue)" : "url(#hud-red)"}/>
-      <path d="M245 6h64l30 28v13h-64l-30-29Z" fill="none" stroke="var(--hud-edge)" strokeOpacity=".36" strokeWidth="1" filter="url(#edge-glow)"/>
-      <path d="M250 9h59l26 25v8h-56l-29-27Z" fill="none" stroke="var(--hud-edge)" strokeOpacity=".28"/>
-      <Glyph name={world ? "flask" : "hexes"} x={world ? 270 : 260} y={8} width={world ? 40 : 76} height={38}/>
-      <text x="8" y="49" fontSize="32">{world ? ui.world : ui.diseaseShort}</text>
-      <rect x="13" y="78" width="321" height="35" fill={world ? "var(--hud-well-cool)" : "var(--hud-well-warm)"}/>
-      <path d="M16 79.5h316" stroke="var(--hud-edge)" strokeOpacity=".4"/>
-      <Glyph name={world ? "flask" : content.currencyIcon} x={21} y={78} size={34}/>
-      <text x="75" y="108" fontSize="35" fontFamily="Arial,sans-serif">{world ? content.research : content.balance}</text>
-    </Control>
-  </g>
-}
 
 function ResourceMeter({x,y,title,value,detail,icon,research,onOpen}:{x:number;y:number;title:string;value:string;detail:string;icon:string;research?:boolean;onOpen?:()=>void}) {
+  const glyphWidth = icon === "hexes" ? 72 : 40
+  const glyphX = icon === "hexes" ? 260 : 268
   const face = <>
     <Glass d="M0 1H312L345 33V120H0Z"/>
     <path d="M2 34h120l14-14" fill="none" stroke="var(--hud-hairline)" strokeOpacity=".28" strokeWidth="1"/>
     <path d="M245 6h64l30 28v13h-64l-30-29Z" fill={research ? "url(#hud-blue)" : "url(#hud-red)"}/>
     <path d="M245 6h64l30 28v13h-64l-30-29Z" fill="none" stroke="var(--hud-edge)" strokeOpacity=".36" strokeWidth="1" filter="url(#edge-glow)"/>
     <path d="M250 9h59l26 25v8h-56l-29-27Z" fill="none" stroke="var(--hud-edge)" strokeOpacity=".28"/>
-    <Glyph name={icon} x={268} y={8} width={40} height={38}/>
+    <Glyph name={icon} x={glyphX} y={8} width={glyphWidth} height={38}/>
     <text x="8" y="30" fontSize="28">{title}</text>
     <text x="8" y="58" fontSize="20" fill="var(--hud-muted)">{detail}</text>
     <rect x="13" y="78" width="321" height="35" fill={research ? "var(--hud-well-cool)" : "var(--hud-well-warm)"}/>
     <path d="M16 79.5h316" stroke="var(--hud-edge)" strokeOpacity=".4"/>
-    <Glyph name={icon} x={21} y={78} size={34}/>
-    <text x="75" y="108" fontSize="35" fontFamily="Arial,sans-serif">{value}</text>
+    <Glyph name={icon} x={21} y={78} width={icon === "hexes" ? 50 : 34} height={34}/>
+    <text x={icon === "hexes" ? 82 : 75} y="108" fontSize="32">{value}</text>
   </>
   return <g transform={`translate(${x} ${y})`}>
     {onOpen ? <Control label={title} description={`${value} · ${detail}`} run={onOpen}>{face}</Control>
@@ -251,9 +235,9 @@ function RegionStrip({location,place,open,x,y,content}:{location:Location|null;p
       <text x="212" y="34" fontSize="32">{name}</text><path d="M205 42h113l15-15" fill="none" stroke="var(--hud-hairline)" strokeOpacity=".28" strokeWidth="1"/>
       {content.metrics.map((metric,i)=><g key={metric.label} transform={`translate(${221+i*274} 54)`}>
         <path d="M3 0h8v97H3z" fill="url(#vents)"/><rect x="16" y="47" width="227" height="46" fill="var(--hud-metric-well)"/>
-        <Glyph name={metric.icon} x={16} y={0} size={48}/>
-        <text x="75" y="36" fontSize="27">{metric.label}</text>
-        <text x="21" y="77" fontSize="25" fontFamily="Arial,sans-serif">//{metric.value}</text>
+        <Glyph name={metric.icon} x={18} y={4} size={38}/>
+        <text x="68" y="34" fontSize="24">{metric.label}</text>
+        <text x="24" y="77" fontSize="25">{metric.value}</text>
       </g>)}
       <path d="M891 4h63l28 26v15h-65l-26-25Z" fill="var(--hud-thumb-bg)"/>
       <path d="M891 4h63l28 26v15h-65l-26-25Z" fill="none" stroke="var(--hud-edge)" strokeOpacity=".34" strokeWidth="1" filter="url(#edge-glow)"/>
@@ -270,7 +254,8 @@ function RegionStrip({location,place,open,x,y,content}:{location:Location|null;p
     </Control>
   </g>
 }
-export default function Hud({location,place,content,newsItems,newsView,newsItemId,newsDay,openNews,closeNews,decide,zoom,selectedSpeed,manualPaused,paused,night,toggleNight,open,focusPlace,setSpeed,onPause,setZoom}:Props) {
+
+export default function Hud({location,place,content,newsItems,newsView,newsItemId,newsDay,openNews,closeNews,decide,zoom,selectedSpeed,manualPaused,paused,night,toggleNight,open,openSetup,focusPlace,setSpeed,onPause,setZoom}:Props) {
   const { locale, ui, percent } = useLanguage()
   const music = useGameSnapshot(state => state.music)
   const store = useGameStore()
@@ -378,7 +363,7 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
         </g>}
         <g transform="translate(-326 26)">
           <Control label={ui.dateMenu} run={()=>open("menu")}>
-            <Glass d="M0 0h306v51H32L0 18Z"/><text x="30" y="38" fontSize="38" fontFamily="Arial,sans-serif">{content.date}</text>
+            <Glass d="M0 0h306v51H32L0 18Z"/><text x="30" y="37" fontSize="34">{content.date}</text>
             <path d="M260 4h42v42h-42z M265 9l32 32m0-32-32 32" fill="none" stroke="var(--hud-menu-x)" strokeOpacity=".6" strokeWidth="1.1" filter="url(#edge-glow)"/>
           </Control>
           <Glass d="M90 51h216v38H126Z"/>
@@ -405,9 +390,9 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
           <path d="m21 0 5-9h6l5 9-5 9h-6Z" fill="var(--hud-thumb-core)"/></g>
       </g>
       {content.kind === "preview" ? <>
-        <SideMeter x={20} y={h-130} open={open} content={content}/>
+        <ResourceMeter x={20} y={h-130} title={ui.newRun} value={content.marketValue} detail={content.factionDetail} icon="token" onOpen={openSetup}/>
         <RegionStrip x={w/2-503} y={h-HUD.regionHeight} location={location} place={place} open={open} content={content}/>
-        <SideMeter world x={w-362} y={h-130} open={open} content={content}/>
+        <ResourceMeter x={w-362} y={h-130} title={ui.world} value={ui.layersShort} detail={ui.climateShort} icon="hexes" research onOpen={() => open("world")}/>
       </> : <>
         <ResourceMeter x={20} y={h-130} title={ui.action} value={content.token} detail={ui.cards(content.cards)} icon="token" onOpen={() => open("actions")}/>
         <CampaignStrip x={w/2-503} y={h-HUD.regionHeight} place={place} location={location} content={content} focusPlace={focusPlace} openDetails={() => open("region")}/>

@@ -6,12 +6,11 @@ interface Props {
   title: string
   onBack: () => void
   children: ReactNode
-  event?: boolean
   className?: string
   headerDetail?: ReactNode
 }
 
-export function SceneDialog({ title, onBack, children, event, className, headerDetail }: Props) {
+export function SceneDialog({ title, onBack, children, className, headerDetail }: Props) {
   const { ui } = useLanguage()
   const ref = useRef<HTMLDialogElement>(null)
   useLayoutEffect(() => {
@@ -25,15 +24,11 @@ export function SceneDialog({ title, onBack, children, event, className, headerD
       }
     }
   }, [])
-  return <dialog ref={ref} aria-labelledby="window-title" className={[event ? "event-dialog" : "info-dialog", className].filter(Boolean).join(" ")}
+  return <dialog ref={ref} aria-labelledby="window-title" className={["info-dialog", className].filter(Boolean).join(" ")}
     onCancel={e => { e.preventDefault(); onBack() }}>
-    {event ? <section className="event-body">
-      <div className="event-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#bio"/></svg></div>
-      <div className="event-copy"><h2 id="window-title">{title}</h2>{children}</div>
-      <button onClick={onBack} autoFocus>{ui.ok}</button>
-    </section> : <section className="window-body">
+    <section className="window-body">
       <header><h2 id="window-title">{title}</h2>{headerDetail}<button className="close" aria-label={ui.close} onClick={onBack} autoFocus>×</button></header>
       <div className="window-content">{children}</div>
-    </section>}
+    </section>
   </dialog>
 }
