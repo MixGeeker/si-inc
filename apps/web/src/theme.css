@@ -92,13 +92,6 @@
   --ui-sheet-hover: rgba(255, 46, 136, .18);
   --ui-roll-hover: rgba(28, 242, 255, .1);
 
-  /* Event alert dialog */
-  --ui-event-icon-bg: radial-gradient(ellipse at 42% 38%, #ff66b2 0, #c8186d 30%, #4b0d3c 68%, #0a0410 98%);
-  --ui-event-icon-shadow:
-    inset 0 1px 0 rgba(255, 210, 234, .5),
-    inset 0 0 18px rgba(255, 46, 136, .42),
-    0 0 20px rgba(255, 46, 136, .28);
-
   /* Population preview widget */
   --ui-pop-bg: rgba(5, 6, 14, .94);
   --ui-pop-border: rgba(28, 242, 255, .34);
@@ -449,12 +442,6 @@
   --ui-sheet-hover: #3a2212;
   --ui-roll-hover: #143028;
 
-  --ui-event-icon-bg: radial-gradient(ellipse at 42% 38%, #ffb15a 0, #c45e12 28%, #5a280c 68%, #140c08 98%);
-  --ui-event-icon-shadow:
-    inset 0 1px 0 rgba(255, 236, 214, .45),
-    inset 0 0 18px rgba(255, 140, 40, .35),
-    0 0 16px rgba(255, 150, 50, .2);
-
   --ui-pop-bg: #071915ed;
   --ui-pop-border: #8cb3a363;
 
@@ -715,7 +702,6 @@
   .news-ticker,
   .news-sheet,
   .window-body,
-  .event-body,
   .dev-launcher,
   .dev-drawer,
   .population-controls,

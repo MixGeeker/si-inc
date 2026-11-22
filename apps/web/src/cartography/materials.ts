@@ -13,6 +13,7 @@ export function borders(atlas:Atlas) {
   texture.anisotropy = 4
   return texture
 }
+
 export function selectionTexture(countries: readonly Country[] = []) {
   const canvas = document.createElement("canvas")
   const [west,south,east,north] = countries.length ? [
@@ -26,12 +27,20 @@ export function selectionTexture(countries: readonly Country[] = []) {
     const ctx = canvas.getContext("2d")!
     ctx.scale(canvas.width/w,canvas.height/h)
     ctx.translate(-180-west+.4,north+.4-90)
-    ctx.fillStyle = "rgba(240,249,175,.14)"
-    ctx.lineWidth = .155; ctx.lineJoin = "round"; ctx.strokeStyle = "#f9ffe5"
-    for (const country of countries) {
-      ctx.fill(country.path,"evenodd")
-      ctx.stroke(country.path)
+    ctx.lineJoin = "round"
+    const combined = new Path2D()
+    for (const country of countries) combined.addPath(country.path)
+    ctx.save()
+    ctx.clip(combined, "evenodd")
+    for (const [width, alpha] of [[.95, .08], [.42, .18]] as const) {
+      ctx.lineWidth = width
+      ctx.strokeStyle = `rgba(242,246,226,${alpha})`
+      for (const country of countries) ctx.stroke(country.path)
     }
+    ctx.restore()
+    ctx.lineWidth = .14
+    ctx.strokeStyle = "#f4f7e8"
+    for (const country of countries) ctx.stroke(country.path)
   }
   const texture = new CanvasTexture(canvas)
   return { texture, rect:[(west-.4+180)/360,(south-.4+90)/180,w/360,h/180] }
@@ -54,11 +63,38 @@ export function velocityTexture(atlas:Atlas) {
   return tex
 }
 
-const vertex = `
+const skyVertex = `
   varying vec2 coord; varying vec3 terrainNormal;
   void main() {
     coord = uv; terrainNormal = normal;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.);
+  }`
+
+const groundVertex = `
+  uniform sampler2D countryField, countryPop;
+  uniform float popEnabled;
+  varying vec2 coord; varying vec3 terrainNormal;
+  float vertexTerritoryFlag(vec2 sampleUV) {
+    float cid = floor(texture2D(countryField, sampleUV).r * 255.0 + 0.5);
+    if (cid < 0.5) return 0.0;
+    float cov = texture2D(countryPop, vec2((cid + 0.5) / 256.0, 0.25)).r;
+    return step(0.003, cov);
+  }
+  void main() {
+    coord = uv; terrainNormal = normal;
+    vec3 pos = position;
+    if (popEnabled > 0.5) {
+      vec2 stepUV = vec2(0.85 / 360.0, 0.85 / 180.0);
+      float occ = max(
+        vertexTerritoryFlag(uv),
+        max(
+          max(vertexTerritoryFlag(uv + vec2(stepUV.x, 0.0)), vertexTerritoryFlag(uv - vec2(stepUV.x, 0.0))),
+          max(vertexTerritoryFlag(uv + vec2(0.0, stepUV.y)), vertexTerritoryFlag(uv - vec2(0.0, stepUV.y)))
+        )
+      );
+      pos.z *= mix(0.26, 0.0, occ);
+    }
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.);
   }`
 
 const weather = `
@@ -120,8 +156,123 @@ const weather = `
     return smoothstep(.30,.79,mix(a,b,abs(phase*2.-1.))+(moist-.61)*.28);
   }`
 
+const populationGroundShader = `
+  uniform sampler2D countryField, countryPop;
+  uniform float popEnabled;
+
+  vec2 hash22(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.xx + p3.yz) * p3.zy);
+  }
+
+  // Evaluates a staggered hex-grid octave of crisp, solid-color scaling circles.
+  // Returns vec2(dotMask, colorVariant01).
+  vec2 dotOctave(vec2 scenePos, float spacing, float pxSize, float elapsedSec, float synBoost, float radiusScale) {
+    if (radiusScale <= 0.02) return vec2(0.0);
+    vec2 scaled = scenePos / spacing;
+    float row = floor(scaled.y * 1.1547);
+    float xShift = mod(row, 2.0) * 0.5;
+    vec2 cell = vec2(floor(scaled.x + xShift), row);
+    vec2 local = vec2(fract(scaled.x + xShift) - 0.5, fract(scaled.y * 1.1547) - 0.5);
+    local.y *= 0.866025;
+
+    vec2 rnd = hash22(cell);
+    vec2 center = (rnd - 0.5) * 0.18;
+    float dist = length(local - center);
+
+    // Continuous staggered scale-up -> peak -> scale-down breathing cycle.
+    float speed = (0.48 + 0.38 * rnd.x) * (1.0 + 0.30 * synBoost);
+    float wave = fract(elapsedSec * speed + rnd.y * 6.17 + (cell.x * 0.09 + cell.y * 0.11));
+    float scaleEnv = sin(wave * 3.14159265);
+    float maxRadius = mix(0.27, 0.37, synBoost) * (0.80 + 0.25 * rnd.x) * radiusScale;
+    float radius = maxRadius * pow(max(0.0, scaleEnv), 0.72);
+
+    float aa = max(0.016, (pxSize / spacing) * 1.30);
+    float mask = radius > 0.016 ? (1.0 - smoothstep(radius - aa, radius + aa, dist)) : 0.0;
+    float variant = step(0.45, fract(rnd.x * 13.7 + rnd.y * 7.3));
+    return vec2(mask, variant);
+  }
+
+  // Bilinear SDF territory evaluation on the 1440x720 field for razor-smooth vector-like coastal & border bleed.
+  vec4 sampleTerritoryAt(vec2 sampleUV, float micro) {
+    vec2 dims = vec2(1440.0, 720.0);
+    vec2 grid = vec2(sampleUV.x * dims.x - 0.5, clamp(sampleUV.y * dims.y - 0.5, 0.0, dims.y - 1.001));
+    vec2 baseIdx = floor(grid);
+    vec2 f = fract(grid);
+
+    vec2 uv00 = vec2(fract((baseIdx.x + 0.5) / dims.x), (baseIdx.y + 0.5) / dims.y);
+    vec2 uv10 = vec2(fract((baseIdx.x + 1.5) / dims.x), (baseIdx.y + 0.5) / dims.y);
+    vec2 uv01 = vec2(fract((baseIdx.x + 0.5) / dims.x), min(dims.y - 0.5, baseIdx.y + 1.5) / dims.y);
+    vec2 uv11 = vec2(fract((baseIdx.x + 1.5) / dims.x), min(dims.y - 0.5, baseIdx.y + 1.5) / dims.y);
+
+    vec4 c00 = texture2D(countryField, uv00);
+    vec4 c10 = texture2D(countryField, uv10);
+    vec4 c01 = texture2D(countryField, uv01);
+    vec4 c11 = texture2D(countryField, uv11);
+
+    float w00 = (1.0 - f.x) * (1.0 - f.y);
+    float w10 = f.x * (1.0 - f.y);
+    float w01 = (1.0 - f.x) * f.y;
+    float w11 = f.x * f.y;
+
+    float id00 = floor(c00.r * 255.0 + 0.5);
+    float id10 = floor(c10.r * 255.0 + 0.5);
+    float id01 = floor(c01.r * 255.0 + 0.5);
+    float id11 = floor(c11.r * 255.0 + 0.5);
+
+    // Pick dominant active country among the 2x2 texels.
+    float cid = 0.0;
+    float bestW = -1.0;
+    if (id00 > 0.5 && w00 > bestW) { cid = id00; bestW = w00; }
+    if (id10 > 0.5) {
+      float score = (abs(id10 - id00) < 0.1 ? w00 : 0.0) + w10;
+      if (score > bestW) { cid = id10; bestW = score; }
+    }
+    if (id01 > 0.5) {
+      float score = (abs(id01 - id00) < 0.1 ? w00 : 0.0) + (abs(id01 - id10) < 0.1 ? w10 : 0.0) + w01;
+      if (score > bestW) { cid = id01; bestW = score; }
+    }
+    if (id11 > 0.5) {
+      float score = (abs(id11 - id00) < 0.1 ? w00 : 0.0) + (abs(id11 - id10) < 0.1 ? w10 : 0.0) + (abs(id11 - id01) < 0.1 ? w01 : 0.0) + w11;
+      if (score > bestW) { cid = id11; bestW = score; }
+    }
+    if (cid < 0.5) return vec4(0.0);
+
+    vec4 p0 = texture2D(countryPop, vec2((cid + 0.5) / 256.0, 0.25));
+    float coverage = p0.r;
+    if (coverage <= 0.002) return vec4(0.0);
+
+    // True bilinear interpolation of the signed coastal distance field G (ocean texels have G = 0.0).
+    float g00 = abs(id00 - cid) < 0.1 ? c00.g : 0.0;
+    float g10 = abs(id10 - cid) < 0.1 ? c10.g : 0.0;
+    float g01 = abs(id01 - cid) < 0.1 ? c01.g : 0.0;
+    float g11 = abs(id11 - cid) < 0.1 ? c11.g : 0.0;
+    float gSmooth = mix(mix(g00, g10, f.x), mix(g01, g11, f.x), f.y);
+
+    // Weighted average of sector (B) and spread rank (A) for matching country texels.
+    vec2 baSum = vec2(0.0);
+    float baW = 0.0;
+    if (abs(id00 - cid) < 0.1) { baSum += c00.ba * (w00 + 0.001); baW += w00 + 0.001; }
+    if (abs(id10 - cid) < 0.1) { baSum += c10.ba * (w10 + 0.001); baW += w10 + 0.001; }
+    if (abs(id01 - cid) < 0.1) { baSum += c01.ba * (w01 + 0.001); baW += w01 + 0.001; }
+    if (abs(id11 - cid) < 0.1) { baSum += c11.ba * (w11 + 0.001); baW += w11 + 0.001; }
+    vec2 ba = baSum / max(0.0001, baW);
+
+    // G = 0.502 is exact coastline; slope is 0.094 per 0.25 deg -> threshold 0.365 spills smoothly ~0.36 deg past coast!
+    float bleedThreshold = 0.365 - micro * 0.22;
+    float bleedMask = smoothstep(bleedThreshold - 0.032, bleedThreshold + 0.032, gSmooth);
+    if (bleedMask <= 0.003) return vec4(0.0);
+
+    float rank = clamp(ba.y + micro * 0.75, 0.0, 1.0);
+    float covMask = coverage > 0.985 ? 1.0 : (1.0 - smoothstep(coverage - 0.028, coverage + 0.022, rank));
+    float mask = bleedMask * covMask;
+    return vec4(cid, ba.x, mask, 0.0);
+  }
+`
+
 export function materials(surface:Texture, nightLights:Texture, vapor:Texture, humidity:Texture, wind:Texture,
-  boundaries:Texture, selected:ReturnType<typeof selectionTexture>) {
+  boundaries:Texture, selected:ReturnType<typeof selectionTexture>, countryField:Texture, countryPop:Texture) {
   vapor.wrapS = vapor.wrapT = RepeatWrapping
   surface.anisotropy = 8; nightLights.anisotropy = 8; humidity.wrapS = RepeatWrapping
   const uniforms = {
@@ -129,16 +280,20 @@ export function materials(surface:Texture, nightLights:Texture, vapor:Texture, h
     cloudSweep:{value:0}, cloudCover:{value:0}, viewportPixels:{value:new Vector2(1,1)},
     ground:{value:surface}, nightLights:{value:nightLights}, boundaries:{value:boundaries}, selected:{value:selected.texture},
     selectionRect:{value:selected.rect}, currentsOn:{value:1}, night:{value:1},
+    countryField:{value:countryField}, countryPop:{value:countryPop}, popEnabled:{value:1},
     sun:{value:new Vector3(-.50,.46,.77).normalize()},
   }
-  const ground = new ShaderMaterial({ uniforms,vertexShader:vertex, fragmentShader:weather+`
+  const ground = new ShaderMaterial({ uniforms, vertexShader:groundVertex, fragmentShader:weather + populationGroundShader + `
     uniform sampler2D ground, nightLights, boundaries, selected;
     uniform vec4 selectionRect; uniform vec3 sun; uniform float currentsOn, night;
     varying vec3 terrainNormal;
     void main() {
       vec3 dayTex = texture2D(ground,coord).rgb;
       float water = smoothstep(.02,.15,dayTex.b-dayTex.r);
-      vec3 lit = dayTex;
+      float landLuma = dot(dayTex, vec3(.299, .587, .114));
+      vec3 slateLand = mix(dayTex, vec3(landLuma) * vec3(.72, .77, .82), .76) * .78;
+      vec3 calmSea = mix(dayTex, dayTex * vec3(.66, .74, .84), .55);
+      vec3 lit = mix(dayTex, mix(slateLand, calmSea, water), popEnabled);
       vec3 graded = mix(dayTex * vec3(.32,.38,.48), mix(vec3(.007,.012,.034), dayTex * vec3(.08,.16,.32), .45), water);
       vec3 col = mix(lit, graded, night);
       if(currentsOn>.5 && water>.02) {
@@ -163,53 +318,159 @@ export function materials(surface:Texture, nightLights:Texture, vapor:Texture, h
       vec3 nightTint = mix(vec3(.78,.86,1.), vec3(1.), nightShade);
       col *= mix(dayShade, nightShade, night);
       col *= mix(dayTint, nightTint, night);
+
       if(cloudCover>0.) {
         Gust gust = cloudGust(coord);
         float shadow = cloudShadow(gust.uv + vec2(-.002,.004)) * gust.cover * (1. + .45 * gust.ridge);
         col *= 1. - mix(.12,.22,night) * shadow;
       }
+
+      vec4 lamps = texture2D(nightLights, coord);
       if(night>0.) {
-        vec4 lamps = texture2D(nightLights, coord);
         float lampGlow = pow(lamps.a, .78);
-        vec3 lampCol = mix(vec3(1.0, .38, .66), vec3(1.0, .93, .78), smoothstep(.18, .85, lamps.a));
-        col = mix(col, lampCol, night * clamp(lampGlow * 1.15, 0., 1.));
+        vec3 lampCol = mix(vec3(.84, .56, .34), vec3(.98, .90, .75), smoothstep(.18, .85, lamps.a));
+        col = mix(col, lampCol, night * clamp(lampGlow * 1.05, 0., 1.));
       }
+
+      // Draw country borders BEFORE the flat territory overlay so high-saturation paint spills right across borders!
       vec4 line = texture2D(boundaries,coord);
       vec3 dayLine = mix(col, line.rgb, line.a*.85);
       if(night>0.) {
-        vec2 edge = vec2(4.5/4096.,4.5/2048.);
-        float halo = texture2D(boundaries,coord+vec2(edge.x,0.)).a
-          + texture2D(boundaries,coord-vec2(edge.x,0.)).a
-          + texture2D(boundaries,coord+vec2(0.,edge.y)).a
-          + texture2D(boundaries,coord-vec2(0.,edge.y)).a;
-        vec3 nightLine = col + vec3(.08,.78,1.0) * halo * .06;
-        nightLine = mix(nightLine, vec3(.42,.95,1.0), clamp(line.a*.75,0.,.7));
+        vec3 nightLine = mix(col, vec3(.44,.64,.70), clamp(line.a*.75,0.,.70));
         col = mix(dayLine, nightLine, night);
       } else {
         col = dayLine;
       }
+
+      // Pure flat, zero-elevation high-saturation pigment coat with outward border bleed + scaling faction dots.
+      if (popEnabled > 0.5) {
+        float micro = (texture2D(vapor, coord * vec2(22.0, 12.0)).r - 0.5) * 0.055;
+        vec4 terr = sampleTerritoryAt(coord, micro);
+
+        // Smooth 8-direction ring + 4-direction inner probe (~0.35 deg) so occupied countries spill evenly across land borders too.
+        if (terr.z < 0.72) {
+          float cosLat = max(0.32, cos((coord.y - 0.5) * 3.14159));
+          vec2 ring = vec2(0.35 / (360.0 * cosLat), 0.35 / 180.0) * (0.92 + micro * 1.8);
+          vec2 diag = ring * 0.7071;
+          vec2 inner = ring * 0.52;
+          vec4 s;
+          s = sampleTerritoryAt(coord + vec2(inner.x, 0.0), micro);   if (s.z * 0.96 > terr.z) terr = vec4(s.xy, s.z * 0.96, 0.0);
+          s = sampleTerritoryAt(coord + vec2(-inner.x, 0.0), micro);  if (s.z * 0.96 > terr.z) terr = vec4(s.xy, s.z * 0.96, 0.0);
+          s = sampleTerritoryAt(coord + vec2(0.0, inner.y), micro);   if (s.z * 0.96 > terr.z) terr = vec4(s.xy, s.z * 0.96, 0.0);
+          s = sampleTerritoryAt(coord + vec2(0.0, -inner.y), micro);  if (s.z * 0.96 > terr.z) terr = vec4(s.xy, s.z * 0.96, 0.0);
+          s = sampleTerritoryAt(coord + vec2(ring.x, 0.0), micro);    if (s.z * 0.88 > terr.z) terr = vec4(s.xy, s.z * 0.88, 0.0);
+          s = sampleTerritoryAt(coord + vec2(-ring.x, 0.0), micro);   if (s.z * 0.88 > terr.z) terr = vec4(s.xy, s.z * 0.88, 0.0);
+          s = sampleTerritoryAt(coord + vec2(0.0, ring.y), micro);    if (s.z * 0.88 > terr.z) terr = vec4(s.xy, s.z * 0.88, 0.0);
+          s = sampleTerritoryAt(coord + vec2(0.0, -ring.y), micro);   if (s.z * 0.88 > terr.z) terr = vec4(s.xy, s.z * 0.88, 0.0);
+          s = sampleTerritoryAt(coord + vec2(diag.x, diag.y), micro);   if (s.z * 0.88 > terr.z) terr = vec4(s.xy, s.z * 0.88, 0.0);
+          s = sampleTerritoryAt(coord + vec2(-diag.x, diag.y), micro);  if (s.z * 0.88 > terr.z) terr = vec4(s.xy, s.z * 0.88, 0.0);
+          s = sampleTerritoryAt(coord + vec2(diag.x, -diag.y), micro);  if (s.z * 0.88 > terr.z) terr = vec4(s.xy, s.z * 0.88, 0.0);
+          s = sampleTerritoryAt(coord + vec2(-diag.x, -diag.y), micro); if (s.z * 0.88 > terr.z) terr = vec4(s.xy, s.z * 0.88, 0.0);
+        }
+
+        if (terr.z > 0.01) {
+          float cid = terr.x;
+          float sec = clamp(terr.y + micro * 0.45, 0.0, 1.0);
+          vec4 p0 = texture2D(countryPop, vec2((cid + 0.5) / 256.0, 0.25));
+          vec4 p1 = texture2D(countryPop, vec2((cid + 0.5) / 256.0, 0.75));
+          float sGpt = p0.b;
+          float sClaude = p0.a;
+
+          float wGpt = 1.0 - smoothstep(sGpt - 0.006, sGpt + 0.006, sec);
+          float cut2 = sGpt + sClaude;
+          float wClaude = (1.0 - wGpt) * (1.0 - smoothstep(cut2 - 0.006, cut2 + 0.006, sec));
+          float wGrok = max(0.0, 1.0 - wGpt - wClaude);
+          if (sGpt <= 0.001) wGpt = 0.0;
+          if (sClaude <= 0.001) wClaude = 0.0;
+          if (1.0 - cut2 <= 0.001) wGrok = 0.0;
+          float wTotal = max(0.0001, wGpt + wClaude + wGrok);
+          wGpt /= wTotal; wClaude /= wTotal; wGrok /= wTotal;
+
+          float localSyn = wGpt * p1.r + wClaude * p1.g + wGrok * p1.b;
+
+          // 100% Flat, zero-relief, high-saturation opaque base pigments:
+          // GPT (#00a854 / #00c462), Claude (#eb4409 / #ff5c0a), Grok (#7524e6 / #8f38ff)
+          vec3 baseGpt = mix(vec3(0.000, 0.659, 0.329), vec3(0.000, 0.769, 0.384), localSyn);
+          vec3 baseClaude = mix(vec3(0.922, 0.267, 0.035), vec3(1.000, 0.361, 0.039), localSyn);
+          vec3 baseGrok = mix(vec3(0.459, 0.141, 0.902), vec3(0.561, 0.220, 1.000), localSyn);
+          vec3 flatColor = baseGpt * wGpt + baseClaude * wClaude + baseGrok * wGrok;
+
+          // Pure vibrant dual-bright faction dots in matching faction hues (zero dark/muddy holes!):
+          vec3 dotVivid = vec3(0.390, 1.000, 0.690) * wGpt + vec3(1.000, 0.725, 0.130) * wClaude + vec3(0.835, 0.520, 1.000) * wGrok;
+          vec3 dotMid   = vec3(0.140, 0.910, 0.510) * wGpt + vec3(1.000, 0.500, 0.090) * wClaude + vec3(0.680, 0.330, 1.000) * wGrok;
+
+          // Zoom-adaptive radius-transitioned hex grids in isotropic scene space (360 x 180*1.18):
+          vec2 scenePos = vec2(coord.x * 360.0, coord.y * 212.4);
+          float pxScene = max(length(dFdx(scenePos)), length(dFdy(scenePos)));
+          float idealSpacing = clamp(pxScene * 21.5, 0.36, 16.0);
+          float lv = log2(idealSpacing);
+          float lv0 = floor(lv);
+          float blend = fract(lv);
+          float sp0 = exp2(lv0);
+          float sp1 = sp0 * 2.0;
+
+          vec2 d0 = dotOctave(scenePos, sp0, pxScene, elapsed, localSyn, smoothstep(0.82, 0.14, blend));
+          vec2 d1 = dotOctave(scenePos + vec2(3.7, 1.9), sp1, pxScene, elapsed, localSyn, 1.0);
+          vec2 dotChoice = d0.x >= d1.x ? d0 : d1;
+
+          vec3 dotCol = mix(dotMid, dotVivid, dotChoice.y);
+          flatColor = mix(flatColor, dotCol, dotChoice.x * 0.95);
+
+          // Crisp vector-smooth solid fill (opacity = 1.0 inside, smooth anti-aliased spill perimeter).
+          float fillMask = smoothstep(0.24, 0.64, terr.z + dotChoice.x * step(0.22, terr.z) * 0.20);
+          col = mix(col, flatColor, fillMask);
+        }
+      }
+
       vec2 uv = (coord-selectionRect.xy)/selectionRect.zw;
       if(all(greaterThanEqual(uv,vec2(0.))) && all(lessThanEqual(uv,vec2(1.)))) {
         vec4 mark = texture2D(selected,uv);
-        vec3 nightMark = mix(vec3(.11,.95,1.0), vec3(1.0,.34,.70), smoothstep(.35,.95,mark.a));
-        col = mix(col, mix(mark.rgb, nightMark, night), clamp(mark.a * mix(1., 1.15, night), 0., 1.));
+        vec3 selCol = mix(vec3(.96,.98,.90), vec3(.84,.95,.98), night);
+        col = mix(col, selCol, clamp(mark.a * .95, 0., 1.));
       }
       gl_FragColor = vec4(col,1.);
     }` })
-  const sky = new ShaderMaterial({uniforms,vertexShader:vertex,transparent:true,depthWrite:false,visible:false,
+  const sky = new ShaderMaterial({uniforms,vertexShader:skyVertex,transparent:true,depthWrite:false,visible:false,
     fragmentShader:weather+`
-      uniform sampler2D ground; uniform float night;
+      uniform sampler2D ground, countryField, countryPop;
+      uniform float night, popEnabled;
+      float smoothTerritoryCloudClear(vec2 sampleUV) {
+        vec2 dims = vec2(1440.0, 720.0);
+        vec2 grid = vec2(sampleUV.x * dims.x - 0.5, clamp(sampleUV.y * dims.y - 0.5, 0.0, dims.y - 1.001));
+        vec2 baseIdx = floor(grid);
+        vec2 f = fract(grid);
+        vec4 c00 = texture2D(countryField, vec2(fract((baseIdx.x + 0.5) / dims.x), (baseIdx.y + 0.5) / dims.y));
+        vec4 c10 = texture2D(countryField, vec2(fract((baseIdx.x + 1.5) / dims.x), (baseIdx.y + 0.5) / dims.y));
+        vec4 c01 = texture2D(countryField, vec2(fract((baseIdx.x + 0.5) / dims.x), min(dims.y - 0.5, baseIdx.y + 1.5) / dims.y));
+        vec4 c11 = texture2D(countryField, vec2(fract((baseIdx.x + 1.5) / dims.x), min(dims.y - 0.5, baseIdx.y + 1.5) / dims.y));
+        float id0 = floor(c00.r * 255.0 + 0.5);
+        float a00 = id0 > 0.5 && texture2D(countryPop, vec2((id0 + 0.5) / 256.0, 0.25)).r > 0.005 ? c00.g : 0.0;
+        float id1 = floor(c10.r * 255.0 + 0.5);
+        float a10 = id1 > 0.5 && texture2D(countryPop, vec2((id1 + 0.5) / 256.0, 0.25)).r > 0.005 ? c10.g : 0.0;
+        float id2 = floor(c01.r * 255.0 + 0.5);
+        float a01 = id2 > 0.5 && texture2D(countryPop, vec2((id2 + 0.5) / 256.0, 0.25)).r > 0.005 ? c01.g : 0.0;
+        float id3 = floor(c11.r * 255.0 + 0.5);
+        float a11 = id3 > 0.5 && texture2D(countryPop, vec2((id3 + 0.5) / 256.0, 0.25)).r > 0.005 ? c11.g : 0.0;
+        float gVal = mix(mix(a00, a10, f.x), mix(a01, a11, f.x), f.y);
+        return smoothstep(0.28, 0.56, gVal);
+      }
       void main() {
         Gust gust = cloudGust(coord);
         float density = cloud(gust.uv);
         vec3 base = texture2D(ground,coord).rgb;
-        float sea = smoothstep(.012,.13,base.b-base.r);
-        float dayOpacity = pow(density,1.85)*mix(.12,.71,sea);
+        vec3 baseNorth = texture2D(ground, coord + vec2(0.0, 0.015)).rgb;
+        float sea = smoothstep(.015,.14,min(base.b-base.r, baseNorth.b-baseNorth.r));
+        float territoryClear = 1.0;
+        if (popEnabled > 0.5) {
+          float clr = max(smoothTerritoryCloudClear(coord), smoothTerritoryCloudClear(coord + vec2(0.0, 0.012)) * 0.85);
+          territoryClear = mix(1.0, 0.06, clr);
+        }
+        float dayOpacity = pow(density,1.85)*mix(.08,.68,sea)*territoryClear;
         vec4 dayCloud = vec4(mix(vec3(.67,.80,.84),vec3(.95,.97,.97),dayOpacity), dayOpacity);
-        float nightOpacity = pow(density,1.75)*.4;
+        float nightOpacity = pow(density,1.75)*.4*territoryClear;
         vec4 nightCloud = vec4(vec3(.62,.70,.80), nightOpacity);
         gl_FragColor = mix(dayCloud, nightCloud, night);
-        gl_FragColor.a = mix(gl_FragColor.a, density, .70 * gust.ridge) * gust.cover;
+        gl_FragColor.a = mix(gl_FragColor.a, density * territoryClear, .70 * gust.ridge) * gust.cover;
       }`})
   function setCloudCover(cover:number) {
     uniforms.cloudCover.value = cover

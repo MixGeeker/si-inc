@@ -1,8 +1,23 @@
 import { factions, type FactionId } from "../../../../../packages/rules/v0.1/factions/roster"
-import { populationColors } from "../../cartography/population-points"
+import { populationColors } from "../../cartography/country-field"
 import { useLanguage } from "../../i18n/useLanguage"
 import { useGameStore } from "../GameContext"
 import type { PopulationPreview } from "./populationPreview"
+
+const legendAccents: Record<FactionId, readonly [string, string]> = {
+  gpt: ["#63ffb0", "#24e882"],
+  claude: ["#ffb921", "#ff8017"],
+  grok: ["#d585ff", "#ad54ff"],
+}
+
+function LegendSwatch({ faction, color, synthetic }: { faction: FactionId; color: string; synthetic: boolean }) {
+  const [brightDot, deepDot] = legendAccents[faction]
+  return <svg className="legend-glyph" viewBox="-8 -8 16 16" aria-hidden="true">
+    <rect x="-6.4" y="-6.4" width="12.8" height="12.8" rx="3.2" fill={color}/>
+    <circle cx={synthetic ? -1.8 : 0} cy={synthetic ? -1.4 : 0} r={synthetic ? 2.6 : 2.5} fill={brightDot}/>
+    {synthetic && <circle cx="2.5" cy="2.4" r="1.9" fill={deepDot}/>}
+  </svg>
+}
 
 export function PopulationLegend() {
   const { ui } = useLanguage()
@@ -10,7 +25,9 @@ export function PopulationLegend() {
     <thead><tr><th scope="col">{ui.faction}</th><th scope="col">{ui.ordinaryPopulation}</th><th scope="col">{ui.syntheticPopulation}</th></tr></thead>
     <tbody>{(Object.keys(factions) as FactionId[]).map(id=><tr key={id}>
       <th scope="row">{factions[id].name}</th>
-      {populationColors[id].map(color=><td key={color}><i style={{background:color}}/></td>)}
+      {populationColors[id].map((color, idx)=><td key={color}>
+        <LegendSwatch faction={id} color={color} synthetic={idx === 1}/>
+      </td>)}
     </tr>)}</tbody>
   </table>
 }

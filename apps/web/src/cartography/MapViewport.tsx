@@ -2,9 +2,7 @@ import { Component, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, 
 import { Canvas, useThree } from "@react-three/fiber"
 import { Atlas, nightLightsUrl, relief, surfaceUrl, type Country, type Location } from "./atlas"
 import type { CountryPopulations } from "../../../../packages/game/population.ts"
-import { populationPointDiameter } from "./population-mesh"
-import type { PopulationPointCloud } from "./population-points"
-import { usePopulationPoints } from "./usePopulationPoints"
+import { flatCountryFill } from "./country-field"
 import { attachNavigation, MapCamera } from "./camera"
 import { hudScale, Y_SCALE } from "./layout"
 import TerrainScene, { type LayerState } from "./TerrainScene"
@@ -12,8 +10,12 @@ import { countryName } from "./place-names"
 import { useLanguage } from "../i18n/useLanguage"
 import { computePlaceLabel, computePlaces } from "./compute-markers"
 
-type Props = {atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState; populations:CountryPopulations; populationScope:string|null;
-  pick:(pos:Location)=>void; marker?:{lon:number;lat:number;label:string}; showNews:()=>void; showGlobal:()=>void}
+type Props = {
+  atlas:Atlas; rig:MapCamera; selected:readonly Country[]; layers:LayerState
+  populations:CountryPopulations; populationScope:string|null
+  pick:(pos:Location)=>void; showGlobal:()=>void
+}
+
 class GraphicsBoundary extends Component<{children:ReactNode; fail:()=>void},{failed:boolean}> {
   state={failed:false}
   static getDerivedStateFromError() { return {failed:true} }
@@ -68,12 +70,11 @@ function ScreenGrid() {
     </g>}
   </svg>
 }
-function FlatMap({atlas,selected,rig,project,layers,population}:{atlas:Atlas;selected:readonly Country[];rig:MapCamera;project:(t:number)=>void;
-  layers:LayerState;population:PopulationPointCloud|null}) {
+function FlatMap({atlas,selected,rig,project,layers,populations,populationScope}:{atlas:Atlas;selected:readonly Country[];rig:MapCamera;project:(t:number)=>void;
+  layers:LayerState;populations:CountryPopulations;populationScope:string|null}) {
   const { ui } = useLanguage()
   const { night, reduced } = layers
   const svg=useRef<SVGSVGElement>(null)
-  const canvas=useRef<HTMLCanvasElement>(null)
   useLayoutEffect(()=>{
     rig.setFlat(true)
     let frame=0, last=performance.now()
@@ -92,50 +93,25 @@ function FlatMap({atlas,selected,rig,project,layers,population}:{atlas:Atlas;sel
       const cx=rig.width/2-(rig.current.lon/360+.5)*w
       const view = `${-cx/w*360} ${-nw.y/h*180} ${rig.width/w*360} ${rig.height/h*180}`
       if (view !== previousView) node.setAttribute("viewBox",view)
-      if (canvas.current && population && view !== previousView) {
-        const layer = canvas.current, ratio = Math.min(window.devicePixelRatio || 1, 1.5)
-        const sw = Math.round(rig.width*ratio), sh = Math.round(rig.height*ratio)
-        if (layer.width !== sw || layer.height !== sh) { layer.width = sw; layer.height = sh }
-        const ctx = layer.getContext("2d")!
-        ctx.setTransform(ratio,0,0,ratio,0,0)
-        ctx.clearRect(0,0,rig.width,rig.height)
-        const radius = populationPointDiameter / 2, xScale = w / 360, yScale = h / (180 * Y_SCALE)
-        const yOrigin = nw.y + h / 2
-        const { positions, groups } = population
-        for (const wrap of [-1,0,1]) {
-          const left = cx + wrap * w
-          if (left + w < -radius || left > rig.width + radius) continue
-          const xOrigin = left + w / 2
-          for (const { color, start, count } of groups) {
-            ctx.beginPath()
-            ctx.fillStyle = color
-            for (let i = start * 3; i < (start + count) * 3; i += 3) {
-              const x = xOrigin + positions[i] * xScale, y = yOrigin - positions[i + 1] * yScale
-              if (x < -radius || x > rig.width + radius || y < -radius || y > rig.height + radius) continue
-              ctx.moveTo(x + radius, y)
-              ctx.arc(x, y, radius, 0, 2 * Math.PI)
-            }
-            ctx.fill()
-          }
-        }
-      }
       previousView = view
       project(0)
       frame=requestAnimationFrame(draw)
     }
     frame=requestAnimationFrame(draw)
     return ()=>cancelAnimationFrame(frame)
-  },[rig,project,reduced,population])
-  return <><svg ref={svg} className="flat-map" preserveAspectRatio="none" role="img" aria-label={ui.flatMap}>
+  },[rig,project,reduced])
+  return <svg ref={svg} className="flat-map" preserveAspectRatio="none" role="img" aria-label={ui.flatMap}>
     <defs><g id="flat-world"><image href={surfaceUrl} width="360" height="180" style={night ? {filter:"brightness(.45) saturate(.75)"} : undefined}/>
       {night && <image href={nightLightsUrl} width="360" height="180"/>}
       {atlas.countries.map(c => {
-        const active = selected.includes(c)
-        return <path key={c.id} d={c.d} fill={active ? (night ? "#1cf2ff29" : "#f8ffc12b") : "none"}
-          stroke={active ? (night ? "#ff4da6" : "#ffffe4") : (night ? "#2ed8f0" : "#bdd1b7")} strokeWidth={active ? (night ? .18 : .19) : (night ? .075 : .065)} fillRule="evenodd"/>
+        const isSelected = selected.includes(c)
+        const fill = populationScope !== null ? flatCountryFill(populations[c.id]) : null
+        return <path key={c.id} d={c.d} fill={fill ? fill.color : "none"} fillOpacity={fill ? fill.opacity : undefined}
+          stroke={isSelected ? (night ? "#d6f2f6" : "#f6f8e6") : (night ? "#567c84" : "#bdd1b7")}
+          strokeWidth={isSelected ? .19 : (night ? .075 : .065)} fillRule="evenodd"/>
       })}
     </g></defs>{[-360,0,360].map(x=><use key={x} x={x} href="#flat-world"/>)}
-  </svg>{population && population.positions.length > 0 && <canvas ref={canvas} className="flat-population" aria-hidden="true"/>}</>
+  </svg>
 }
 
 const cursorShape = "M0 0 7.2 14 0 10.2-7.2 14Z"
@@ -170,8 +146,7 @@ function ComputeGlyph() {
   </g>
 }
 
-export default function MapViewport({atlas,rig,selected,layers,populations,populationScope,pick,marker,showNews,showGlobal}:Props) {
-  const population = usePopulationPoints(atlas, populationScope, populations)
+export default function MapViewport({atlas,rig,selected,layers,populations,populationScope,pick,showGlobal}:Props) {
   const language = useLanguage()
   const { ui, locale } = language
   const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null), cursorOverlay=useRef<SVGSVGElement>(null)
@@ -180,7 +155,6 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
   const cursorMarks=useRef<(SVGGElement|null)[]>([])
   const islands=useMemo(()=>atlas.countries.flatMap(country=>country.islandGroup ? [{country,...country.islandGroup}] : []),[atlas])
   const islandMarks=useRef<(SVGGElement|null)[]>([])
-  const eventPin=useRef<SVGGElement>(null)
   const [failed,setFailed]=useState(false), [ready,setReady]=useState(false)
   const [lost,setLost]=useState(false)
   const wake=useRef<()=>void>(()=>{})
@@ -188,7 +162,13 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
   const select=useRef(pick); select.current=pick
   const onReady=useCallback(()=>setReady(true),[])
   const onFail=useCallback(()=>setFailed(true),[])
-  const altitudes=useMemo(()=>computePlaces.map(p=>relief(atlas.metres(p.lon,p.lat))+.18),[atlas])
+  const baseAltitudes=useMemo(()=>computePlaces.map(p=>relief(atlas.metres(p.lon,p.lat))),[atlas])
+  const altitudes=useMemo(()=>computePlaces.map((p,i)=>{
+    if (populationScope === null) return baseAltitudes[i] + .18
+    const entry = populations[p.country]
+    const active = entry !== undefined && Object.values(entry.factions).some(c => c && c.immersed + c.synthetic > 0)
+    return active ? .14 : baseAltitudes[i] * .26 + .16
+  }),[baseAltitudes, populationScope, populations])
   const project=useCallback((time:number)=>{
     const w=rig.width,h=rig.height
     const view=`0 0 ${w} ${h}`
@@ -215,17 +195,13 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
         place(cursorMarks.current[i],lon,lat,.5,angle,size*1.55)
       })
     }
-    const pose=`${view}|${rig.flat?1:0}|${rig.current.lon.toFixed(4)}|${rig.current.lat.toFixed(4)}|${rig.current.zoom.toFixed(4)}|${marker?.lon ?? ""}|${marker?.lat ?? ""}`
+    const pose=`${view}|${rig.flat?1:0}|${populationScope??""}|${rig.current.lon.toFixed(4)}|${rig.current.lat.toFixed(4)}|${rig.current.zoom.toFixed(4)}`
     if (!overlay.current || pose === placedView.current) return
     placedView.current=pose
     overlay.current.setAttribute("viewBox",view)
     computePlaces.forEach((p,i)=>place(marks.current[i],p.lon,p.lat,altitudes[i]))
     islands.forEach((island,i)=>place(islandMarks.current[i],island.lon,island.lat,.06))
-    if(eventPin.current && marker) {
-      if (rig.current.zoom<.17) place(eventPin.current,marker.lon,marker.lat,.30)
-      else eventPin.current.style.display="none"
-    }
-  },[altitudes,islands,marker,rig])
+  },[altitudes,islands,populationScope,rig])
   useEffect(()=>{
     const el=host.current!
     const detach=attachNavigation(el,rig,atlas,(location,point)=>{
@@ -255,15 +231,14 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
       gl={{antialias:true,alpha:false,powerPreference:"high-performance"}} camera={rig.camera}>
       <Wake setWake={setWake}/>
       <Suspense fallback={null}><TerrainScene terrainLabel={ui.terrain} atlas={atlas} rig={rig} selected={selected} layers={layers}
-        population={population} project={project} onReady={onReady}/></Suspense>
+        populations={populations} populationScope={populationScope} project={project} onReady={onReady}/></Suspense>
     </Canvas></GraphicsBoundary>}
-    {(failed || lost) && <FlatMap atlas={atlas} selected={selected} rig={rig} project={project} layers={layers} population={population}/>}
+    {(failed || lost) && <FlatMap atlas={atlas} selected={selected} rig={rig} project={project} layers={layers} populations={populations} populationScope={populationScope}/>}
     {layers.night && <div className="map-vignette" />}
     <ScreenGrid/>
     {!ready && !failed && !rig.flat && <span className="map-loading" role="status">{ui.buildingTerrain}</span>}
     <svg ref={overlay} className="geo-marks" aria-label={ui.computeSites}>
       <defs>
-        <radialGradient id="event-red" cx=".38" cy=".30" r=".78"><stop stopColor="#dd3045"/><stop offset=".43" stopColor="#92172a"/><stop offset="1" stopColor="#290510"/></radialGradient>
         <linearGradient id="cube-top" x1="0" y1="0" x2="1" y2="1">
           <stop style={{ stopColor: "var(--map-cube-top-0)" }} stopOpacity=".9"/>
           <stop offset="1" style={{ stopColor: "var(--map-cube-top-1)" }} stopOpacity=".46"/>
@@ -292,14 +267,6 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
           <path d="M0-5 5 0 0 5-5 0Z" stroke="var(--map-island-stroke)" strokeWidth="1.4" fill={selected.includes(country) ? "var(--map-island-selected)" : "var(--map-island-fill)"}/>
         </g>
       })}
-      {marker && <g ref={eventPin} style={{display:"none",pointerEvents:"auto",cursor:"pointer"}} role="button" aria-label={marker.label} tabIndex={0}
-        onPointerDown={e=>e.stopPropagation()} onPointerUp={e=>e.stopPropagation()}
-        onClick={showNews} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();showNews()}}}>
-        <title>{marker.label}</title>
-        <path d="M-12-22 0 0l12-22" fill="#d6dad7" stroke="#263133" strokeWidth="2"/>
-        <circle cy="-62" r="48" stroke="#d5d7c7" strokeWidth="4" fill="url(#event-red)"/>
-        <use href="#bio" x="-37" y="-99" width="74" height="74" color="#fff3e4"/>
-      </g>}
     </svg>
     <svg ref={cursorOverlay} className="geo-marks" aria-hidden="true">
       <defs>

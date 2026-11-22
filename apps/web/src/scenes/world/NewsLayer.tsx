@@ -148,7 +148,7 @@ function StoryBody({ item, decide, related }: {
       {ui.narrative.related} · {item.relatedTitle}
     </button>}
     {item.pending && item.decisionId && item.instanceId &&
-      <button type="button" onClick={() => decide(item.decisionId!, item.instanceId!)}>{ui.handleMutation}</button>}
+      <button type="button" onClick={() => decide(item.decisionId!, item.instanceId!)}>{ui.resolveDecision}</button>}
   </>
 }
 

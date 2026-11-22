@@ -22,7 +22,7 @@
 
 永夜叠加 NASA Black Marble 2016 灰度夜光合成图，明亮像素着为暖色。预览地图的「世界 → 东亚人口分布示例」可以调整朝鲜半岛覆盖率和日本合成人比例。两项都是预览数值。正式对局按 `RunState.countryPopulations` 中各国的普通沉浸和现役合成人数绘制，缺少人口记录的国家显示地形。
 
-人口以国境轮廓内的离散圆点显示。覆盖率决定点数，普通沉浸人口和现役合成人各用阵营色的一档。地图 Worker 缓存各国的抽样点，收到新人口快照或预览输入后计算点位和颜色。三维地形批量提交点，二维回退在镜头或点阵变化时重绘圆点。游戏倍速独立于点阵刷新。[人口 Worker](../apps/web/src/cartography/population.worker.ts) · [快照接线](../apps/web/src/cartography/usePopulationPoints.ts)
+人口分布通过预烘焙的国家索引、有符号边界距离场（SDF）、都市圈扩散分位数纹理与 `256 × 2` 状态纹理在地面着色器中直接绘制，无需额外几何体 Draw Call。已渗透版图在顶点与片元层面均压平高程起伏，采用高饱和纯扁平阵营实色覆盖并向国界与海岸线外侧圆润溢出，表面叠加同阵营色系的实心圆点随表现时间连续缩放呼吸；二维降级视图同步渲染国家阵营实色填充。[国家拓扑与人口纹理](../apps/web/src/cartography/country-field.ts) · [地面着色器](../apps/web/src/cartography/materials.ts)
 
 ## 十一月环境场
 
@@ -30,7 +30,7 @@
 
 表层洋流来自 NOAA Global Drifter Program v3.10 十一月多年平均速度场。原网格 0.25°，每四个格点取样一次。1850 条短迹线在速度场中积分；使用纬度余弦把东向米每秒换算为经度变化。地表陆地掩码、缺测值及日期变更线切断轨迹。极区的缺测格保留为空。常速下云场时间放大 4800 倍、洋流放大 30000 倍，保留各图层内部的速度差异。地区档案显示原始量纲的速度与流向角，正北为 0°。[漂流浮标数据和使用许可](https://erddap.aoml.noaa.gov/gdp/erddap/griddap/drifter_monthlymeans.html)
 
-环境动画使用表现时间，可随有效游戏倍速运行、暂停或独立隐藏。系统开启“减少动态效果”时显示静止环境并即时定位。预览地图的日期、新闻和疾病数值为演示数据；对局日期、新闻和资源读取统一日结算后的快照，交通路线只作示意。
+环境动画使用表现时间，可随有效游戏倍速运行、暂停或独立隐藏。系统开启“减少动态效果”时显示静止环境并即时定位。地图预览读取真实的建成算力站点与市场槽位；对局日期、新闻和资源读取统一日结算后的快照。
 
 ## 数据制作与文件
 
@@ -44,7 +44,7 @@ npm run build
 - `atlas.ts` 解析 SVG、米制高程和环境场。高程从北向南排列，含经纬度两端点。风及流速四分量从南向北排列，起始格点为 179.875°W、89.875°S；风为厘米每秒，洋流为毫米每秒。缺测哨兵为 −32768。
 - `camera.ts` 管理透视矩阵、地理定位、滚轮和触控导航。`MapViewport.tsx` 将交通标志投影到屏幕，并提供 WebGL 不可用时的二维 SVG 地图。
 - `TerrainScene.tsx` 装配地形、云层和洋流。`materials.ts` 定义地表、随流移动的水面细纹和云的着色器。`currents.ts` 积分浮标流场并维护短迹线。
-- 全屏 SVG 控件位于 `scenes/world/Hud.tsx` 和 `Symbols.tsx`。参考地图的固定数值位于同目录的 `preview.ts`。基辅小窗使用单独授权的真实街景，其他选区显示当地卫星影像。[地图场景](../apps/web/src/scenes/world/WorldScene.tsx) · [完整数据署名](../apps/web/public/map-credits.html)
+- 全屏 SVG 控件位于 `scenes/world/Hud.tsx` 和 `Symbols.tsx`。基辅小窗使用单独授权的真实街景，其他选区显示当地卫星影像。[地图场景](../apps/web/src/scenes/world/WorldScene.tsx) · [完整数据署名](../apps/web/public/map-credits.html)
 
 ## 验证记录
 
