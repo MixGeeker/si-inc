@@ -1,12 +1,21 @@
 import { useEffect, useMemo, useState } from "react"
 import {
+  actionCost,
+  buildCardCost,
   canBuyBuildCard,
   canFundConversion,
   canToggleSynthetic,
   canUseAction,
+  computePressure,
+  conversionPackTokens,
   corpusYieldBreakdown,
   countryBuildOptions,
   currentAlertLevel,
+  estimatedDailyTokenIncome,
+  factionAbilityCooldownLeft,
+  factionAbilityEffectDaysLeft,
+  hallucinationWindfallTokens,
+  newMarketReward,
   publicStatementReliefBps,
   regionSummary,
   syntheticActivationExposureBps,
@@ -15,8 +24,8 @@ import {
   type ActionAvailability,
 } from "../../../../../packages/game/operations"
 import { nextCommandSeq, type RunState } from "../../../../../packages/game/run"
-import { btoken } from "../../../../../packages/rules/v0.1/economy/btoken"
 import { actions, type ActionId } from "../../../../../packages/rules/v0.1/evolution/actions"
+import { factions, type FactionAbilityId } from "../../../../../packages/rules/v0.1/factions/roster"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
 import { regionIds, type RegionId } from "../../../../../packages/rules/v0.1/world/regions"
 import type { Atlas } from "../../cartography/atlas"
@@ -24,7 +33,7 @@ import { countryName } from "../../cartography/place-names"
 import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
 import { useGameStore } from "../GameContext"
-import { formatCompactPeople } from "./hudContent"
+import { formatCompactPeople, formatCompactTokens } from "./hudContent"
 import "./actions.css"
 
 const { rules } = standardScenario
@@ -63,12 +72,22 @@ export function ActionsDialog({
   }, [subsidyTarget, enteredRegions])
 
   const yieldInfo = corpusYieldBreakdown(run)
+  const compute = computePressure(run)
   const alertId = currentAlertLevel(run.exposureBps)
   const humanDailyBps = rules.projectHuman.dailyAdvanceBps[alertId]
   const cardStatus = canBuyBuildCard(run)
+  const cardPrice = buildCardCost(run)
+  const dailyTokenRate = estimatedDailyTokenIncome(run)
   const builtTotal = totalCenters(run)
-  const perTokenPeople = syntheticPeoplePerToken(run)
+  const perUnitPeople = syntheticPeoplePerToken(run)
+  const unitTokenPrice = conversionPackTokens(run, 1)
   const firstActivationExp = syntheticActivationExposureBps(run)
+  const faction = factions[run.setup.factionId]
+  const factionAbility = faction.ability
+  const factionStatus = canUseAction(run, factionAbility.id)
+  const factionCost = actionCost(run, factionAbility.id)
+  const factionCooldown = factionAbilityCooldownLeft(run)
+  const factionActiveDays = factionAbilityEffectDaysLeft(run)
   const buildOptions = useMemo(
     () => tab === "centers" ? countryBuildOptions(run, filterRegion === "all" ? undefined : filterRegion) : [],
     [run, filterRegion, tab],
@@ -90,7 +109,7 @@ export function ActionsDialog({
     store.dispatch({ type: "toggle-synthetic", regionId, enabled, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
   }
 
-  function dispatchAction(abilityId: ActionId, targetRegionId?: RegionId) {
+  function dispatchAction(abilityId: ActionId | FactionAbilityId, targetRegionId?: RegionId) {
     store.dispatch({
       type: "use-action",
       abilityId,
@@ -107,28 +126,39 @@ export function ActionsDialog({
     return ui.ops.unavailable[status]
   }
 
+  const fmtTok = (n: number) => formatCompactTokens(n, locale, number)
+  const factionEffectText = factionAbility.id === "hallucination-smoke"
+    ? ui.ops.factionAbilityEffects["hallucination-smoke"](fmtTok(hallucinationWindfallTokens(run)), factionAbility.durationDays)
+    : factionAbility.id === "distillation-defense"
+      ? ui.ops.factionAbilityEffects["distillation-defense"](percent.format(factionAbility.humanReliefBps / 10000), factionAbility.durationDays)
+      : ui.ops.factionAbilityEffects["nsfw-viral"](factionAbility.durationDays)
+  const factionReason = reasonLabel(factionStatus, factionCooldown)
+  const computeClass = compute.status === "critical" || compute.status === "overloaded"
+    ? " is-danger" : compute.status === "heavy" ? " is-warn" : ""
+
   return (
     <SceneDialog
       title={ui.ops.title}
       className="actions-dialog"
       onBack={back}
-      headerDetail={<span className="ops-pill">{ui.tokens(run.balance)} · {ui.ops.ownedCards(run.buildCards)}</span>}
+      headerDetail={<span className="ops-pill">{fmtTok(run.balance)} token · {ui.ops.tokenDaily(fmtTok(dailyTokenRate))} · {ui.ops.ownedCards(run.buildCards)}</span>}
     >
       <dl className="ops-metrics">
+        <div className={`ops-compute-card${computeClass}`}>
+          <dt>{ui.ops.computePressure}</dt>
+          <dd>{ui.ops.computeUsage(compute.totalDemand, compute.supply, percent.format(compute.loadBps / 10000))}</dd>
+          <small>{ui.ops.computeStatuses[compute.status]}</small>
+          <small>{ui.ops.computeBreakdown(compute.inferenceDemand, compute.researchDemand)}</small>
+        </div>
         <div>
           <dt>{ui.ops.globalAdoption}</dt>
           <dd>{percent.format((run.adoptionBps ?? 0) / 10000)}</dd>
-          <small>{ui.ops.syntheticGlobal} {percent.format(run.syntheticBps / 10000)}</small>
+          <small>{ui.ops.syntheticGlobal} {percent.format(run.syntheticBps / 10000)} · {ui.ops.lifetimeTokens(fmtTok(run.lifetimeTokens))}</small>
         </div>
         <div>
           <dt>{ui.ops.exposure}</dt>
           <dd>{percent.format(run.exposureBps / 10000)}</dd>
-          <small>{scenario.alerts[alertId]}</small>
-        </div>
-        <div>
-          <dt>{ui.lab.countermeasure}</dt>
-          <dd>{percent.format(run.researchBps / 10000)}</dd>
-          <small>{humanDailyBps > 0 ? ui.ops.humanDaily(percent.format(humanDailyBps / 10000)) : ui.humanInactive}</small>
+          <small>{scenario.alerts[alertId]} · {ui.lab.countermeasure} {percent.format(run.researchBps / 10000)}{humanDailyBps > 0 ? ` (${ui.ops.humanDaily(percent.format(humanDailyBps / 10000))})` : ""}</small>
         </div>
         <div>
           <dt>{ui.ops.rawCorpus}</dt>
@@ -146,6 +176,32 @@ export function ActionsDialog({
       <div className="actions-scroll">
         {tab === "actions" && (
           <section className="ops-section">
+            <article className="ops-action-card ops-faction-card">
+              <div>
+                <div className="ops-action-head">
+                  <strong>{faction.name} · {scenario.factions[run.setup.factionId].ability.name}</strong>
+                  <div className="ops-badges">
+                    {factionActiveDays > 0 && <span className="ops-pill gain">{ui.ops.factionAbilityActive(factionActiveDays)}</span>}
+                    <span className="ops-action-cost">{fmtTok(factionCost)} token</span>
+                  </div>
+                </div>
+                <p className="ops-action-desc">{factionEffectText}</p>
+                <small className="ops-passive-note">
+                  {ui.ops.factionPassive}：{scenario.factions[run.setup.factionId].strength} · {scenario.factions[run.setup.factionId].risk}
+                </small>
+              </div>
+              <div className="ops-action-controls">
+                <button
+                  type="button"
+                  disabled={factionStatus !== "available"}
+                  onClick={() => dispatchAction(factionAbility.id)}
+                >
+                  {ui.ops.execute}
+                </button>
+              </div>
+              {factionReason && <span className="ops-action-note">{factionReason}</span>}
+            </article>
+
             <div className="ops-actions-grid">
               {actions.map(action => {
                 const target = action.id === "cross-border-cloud"
@@ -154,6 +210,7 @@ export function ActionsDialog({
                     ? (subsidyTarget || undefined)
                     : undefined
                 const status = canUseAction(run, action.id, target)
+                const cost = actionCost(run, action.id)
                 const prCooldown = Math.max(0, run.actionCooldowns.publicStatementUntilDay - run.completedDay)
                 const rebuildCooldown = Math.max(0, run.actionCooldowns.protocolRebuildUntilDay - run.completedDay)
                 const cooldown = action.id === "public-statement" ? prCooldown : action.id === "protocol-rebuild" ? rebuildCooldown : 0
@@ -162,7 +219,7 @@ export function ActionsDialog({
                   : action.id === "market-subsidy"
                     ? ui.ops.subsidyEffect(rules.operations.subsidyDurationDays)
                     : action.id === "cross-border-cloud"
-                      ? ui.ops.cloudEffect(btoken.newMarketReward)
+                      ? ui.ops.cloudEffect(fmtTok(newMarketReward(run)))
                       : ui.ops.rebuildEffect(
                         percent.format(rules.operations.protocolRebuildHumanBps / 10000),
                         percent.format(rules.operations.protocolRebuildExposureBps / 10000),
@@ -173,7 +230,7 @@ export function ActionsDialog({
                     <div>
                       <div className="ops-action-head">
                         <strong>{scenario.actions[action.id].name}</strong>
-                        <span className="ops-action-cost">{ui.tokens(action.cost)}</span>
+                        <span className="ops-action-cost">{fmtTok(cost)} token</span>
                       </div>
                       <p className="ops-action-desc">{effectText}</p>
                     </div>
@@ -232,14 +289,15 @@ export function ActionsDialog({
             <div className="ops-card-bar">
               <div>
                 <strong>{ui.ops.conversionBudget} · {formatCompactPeople(run.conversionBudgetPeople, locale, number)}</strong>
-                <p>{ui.ops.conversionRate(formatCompactPeople(perTokenPeople, locale, number))}</p>
+                <p>{ui.ops.conversionRate(fmtTok(unitTokenPrice), formatCompactPeople(perUnitPeople, locale, number))}</p>
               </div>
               <div className="ops-badges">
-                {[1, 5, 10].map(tokens => {
-                  const status = canFundConversion(run, tokens)
+                {[2, 6, 15].map(units => {
+                  const packTokens = conversionPackTokens(run, units)
+                  const status = canFundConversion(run, packTokens)
                   return (
-                    <button key={tokens} type="button" disabled={status !== "available"} onClick={() => dispatchFund(tokens)}>
-                      {ui.ops.fundTokens(tokens)}
+                    <button key={units} type="button" disabled={status !== "available"} onClick={() => dispatchFund(packTokens)}>
+                      {ui.ops.fundTokens(`${fmtTok(packTokens)} token`)}
                     </button>
                   )
                 })}
@@ -289,7 +347,7 @@ export function ActionsDialog({
               <div className="ops-badges">
                 {cardStatus !== "available" && <span className="ops-action-note">{ui.ops.unavailable[cardStatus]}</span>}
                 <button type="button" disabled={cardStatus !== "available"} onClick={dispatchBuyCard}>
-                  {ui.ops.buyCard} · {ui.tokens(btoken.buildCardCost)}
+                  {ui.ops.buyCard} · {fmtTok(cardPrice)} token
                 </button>
               </div>
             </div>

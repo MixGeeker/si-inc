@@ -3,9 +3,9 @@ import test from "node:test"
 import { researchNode, trees } from "../../rules/v0.1/evolution/trees.ts"
 import { standardScenario } from "../../rules/v0.1/scenario.ts"
 import { replayForRun, runTimeline } from "../inspection.ts"
-import { corpusYieldBreakdown } from "../operations.ts"
-import { completedLevel, completionDay, firstIdleSlot, researchAttributes, researchCost, researchState, researchStatus, slotProject, dailyCorpus } from "../research.ts"
-import { advanceDay, createRun, nextCommandSeq, startResearch, unlockResearchSlot } from "../run.ts"
+import { computePressure, corpusYieldBreakdown } from "../operations.ts"
+import { activeResearchComputeLoad, completedLevel, completionDay, dailyCorpus, firstIdleSlot, isProjectCompleted, researchAttributes, researchCost, researchState, researchStatus, slotProject } from "../research.ts"
+import { advanceDay, buildDataCenter, buyBuildCard, createRun, grantDeveloperTokens, nextCommandSeq, startResearch, unlockResearchSlot } from "../run.ts"
 
 const { research: rules } = standardScenario.rules
 const fresh = () => createRun({ factionId: "claude", startRegionId: "as", difficultyId: "standard" }, 42)
@@ -19,6 +19,22 @@ function until(run, day) {
     run = next
   }
   return run
+}
+function untilDone(run, ...ids) {
+  while (ids.some(id => run.research.projects.some(p => p.skillId === id && !isProjectCompleted(run, p)))) {
+    const next = advanceDay(run)
+    assert.notStrictEqual(next, run)
+    run = next
+  }
+  return run
+}
+function withComputeHeadroom(run, centers = 4) {
+  let next = grantDeveloperTokens(run, 10_000, nextCommandSeq(run))
+  for (let i = 0; i < centers; i++) {
+    next = buyBuildCard(next, nextCommandSeq(next))
+    next = buildDataCenter(next, "CHN", nextCommandSeq(next))
+  }
+  return next
 }
 
 test("the seven research slots charge in order and reject invalid, unaffordable and repeated orders", () => {
@@ -48,11 +64,13 @@ test("the seven research slots charge in order and reject invalid, unaffordable 
   assert.equal(fresh().research.unlockedSlots, 0)
 })
 
-test("seven simultaneous projects use distinct slots, finish on game days and replay both balances", () => {
-  let run = until(fresh(), 45)
+test("seven simultaneous projects occupy compute, finish on schedule with enough centers, and slow down when overloaded", () => {
+  // With ample data centers, 7 parallel studies stay within compute supply and finish on standard days.
+  let run = withComputeHeadroom(until(fresh(), 45), 5)
   for (let i = 1; i <= 7; i++) run = unlock(run, i)
   const roots = trees.map(t => t.skills[0].id)
   for (const id of roots) run = start(run, id)
+  assert.ok(activeResearchComputeLoad(run) > 0)
   assert.strictEqual(start(run, roots[0]), run)
   assert.strictEqual(start(run, "multilingual"), run)
   run = advanceDay(run)
@@ -72,18 +90,31 @@ test("seven simultaneous projects use distinct slots, finish on game days and re
   assert.equal(rows[0].corpusBefore - rows[0].corpusAfter, eligible[6].cost)
   assert.equal(rows[0].before, rows[0].after)
   assert.deepEqual(replayForRun(run).commands, run.commands)
-  const lastDay = Math.max(...run.research.projects.map(completionDay))
-  run = until(run, lastDay)
+  run = untilDone(run, ...eligible.slice(0, 7).map(s => s.id))
   assert.equal(firstIdleSlot(run), 1)
   assert.ok(eligible.slice(0, 7).every(s => completedLevel(run, s.id) === 1))
+
+  // Without data centers, overloading compute slows research duration beyond base days and still replays deterministically.
+  let overloaded = until(fresh(), 35)
+  for (let i = 1; i <= 4; i++) overloaded = unlock(overloaded, i)
+  for (const id of ["social-sharing", "daily-chat", "weekly-reports", "api-ecosystem"]) overloaded = start(overloaded, id)
+  overloaded = untilDone(overloaded, "social-sharing", "daily-chat", "weekly-reports", "api-ecosystem")
+  for (const id of ["multilingual", "open-source", "agent-tasks", "enterprise-workflows"]) overloaded = start(overloaded, id)
+  const cp = computePressure(overloaded)
+  assert.ok(cp.status === "overloaded" || cp.status === "critical")
+  assert.ok(cp.researchWorkPerDay < 100)
+  const startedDay = overloaded.completedDay
+  overloaded = untilDone(overloaded, "multilingual")
+  assert.ok(overloaded.completedDay - startedDay > researchNode("multilingual").skill.days)
+  assert.ok(runTimeline(overloaded))
 })
 
 test("exclusive routes reserve their stage on start and either completed route unlocks the final project", () => {
   for (const [route, other] of [["open-source", "closed-subscription"], ["closed-subscription", "open-source"]]) {
-    let run = unlock(unlock(until(fresh(), 12), 1), 2)
+    let run = unlock(unlock(withComputeHeadroom(until(fresh(), 12), 2), 1), 2)
     function finish(...ids) {
       for (const id of ids) run = start(run, id)
-      run = until(run, Math.max(...run.research.projects.map(completionDay)))
+      run = untilDone(run, ...ids)
       for (const id of ids) assert.equal(completedLevel(run, id), 1)
     }
     finish("social-sharing")
@@ -146,65 +177,66 @@ test("research rejects unknown skills, stale sequences, short funds and terminal
 })
 
 test("project deltas apply once on completion, stack per level, and cross-page prerequisites require each group", () => {
-  let run = unlock(unlock(until(fresh(), 15), 1), 2)
+  let run = unlock(unlock(withComputeHeadroom(until(fresh(), 15), 2), 1), 2)
   const baseline = { spread: 100, appeal: 100, profit: 100, danger: 100 }
   run = start(start(run, "social-sharing"), "daily-chat")
   assert.deepEqual(researchAttributes(run), baseline)
-  run = until(run, 17)
+  run = untilDone(run, "social-sharing", "daily-chat")
   assert.deepEqual(researchAttributes(run), { ...baseline, spread: 106, appeal: 105 })
   assert.strictEqual(start(run, "remix-templates"), run)
   run = start(start(run, "tone-matching"), "multilingual")
-  run = until(run, 19)
+  run = untilDone(run, "tone-matching")
   assert.equal(status(run, "remix-templates"), "available")
-  run = until(run, 20)
+  run = untilDone(run, "multilingual")
   run = start(run, "multilingual")
-  run = until(run, 23)
+  run = untilDone(run, "multilingual")
   assert.deepEqual(researchAttributes(run), { ...baseline, spread: 110, appeal: 112 })
   assert.deepEqual(researchAttributes(fresh()), baseline)
 })
 
 test("parallel completion pays once beginning after model redesign, including a three-project day", () => {
-  let run = until(fresh(), 32)
-  for (const s of [1,2,3]) run = unlock(run, s)
-  run = until(start(run, "inference-efficiency"), 34)
-  for (const id of ["multimodal","reinforcement-learning","regulatory-adaptation"]) run=start(run,id)
-  run = until(run, 38)
+  let run = withComputeHeadroom(until(fresh(), 32), 4)
+  for (const s of [1, 2, 3]) run = unlock(run, s)
+  run = untilDone(start(run, "inference-efficiency"), "inference-efficiency")
+  for (const id of ["multimodal", "reinforcement-learning", "regulatory-adaptation"]) run = start(run, id)
+  run = untilDone(run, "multimodal", "reinforcement-learning", "regulatory-adaptation")
   run = start(run, "version-rebuild")
-  run = until(run, 41)
+  run = untilDone(run, "version-rebuild")
   run = start(run, "request-cache")
-  run = until(run, 42)
+  run = untilDone(run, "request-cache")
   const singleDay = advanceDay(run)
   const singleExpected = corpusYieldBreakdown(run).totalDaily
   assert.ok(Math.abs((singleDay.research.corpus - run.research.corpus) - singleExpected) <= 1)
   run = singleDay
-  for (const id of ["social-sharing","daily-chat","weekly-reports"]) run=start(run,id)
+  const parallelStart = run.completedDay
+  for (const id of ["social-sharing", "daily-chat", "weekly-reports"]) run = start(run, id)
   run = advanceDay(run)
-  const withoutParallel = advanceDay({ ...run, research: { ...run.research, projects: run.research.projects.filter(p => p.startedDay < 43) } })
+  const withoutParallel = advanceDay({ ...run, research: { ...run.research, projects: run.research.projects.filter(p => p.startedDay < parallelStart) } })
   const withParallel = advanceDay(run)
   assert.equal((withParallel.research.corpus - run.research.corpus) - (withoutParallel.research.corpus - run.research.corpus), 3)
   assert.ok(runTimeline(withParallel))
 })
 
 test("both exclusive policies reserve on opening and block only their dependent branches", () => {
-  for (const channel of ["open-source","closed-subscription"]) {
-    for (const policy of ["human-approval","autonomous-decisions"]) {
-      let run = until(fresh(), 30)
-      for (const slot of [1,2,3]) run = unlock(run,slot)
-      for (const id of ["daily-chat","weekly-reports","api-ecosystem"]) run=start(run,id)
-      run=until(run,33)
-      for (const id of ["long-memory","agent-tasks","enterprise-workflows"]) run=start(run,id)
-      run=until(run,37)
-      run=start(start(run,channel),policy)
-      for (const chosen of [channel,policy]) {
+  for (const channel of ["open-source", "closed-subscription"]) {
+    for (const policy of ["human-approval", "autonomous-decisions"]) {
+      let run = withComputeHeadroom(until(fresh(), 30), 4)
+      for (const slot of [1, 2, 3]) run = unlock(run, slot)
+      for (const id of ["daily-chat", "weekly-reports", "api-ecosystem"]) run = start(run, id)
+      run = untilDone(run, "daily-chat", "weekly-reports", "api-ecosystem")
+      for (const id of ["long-memory", "agent-tasks", "enterprise-workflows"]) run = start(run, id)
+      run = untilDone(run, "long-memory", "agent-tasks", "enterprise-workflows")
+      run = start(start(run, channel), policy)
+      for (const chosen of [channel, policy]) {
         const other = researchNode(chosen).skill.excludes
-        assert.equal(status(run,other),"excluded")
-        assert.strictEqual(start(run,other),run)
+        assert.equal(status(run, other), "excluded")
+        assert.strictEqual(start(run, other), run)
       }
-      assert.equal(status(run,policy === "human-approval" ? "full-delegation" : "live-handoff"),"excluded")
-      assert.equal(status(run,channel === "open-source" ? "metered-billing" : "community-mirrors"),"excluded")
-      const reachable = trees.flatMap(t=>t.skills).filter(s=>status(run,s.id)!=="excluded")
-      assert.equal(reachable.length,46)
-      assert.equal(status(run,"global-default"),"locked")
+      assert.equal(status(run, policy === "human-approval" ? "full-delegation" : "live-handoff"), "excluded")
+      assert.equal(status(run, channel === "open-source" ? "metered-billing" : "community-mirrors"), "excluded")
+      const reachable = trees.flatMap(t => t.skills).filter(s => status(run, s.id) !== "excluded")
+      assert.equal(reachable.length, 46)
+      assert.equal(status(run, "global-default"), "locked")
       assert.ok(runTimeline(run))
     }
   }

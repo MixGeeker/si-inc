@@ -130,6 +130,14 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
 
   return <>
     <MapViewport atlas={atlas} rig={rig} selected={selected} populations={populations} populationScope={populationScope} layers={{ cloud, current, reduced, speed, night }}
+      bubbles={scene.kind === "campaign" && panel === null ? scene.run.bubbles : undefined}
+      onCollectBubble={scene.kind === "campaign" ? bubble => send({
+        type: "collect-bubble",
+        bubbleId: bubble.id,
+        runId: scene.run.runId,
+        completedDay: scene.run.completedDay,
+        seq: nextCommandSeq(scene.run),
+      }) : undefined}
       pick={({ country, ...point }) => send({ type: "pick-location", selection: { ...point, countryId: country?.id ?? null } })}
       showGlobal={showGlobal}/>
     <Hud location={location} place={place} content={content} zoom={zoom} selectedSpeed={selectedSpeed} manualPaused={manualPaused} paused={speed === 0}

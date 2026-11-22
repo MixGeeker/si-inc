@@ -35,6 +35,11 @@ function traceTitle(row: RunTraceEntry, { ui, scenario }: Language) {
       const target = command.targetRegionId && isRegionId(command.targetRegionId) ? ` · ${scenario.regions[command.targetRegionId]}` : ""
       return `${scenario.actions[action.id].name}${target}`
     }
+    const factionEntry = Object.values(standardScenario.factions).find(f => f.ability.id === command.abilityId)
+    if (factionEntry) return factionEntry.ability.name
+  }
+  if (command?.kind === "collectBubble") {
+    return ui.ops.bubbles.collectCommand(command.bubbleId.split(":").at(-1) ?? command.bubbleId)
   }
   if (command?.kind === "chooseEvent" && event?.content.kind === "decision") {
     const choice = decisions[event.content.id].choices.find(c => c.id === command.choiceId)

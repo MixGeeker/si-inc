@@ -15,6 +15,7 @@ type Action =
   | { kind: "fundConversion"; tokens: number }
   | { kind: "toggleSynthetic"; regionId: string; enabled: boolean }
   | { kind: "useAbility"; abilityId: string; targetRegionId?: string }
+  | { kind: "collectBubble"; bubbleId: string }
   | { kind: "chooseEvent"; eventInstanceId: string; choiceId: string }
 
 /** A decision made after `day` completed days. Sequence numbers increase across the run. */

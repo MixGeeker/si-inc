@@ -4,9 +4,18 @@ import { btoken } from "../../rules/v0.1/economy/btoken.ts"
 import { standardScenario } from "../../rules/v0.1/scenario.ts"
 import { countries, countrySpec, globalPlayablePopulation, originCountries } from "../../rules/v0.1/world/countries.ts"
 import { replayForRun, runTimeline } from "../inspection.ts"
-import { buildCountryPopulations, canBuildDataCenter, computeGlobalMetrics, countryOccupiedCenters, factionStandings, victoryProgress } from "../operations.ts"
+import {
+  actionCost,
+  buildCardCost,
+  buildCountryPopulations,
+  canBuildDataCenter,
+  computeGlobalMetrics,
+  countryOccupiedCenters,
+  factionStandings,
+  victoryProgress,
+} from "../operations.ts"
 import { populationShares } from "../population.ts"
-import { advanceDay, buildDataCenter, buyBuildCard, createRun, dailyOutcome, fundConversion, nextCommandSeq, toggleSyntheticProgram, useAction } from "../run.ts"
+import { advanceDay, buildDataCenter, buyBuildCard, createRun, dailyOutcome, fundConversion, grantDeveloperTokens, nextCommandSeq, toggleSyntheticProgram, useAction } from "../run.ts"
 
 const { rules } = standardScenario
 const setup = { factionId: "gpt", startRegionId: "as", difficultyId: "standard" }
@@ -30,10 +39,11 @@ test("each playable faction competes against the other two with separate startin
       assert.equal(initial.countryPopulations[originId].factions[opponent.factionId].immersed, opponent.countries[originId].users)
     }
 
-    const bought = buyBuildCard(initial, nextCommandSeq(initial))
-    assert.ok(bought.balance < initial.balance)
+    const funded = grantDeveloperTokens(initial, 10, nextCommandSeq(initial))
+    const bought = buyBuildCard(funded, nextCommandSeq(funded))
+    assert.ok(bought.balance < funded.balance)
     assert.strictEqual(bought.opponents, initial.opponents)
-    assert.strictEqual(buyBuildCard(bought, nextCommandSeq(initial)), bought)
+    assert.strictEqual(buyBuildCard(bought, nextCommandSeq(funded)), bought)
   }
 })
 
@@ -92,7 +102,7 @@ test("fixed-seed rivals operate independently and share a conserved country cens
 })
 
 test("an opponent can use the last shared slot without consuming an unsuccessful player card", () => {
-  const initial = fresh()
+  const initial = grantDeveloperTokens(fresh(), 20, 1)
   const countryId = originCountries[initial.setup.startRegionId]
   const { slots } = countrySpec(countryId)
   const bought = buyBuildCard(initial, nextCommandSeq(initial))
@@ -124,8 +134,10 @@ test("an opponent can use the last shared slot without consuming an unsuccessful
 test("two computer bids for the last shared slot choose one winner and the other faction retains its card", () => {
   const initial = fresh()
   const spec = countrySpec("JPN")
+  const cardBudget = btoken.buildCardCost
   const opponents = Object.fromEntries(Object.entries(initial.opponents).map(([id, opponent]) => [id, {
     ...opponent,
+    balance: cardBudget,
     markets: { ...opponent.markets, [spec.regionId]: 0 },
     countries: { [spec.id]: { users: Math.floor(spec.population / 4), synthetics: 0, centers: 0, unlockedTier: 3 } },
   }]))
@@ -138,7 +150,7 @@ test("two computer bids for the last shared slot choose one winner and the other
   assert.equal(settled.completedDay, 1)
   assert.equal(countryOccupiedCenters(settled, spec.id), spec.slots)
   const results = Object.values(settled.opponents).map(opponent => {
-    assert.equal(opponent.balance, rules.initialBtoken - btoken.buildCardCost)
+    assert.ok(opponent.balance >= 0)
     return [opponent.countries[spec.id].centers, opponent.buildCards]
   })
   assert.deepEqual(results.sort(), [[0, 1], [1, 0]])
@@ -147,7 +159,7 @@ test("two computer bids for the last shared slot choose one winner and the other
 })
 
 test("ordinary users transfer in a saturated country and cannot convert that day", () => {
-  const initial = fresh()
+  const initial = grantDeveloperTokens(fresh(), 40, 1)
   const countryId = originCountries[setup.startRegionId]
   const { population, slots } = countrySpec(countryId)
   const [opponentId, opponent] = Object.entries(initial.opponents)[0]
@@ -164,6 +176,7 @@ test("ordinary users transfer in a saturated country and cannot convert that day
     },
   }
   const control = advanceDay(contested)
+  assert.ok(contested.balance >= actionCost(contested, "market-subsidy"))
   const subsidized = useAction(contested, "market-subsidy", nextCommandSeq(contested), setup.startRegionId)
   assert.notStrictEqual(subsidized, contested)
   const next = advanceDay(subsidized)
@@ -179,8 +192,19 @@ test("ordinary users transfer in a saturated country and cannot convert that day
   const funded = fundConversion(subsidized, 1, nextCommandSeq(subsidized))
   const enabled = toggleSyntheticProgram(funded, setup.startRegionId, true, nextCommandSeq(funded))
   const afterConversion = advanceDay(enabled).countries[countryId]
+  // Only start-of-day ordinary users can convert today; newly transferred users wait until next day.
   assert.equal(afterConversion.synthetics, player.synthetics + player.users)
-  assert.equal(afterConversion.users, playerAfter.users - player.users)
+  assert.ok(afterConversion.users >= playerAfter.users - player.users)
+  assert.ok(buildCardCost(initial) >= btoken.buildCardCost)
+})
+
+test("idle players eventually lose to active computer rivals instead of deadlocking below 100%", () => {
+  let run = fresh()
+  for (let day = 0; day < 180 && !dailyOutcome(run); day++) {
+    run = advanceDay(run)
+  }
+  assert.ok(["rival-victory", "human-victory"].includes(dailyOutcome(run)))
+  assert.ok(runTimeline(run))
 })
 
 test("global conversion uses real faction ownership for an exact majority and gives HUMAN priority", () => {

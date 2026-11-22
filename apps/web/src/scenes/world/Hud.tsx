@@ -331,11 +331,11 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
         </Control>
       </g>
       {content.kind === "campaign" && <g transform={`translate(${statusX / unit} ${statusTop / unit}) scale(${menuUnit / unit})`}>
-        <g transform="translate(-180 26)">
+        <g transform="translate(-235 26)">
           <Control label={ui.ops.factionStandings} description={content.worldStatusFull} run={() => open("world")}>
-            <Glass d="M0 0h360v51H0Z" accent={content.syntheticActive}/>
-            <text x="180" y="34" textAnchor="middle" fontSize="22">{content.worldStatus}</text>
-            <text x="342" y="34" textAnchor="end" aria-hidden="true" fontSize="22">›</text>
+            <Glass d="M0 0h470v51H0Z" accent={content.syntheticActive || content.computeAlert}/>
+            <text x="228" y="34" textAnchor="middle" fontSize="20" fill={content.computeAlert ? "var(--ui-risk)" : undefined}>{content.worldStatus}</text>
+            <text x="452" y="34" textAnchor="end" aria-hidden="true" fontSize="22">›</text>
           </Control>
         </g>
       </g>}
@@ -394,12 +394,22 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
         <RegionStrip x={w/2-503} y={h-HUD.regionHeight} location={location} place={place} open={open} content={content}/>
         <ResourceMeter x={w-362} y={h-130} title={ui.world} value={ui.layersShort} detail={ui.climateShort} icon="hexes" research onOpen={() => open("world")}/>
       </> : <>
-        <ResourceMeter x={20} y={h-130} title={ui.action} value={content.token} detail={ui.cards(content.cards)} icon="token" onOpen={() => open("actions")}/>
+        <ResourceMeter x={20} y={h-130} title={ui.action} value={content.token} detail={content.tokenDetail} icon="token" onOpen={() => open("actions")}/>
         <CampaignStrip x={w/2-503} y={h-HUD.regionHeight} place={place} location={location} content={content} focusPlace={focusPlace} openDetails={() => open("region")}/>
         <ResourceMeter x={w-362} y={h-130} title={ui.research} value={content.corpus} detail={content.yieldText} icon="flask" research onOpen={() => open("overview")}/>
       </>}
       <ScreenBezel w={w} h={h}/>
     </svg>
+    {content.kind === "campaign" && (
+      <button
+        type="button"
+        className={`hud-advisor${content.advisor.urgent ? " is-urgent" : ""}`}
+        style={{ top: statusTop + 82 * menuUnit }}
+        onClick={() => open(content.advisor.panel)}
+      >
+        {content.advisor.text}
+      </button>
+    )}
     <input className="zoom-rail" type="range" min="0" max="1000" step="1" value={Math.round(progress*1000)}
       style={{left:railX*unit,top:(railY+HUD.railTrackTop)*unit,width:68*unit,height:HUD.railTravel*unit}}
       aria-label={ui.mapZoom} aria-valuetext={percent.format(Math.round(zoom * 100) / 100)} onChange={e=>setZoom(Math.expm1(Number(e.target.value)/1000*Math.log(69))/68)}/>

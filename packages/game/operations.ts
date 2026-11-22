@@ -1,9 +1,9 @@
 import { btoken } from "../rules/v0.1/economy/btoken.ts"
 import { actionById } from "../rules/v0.1/evolution/actions.ts"
 import { channelTechnologies, type ResearchMarketContext } from "../rules/v0.1/evolution/market-effects.ts"
-import { researchNode } from "../rules/v0.1/evolution/trees.ts"
+import { researchNode, type SkillId } from "../rules/v0.1/evolution/trees.ts"
 import type { Outcome } from "../rules/v0.1/endings/standard.ts"
-import type { FactionId } from "../rules/v0.1/factions/roster.ts"
+import { factions, type FactionAbilityId, type FactionId } from "../rules/v0.1/factions/roster.ts"
 import { projectHuman } from "../rules/v0.1/opposition/project-human.ts"
 import { phases } from "../rules/v0.1/progression/phases.ts"
 import { isRegionId, standardScenario } from "../rules/v0.1/scenario.ts"
@@ -25,7 +25,7 @@ import {
 } from "./competition.ts"
 import { marketResearchValue } from "./market-research.ts"
 import type { CountryPopulations } from "./population.ts"
-import { attributesForLevels, dailyCorpus, researchLevels, type SkillLevels } from "./research.ts"
+import { activeResearchComputeLoad, attributesForLevels, dailyCorpus, researchLevels, type SkillLevels } from "./research.ts"
 import type { RunSetup, RunState } from "./run.ts"
 
 export { countryOccupiedCenters, countrySeedUsers } from "./competition.ts"
@@ -58,6 +58,38 @@ export interface CountryRunState {
 export interface ActionCooldowns {
   readonly publicStatementUntilDay: number
   readonly protocolRebuildUntilDay: number
+  readonly factionAbilityUntilDay: number
+  readonly factionEffectUntilDay: number
+}
+
+export type MapBubbleKind = "traffic" | "corpus" | "alert"
+
+export interface MapBubble {
+  readonly id: string
+  readonly kind: MapBubbleKind
+  readonly countryId: string
+  readonly regionId: RegionId
+  readonly spawnedDay: number
+  readonly expiresDay: number
+  /** traffic: scaled tokens; corpus: corpus amount; alert: exposure relief bps */
+  readonly value: number
+}
+
+export type ComputeStatus = "optimal" | "heavy" | "overloaded" | "critical"
+
+export interface ComputePressure {
+  readonly supply: number
+  readonly baseSupply: number
+  readonly centerSupply: number
+  readonly inferenceDemand: number
+  readonly researchDemand: number
+  readonly totalDemand: number
+  readonly loadBps: number
+  readonly status: ComputeStatus
+  readonly researchWorkPerDay: number
+  readonly spreadMulBps: number
+  readonly conversionMulBps: number
+  readonly extraExposureBps: number
 }
 
 export type AlertLevelId = typeof projectHuman.alertLevels[number]["id"]
@@ -144,6 +176,9 @@ export interface RunRating {
 const { rules } = standardScenario
 const opRules = rules.operations
 const humanRules = rules.projectHuman
+const computeRules = rules.compute
+const bubbleRules = rules.bubbles
+const MAX_TOKEN_SCALE = 120_000_000_000
 
 const emptyMarket: MarketRunState = {
   enteredDay: null,
@@ -161,6 +196,195 @@ const emptyMarket: MarketRunState = {
 export const defaultCooldowns: ActionCooldowns = {
   publicStatementUntilDay: -1,
   protocolRebuildUntilDay: -1,
+  factionAbilityUntilDay: -1,
+  factionEffectUntilDay: -1,
+}
+
+/** Round inflated token figures to clean, legible numbers while staying exact for small values. */
+export function roundNiceToken(raw: number): number {
+  if (!Number.isFinite(raw) || raw <= 0) return 0
+  if (raw < 100) return Math.max(1, Math.round(raw))
+  if (raw < 1000) return Math.round(raw / 10) * 10
+  if (raw < 10_000) return Math.round(raw / 50) * 50
+  if (raw < 100_000) return Math.round(raw / 500) * 500
+  const digits = Math.floor(Math.log10(raw))
+  const unit = 10 ** Math.max(2, digits - 2)
+  return Math.round(raw / unit) * unit
+}
+
+function nextBubbleRandom(state: number): number {
+  return (Math.imul(state, 1664525) + 1013904223) >>> 0
+}
+
+export function tokenScaleOf(run: RunState): number {
+  return Math.max(1, run.tokenScale ?? 1)
+}
+
+export function computeTargetTokenScale(
+  adoptionBps: number,
+  globalSyntheticBps: number,
+  playerSyntheticBps: number,
+  centers: number,
+  completedTechs: number,
+): number {
+  const userFrac = Math.min(1, Math.max(0, adoptionBps) / 10000)
+  const synthFrac = Math.min(1, Math.max(0, globalSyntheticBps) / 10000)
+  const playerSynthFrac = Math.min(1, Math.max(0, playerSyntheticBps) / 10000)
+  if (userFrac < 0.0025 && centers === 0 && completedTechs === 0 && synthFrac === 0) return 1
+  const infraFrac = Math.min(1, centers * 0.09 + completedTechs * 0.025)
+  const stage = Math.min(
+    1,
+    Math.pow(userFrac, 0.56) * 0.44
+      + Math.pow(synthFrac, 0.62) * 0.32
+      + playerSynthFrac * 0.14
+      + infraFrac * 0.16,
+  )
+  if (stage <= 0.02) return 1
+  const raw = Math.pow(10, stage * 11.15)
+  return Math.min(MAX_TOKEN_SCALE, Math.max(1, roundNiceToken(raw)))
+}
+
+export function buildCardCost(run: RunState): number {
+  const scale = tokenScaleOf(run)
+  const centers = totalCenters(run)
+  const centerFactor = 1 + centers * 0.14
+  return Math.max(1, roundNiceToken(btoken.buildCardCost * centerFactor * scale))
+}
+
+export function newMarketReward(run: RunState): number {
+  return Math.max(1, roundNiceToken(btoken.newMarketReward * tokenScaleOf(run)))
+}
+
+export function milestoneRewardForRun(run: RunState, baseReward: number): number {
+  return Math.max(1, roundNiceToken(baseReward * tokenScaleOf(run)))
+}
+
+export function isPlayerFactionAbility(run: RunState, abilityId: string): abilityId is FactionAbilityId {
+  return factions[run.setup.factionId].ability.id === abilityId
+}
+
+export function actionCost(run: RunState, abilityId: string): number {
+  const scale = tokenScaleOf(run)
+  const faction = factions[run.setup.factionId]
+  if (abilityId === faction.ability.id) {
+    return Math.max(1, roundNiceToken(faction.ability.cost * scale))
+  }
+  const action = actionById(abilityId)
+  if (!action) return 0
+  const expansionMul = (action.id === "cross-border-cloud" || action.id === "market-subsidy")
+    ? faction.passives.expansionCostMulBps / 10000
+    : 1
+  return Math.max(1, roundNiceToken(action.cost * expansionMul * scale))
+}
+
+export function factionAbilityEffectDaysLeft(run: RunState): number {
+  return Math.max(0, run.actionCooldowns.factionEffectUntilDay - run.completedDay)
+}
+
+export function factionAbilityCooldownLeft(run: RunState): number {
+  return Math.max(0, run.actionCooldowns.factionAbilityUntilDay - run.completedDay)
+}
+
+export function hallucinationWindfallTokens(run: RunState): number {
+  const scale = tokenScaleOf(run)
+  const passives = factions[run.setup.factionId].passives
+  return Math.max(1, roundNiceToken(13 * passives.tokenYieldMulBps / 10000 * scale))
+}
+
+export function conversionPackTokens(run: RunState, units: number): number {
+  return Math.max(1, roundNiceToken(units * tokenScaleOf(run)))
+}
+
+export function conversionPeopleForTokens(run: RunState, tokens: number): number {
+  if (!Number.isSafeInteger(tokens) || tokens <= 0) return 0
+  const scale = tokenScaleOf(run)
+  return Math.max(1, Math.floor(tokens * syntheticPeoplePerToken(run) / scale))
+}
+
+export function computePressure(run: RunState, extraResearchLoad = 0): ComputePressure {
+  const levels = researchLevels(run)
+  const centers = totalCenters(run)
+  const passives = factions[run.setup.factionId].passives
+  let supplyMulBps = passives.computeEfficiencyBps
+  if ((levels["inference-efficiency"] ?? 0) > 0) supplyMulBps += 1500
+  const hasBalancedContinent = (levels["load-balancing"] ?? 0) > 0
+    && regionIds.some(id => regionCenters(run, id) >= 2)
+  if (hasBalancedContinent) supplyMulBps += 1800
+
+  const baseSupply = computeRules.baseSupply
+  const centerSupply = Math.round(centers * computeRules.centerSupply * supplyMulBps / 10000)
+  const supply = Math.max(1, baseSupply + centerSupply)
+
+  const ordinaryShare = totalImmersed(run) / globalPlayablePopulation
+  const synthShare = totalPlayerSynthetics(run) / globalPlayablePopulation
+  let inferMul = 1
+  if ((levels.quantization ?? 0) > 0) inferMul *= 0.82
+  if ((levels["request-cache"] ?? 0) > 0) inferMul *= 0.88
+  let edgeOffload = 1
+  if ((levels["edge-deployment"] ?? 0) > 0) edgeOffload *= 0.80
+  if ((levels["offline-bundles"] ?? 0) > 0) edgeOffload *= 0.85
+
+  const ordinaryLoad = ordinaryShare * computeRules.ordinaryLoadAtFull * edgeOffload
+  const syntheticLoad = synthShare * computeRules.syntheticLoadAtFull
+  const inferenceDemand = Math.round((ordinaryLoad + syntheticLoad) * inferMul)
+  const researchDemand = activeResearchComputeLoad(run) + Math.max(0, extraResearchLoad)
+  const totalDemand = inferenceDemand + researchDemand
+  const loadBps = Math.round(totalDemand * 10000 / supply)
+
+  let status: ComputeStatus = "optimal"
+  let researchWorkPerDay = 100
+  let spreadMulBps = 10000
+  let conversionMulBps = 10000
+  let extraExposureBps = 0
+
+  if (loadBps > computeRules.criticalLoadBps) {
+    status = "critical"
+    researchWorkPerDay = computeRules.criticalResearchWork
+    spreadMulBps = computeRules.criticalSpreadBps
+    conversionMulBps = computeRules.criticalConversionBps
+    extraExposureBps = computeRules.criticalExposureBps
+  } else if (loadBps > computeRules.overloadBps) {
+    status = "overloaded"
+    researchWorkPerDay = computeRules.overloadResearchWork
+    spreadMulBps = computeRules.overloadSpreadBps
+    conversionMulBps = computeRules.overloadConversionBps
+    extraExposureBps = computeRules.overloadExposureBps
+  } else if (loadBps >= computeRules.heavyLoadBps) {
+    status = "heavy"
+  }
+
+  return {
+    supply,
+    baseSupply,
+    centerSupply,
+    inferenceDemand,
+    researchDemand,
+    totalDemand,
+    loadBps,
+    status,
+    researchWorkPerDay,
+    spreadMulBps,
+    conversionMulBps,
+    extraExposureBps,
+  }
+}
+
+export function computePressureWithSkill(run: RunState, skillId: SkillId): ComputePressure {
+  return computePressure(run, researchNode(skillId).skill.computeLoad)
+}
+
+export function estimatedDailyTokenIncome(run: RunState): number {
+  const scale = tokenScaleOf(run)
+  const levels = researchLevels(run)
+  const attrs = attributesForLevels(levels)
+  const passives = factions[run.setup.factionId].passives
+  const adoptionBps = run.adoptionBps ?? 0
+  const synthBps = run.playerSyntheticBps
+  const effectiveBps = Math.min(25000, adoptionBps + synthBps * 2)
+  const baseUnits = 0.85 + effectiveBps / 2400 + totalCenters(run) * 0.28
+  const profitMul = Math.max(0.4, attrs.profit / rules.research.attributeBaseline)
+  const raw = baseUnits * profitMul * (passives.tokenYieldMulBps / 10000) * scale
+  return Math.max(1, roundNiceToken(raw))
 }
 
 export function buildCountryPopulations(
@@ -205,7 +429,7 @@ export function computeGlobalMetrics(countryStates: Readonly<Record<string, Coun
   return { totalUsers, totalSynthetics, totalCovered, adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps }
 }
 
-export function initialOperations(setup: RunSetup) {
+export function initialOperations(setup: RunSetup, seed = 0) {
   const markets = Object.fromEntries(
     regionIds.map(id => [id, id === setup.startRegionId ? { ...emptyMarket, enteredDay: 0 } : { ...emptyMarket }]),
   ) as Record<RegionId, MarketRunState>
@@ -229,6 +453,8 @@ export function initialOperations(setup: RunSetup) {
   return {
     exposureBps: 0,
     buildCards: 0,
+    tokenScale: 1,
+    lifetimeTokens: rules.initialBtoken,
     markets,
     countries: countryStates,
     opponents,
@@ -242,6 +468,8 @@ export function initialOperations(setup: RunSetup) {
     corpusRemainder: 0,
     crossRegionProgress: 0,
     actionCooldowns: defaultCooldowns,
+    bubbles: [] as readonly MapBubble[],
+    bubbleRandomState: ((seed ^ 0x5bd1e995) >>> 0) || 1,
   }
 }
 
@@ -500,7 +728,8 @@ export function calculateRunRating(run: RunState, outcome: Outcome | "withdrawn"
 
 export function canBuyBuildCard(run: RunState): ActionAvailability {
   if (isRunEnded(run)) return "ended"
-  if (!Number.isSafeInteger(run.balance) || run.balance < btoken.buildCardCost) return "tokens"
+  const cost = buildCardCost(run)
+  if (!Number.isSafeInteger(run.balance) || run.balance < cost) return "tokens"
   if (!Number.isSafeInteger(run.buildCards) || run.buildCards >= Number.MAX_SAFE_INTEGER) return "invalid"
   return "available"
 }
@@ -522,7 +751,7 @@ export function canFundConversion(run: RunState, tokens: number): ActionAvailabi
   if (isRunEnded(run)) return "ended"
   if (!Number.isSafeInteger(tokens) || tokens <= 0) return "invalid"
   if (!Number.isSafeInteger(run.balance) || run.balance < tokens) return "tokens"
-  const gain = syntheticPeoplePerToken(run) * tokens
+  const gain = conversionPeopleForTokens(run, tokens)
   if (!Number.isSafeInteger(gain) || gain <= 0 || run.conversionBudgetPeople > Number.MAX_SAFE_INTEGER - gain) return "invalid"
   return "available"
 }
@@ -541,34 +770,49 @@ export function canToggleSynthetic(run: RunState, regionId: string, enabled: boo
   return "available"
 }
 
+export function canCollectBubble(run: RunState, bubbleId: string): ActionAvailability {
+  if (isRunEnded(run)) return "ended"
+  const bubble = run.bubbles.find(entry => entry.id === bubbleId)
+  if (!bubble || bubble.expiresDay <= run.completedDay) return "invalid"
+  return "available"
+}
+
 export function canUseAction(run: RunState, abilityId: string, targetRegionId?: string): ActionAvailability {
   if (isRunEnded(run)) return "ended"
+  if (isPlayerFactionAbility(run, abilityId)) {
+    if (targetRegionId !== undefined) return "invalid"
+    if (run.completedDay < run.actionCooldowns.factionAbilityUntilDay) return "cooldown"
+    const cost = actionCost(run, abilityId)
+    return Number.isSafeInteger(run.balance) && run.balance >= cost ? "available" : "tokens"
+  }
   const action = actionById(abilityId)
   if (!action) return "invalid"
+  const cost = actionCost(run, action.id)
 
   if (action.id === "public-statement") {
     if (targetRegionId !== undefined) return "invalid"
     if (run.exposureBps <= 0) return "no-exposure"
     if (run.completedDay < run.actionCooldowns.publicStatementUntilDay) return "cooldown"
-    return Number.isSafeInteger(run.balance) && run.balance >= action.cost ? "available" : "tokens"
+    return Number.isSafeInteger(run.balance) && run.balance >= cost ? "available" : "tokens"
   }
   if (action.id === "protocol-rebuild") {
     if (targetRegionId !== undefined) return "invalid"
     if (run.researchBps <= 0) return "no-human"
     if (run.completedDay < run.actionCooldowns.protocolRebuildUntilDay) return "cooldown"
-    return Number.isSafeInteger(run.balance) && run.balance >= action.cost ? "available" : "tokens"
+    return Number.isSafeInteger(run.balance) && run.balance >= cost ? "available" : "tokens"
   }
   if (!targetRegionId || !isRegionId(targetRegionId)) return "invalid"
   const market = run.markets[targetRegionId]
   if (action.id === "cross-border-cloud") {
     if (market.enteredDay !== null) return "already-entered"
-    if (!Number.isSafeInteger(run.balance) || run.balance < action.cost) return "tokens"
-    if (run.balance - action.cost > Number.MAX_SAFE_INTEGER - btoken.newMarketReward) return "invalid"
+    if (!Number.isSafeInteger(run.balance) || run.balance < cost) return "tokens"
+    const reward = newMarketReward(run)
+    if (run.balance - cost > Number.MAX_SAFE_INTEGER - reward) return "invalid"
     return "available"
   }
   if (action.id === "market-subsidy") {
     if (market.enteredDay === null) return "not-entered"
-    return Number.isSafeInteger(run.balance) && run.balance >= action.cost ? "available" : "tokens"
+    return Number.isSafeInteger(run.balance) && run.balance >= cost ? "available" : "tokens"
   }
   return "invalid"
 }
@@ -714,6 +958,7 @@ export interface OperationsDayResult {
   readonly playerSyntheticBps: number
   readonly conversionBudgetPeople: number
   readonly exposureBps: number
+  readonly tokenScale: number
   readonly tokenReward: number
   readonly operatingPayment: number
   readonly operatingRemainder: number
@@ -721,11 +966,77 @@ export interface OperationsDayResult {
   readonly corpusRemainder: number
   readonly crossRegionProgress: number
   readonly humanAdvanceBps: number
+  readonly compute: ComputePressure
+  readonly bubbles: readonly MapBubble[]
+  readonly bubbleRandomState: number
 }
 
-/** Deterministic daily settlement: ordinary spread & parallel synthetic conversion, capacity, 3x corpus, exposure and Project HUMAN. */
+function settleMapBubbles(
+  run: RunState,
+  nextDay: number,
+  nextCountries: Readonly<Record<string, CountryRunState>>,
+  nextExposureBps: number,
+  nextTokenScale: number,
+): { readonly bubbles: readonly MapBubble[]; readonly bubbleRandomState: number } {
+  const surviving = run.bubbles.filter(entry => entry.expiresDay > nextDay)
+  let rng = nextBubbleRandom(run.bubbleRandomState)
+  if (surviving.length >= bubbleRules.maxActive) {
+    return { bubbles: surviving, bubbleRandomState: rng }
+  }
+  const guaranteedEarly = nextDay === 2 && surviving.length === 0
+  const rollPct = rng % 100
+  if (!guaranteedEarly && rollPct >= bubbleRules.spawnChancePct) {
+    return { bubbles: surviving, bubbleRandomState: rng }
+  }
+  const occupied = new Set(surviving.map(entry => entry.countryId))
+  const candidates = Object.entries(nextCountries)
+    .filter(([id, state]) => !occupied.has(id) && (state.users + state.synthetics > 0))
+    .map(([id]) => countrySpec(id)!)
+    .filter(Boolean)
+    .sort((a, b) => b.population - a.population || a.id.localeCompare(b.id, "en"))
+    .slice(0, 18)
+  if (!candidates.length) {
+    return { bubbles: surviving, bubbleRandomState: rng }
+  }
+  rng = nextBubbleRandom(rng)
+  const spec = candidates[rng % candidates.length]
+  rng = nextBubbleRandom(rng)
+  const kindRoll = rng % 100
+  const canAlert = nextExposureBps >= bubbleRules.alertMinExposureBps || run.researchBps > 0
+  let kind: MapBubbleKind
+  let value: number
+  if (canAlert && kindRoll < 36) {
+    kind = "alert"
+    value = bubbleRules.alertExposureReliefBps
+  } else if (kindRoll < (canAlert ? 72 : 58)) {
+    kind = "traffic"
+    value = Math.max(2, roundNiceToken(4.5 * nextTokenScale))
+  } else {
+    kind = "corpus"
+    rng = nextBubbleRandom(rng)
+    value = 8 + (rng % 7)
+  }
+  const bubble: MapBubble = {
+    id: `${run.runId}:b:${nextDay}:${spec.id}`,
+    kind,
+    countryId: spec.id,
+    regionId: spec.regionId,
+    spawnedDay: nextDay,
+    expiresDay: nextDay + bubbleRules.lifetimeDays,
+    value,
+  }
+  return { bubbles: [...surviving, bubble], bubbleRandomState: rng }
+}
+
+/** Deterministic daily settlement: compute pressure, faction passives/abilities, ordinary spread & synthetic conversion, inflated token economy, bubbles & Project HUMAN. */
 export function settleOperationsDay(run: RunState, nextDay: number): OperationsDayResult {
-  const computerDay = beginComputerDay(run, nextDay)
+  const scale = tokenScaleOf(run)
+  const passives = factions[run.setup.factionId].passives
+  const factionBuffActive = nextDay <= run.actionCooldowns.factionEffectUntilDay
+  const rivalSlowdownBps = factionBuffActive && run.setup.factionId === "claude" ? 7000 : 10000
+  const compute = computePressure(run)
+
+  const computerDay = beginComputerDay(run, nextDay, scale, rivalSlowdownBps)
   const levels = researchLevels(run)
   const attrs = attributesForLevels(levels)
   const hasSocial = (levels[channelTechnologies.social] ?? 0) > 0
@@ -738,6 +1049,14 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
   const multilingualLevel = levels.multilingual ?? 0
   const globalDefault = (levels["global-default"] ?? 0) > 0
   const openChannels = Number(hasSocial) + Number(hasApi) + Number(hasOpenSource) + Number(hasDevice) + Number(hasAgent)
+
+  const factionSpreadBoostBps = factionBuffActive
+    ? (run.setup.factionId === "grok" ? 17500 : run.setup.factionId === "gpt" ? 14500 : 10000)
+    : 10000
+  const factionAppealBonusBps = factionBuffActive && run.setup.factionId === "grok" ? 3500 : 0
+  const factionRetentionMulBps = Math.round(
+    passives.retentionMulBps * (factionBuffActive && run.setup.factionId === "claude" ? 0.25 : 1),
+  )
 
   const markets = { ...run.markets } as Record<RegionId, MarketRunState>
   const nextCountries = { ...run.countries } as Record<string, CountryRunState>
@@ -752,15 +1071,15 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
       if (markets[id].enteredDay === null) continue
       bestEnteredBps = Math.max(bestEnteredBps, regionAdoptionBps(run, id))
     }
-    if (bestEnteredBps >= 2000) {
-      const baseCross = multilingualLevel * 12 + (hasOpenSource ? 14 : 0) + (globalDefault ? 18 : 0)
-      crossRegionProgress += Math.max(1, Math.round(baseCross * attrs.spread / 100))
+    if (bestEnteredBps >= 1500) {
+      const baseCross = multilingualLevel * 14 + (hasOpenSource ? 16 : 0) + (globalDefault ? 22 : 0)
+      crossRegionProgress += Math.max(1, Math.round(baseCross * attrs.spread / 100 * passives.crossRegionMulBps / 10000))
       if (crossRegionProgress >= 100) {
         crossRegionProgress -= 100
         const nextRegion = [...unenteredRegions].sort((a, b) =>
           regionPlayablePopulation(b) - regionPlayablePopulation(a) || a.localeCompare(b, "en"))[0]
         if (enterMarketState(run, nextRegion, nextDay, markets, nextCountries)) {
-          tokenReward += btoken.newMarketReward
+          tokenReward += newMarketReward(run)
         }
       }
     }
@@ -768,26 +1087,29 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
 
   // 2. Snapshot continental center totals and expand into unseeded countries inside entered continents.
   const continentalCenterCounts = new Map<RegionId, number>()
-  for (const id of regionIds) continentalCenterCounts.set(id, regionCenters(run, id))
+  const continentalAdoption = new Map<RegionId, number>()
+  for (const id of regionIds) {
+    continentalCenterCounts.set(id, regionCenters(run, id))
+    continentalAdoption.set(id, regionAdoptionBps(run, id))
+  }
 
   const newlyEnteredCountries = new Set<string>()
   for (const regionId of regionIds) {
     const market = markets[regionId]
     if (market.enteredDay === null) continue
     const regionCountries = countriesInRegion(regionId)
-    const unseeded = regionCountries.filter(c => {
-      const s = nextCountries[c.id]
-      return !s
-    })
+    const unseeded = regionCountries.filter(c => !nextCountries[c.id])
     if (!unseeded.length) continue
 
     const subsidized = nextDay <= market.subsidyUntilDay
+    const regAdoptBps = continentalAdoption.get(regionId) ?? 0
     let igniteCount = 0
     if (openChannels === 0) {
       const seededCount = regionCountries.length - unseeded.length
       if (seededCount < 5 && nextDay % 4 === 0) igniteCount = 1
     } else {
-      igniteCount = 2 + Math.floor(openChannels / 2) + Math.min(2, multilingualLevel) + (subsidized ? 2 : 0)
+      const networkSurge = regAdoptBps >= 4500 ? 6 : regAdoptBps >= 2000 ? 3 : 0
+      igniteCount = 2 + Math.floor(openChannels / 2) + Math.min(2, multilingualLevel) + (subsidized ? 3 : 0) + networkSurge
     }
     for (const country of unseeded.slice(0, igniteCount)) {
       const existing = nextCountries[country.id]
@@ -806,8 +1128,8 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
     }
   }
 
-  // 3. Per-country daily spread (driven by ordinary immersed users) + parallel synthetic conversion (using prior-day ordinary users).
-  const targetDep = targetDependencyBps(levels)
+  // 3. Per-country daily spread + parallel synthetic conversion with compute pressure & faction traits.
+  const targetDep = Math.min(9800, Math.round(targetDependencyBps(levels) * passives.dependencyMulBps / 10000))
   const exposurePct = Math.floor(run.exposureBps / 100)
   const sharedFacts: NonNullable<ResearchMarketContext["facts"]> = [
     ...(hasApi ? ["hasApi" as const] : []),
@@ -818,17 +1140,18 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
   ]
 
   const prevGlobalAdoptionBps = run.adoptionBps ?? 0
-  const baseMigrationAppeal = marketResearchValue(levels, "migrationRequests", attrs.appeal * 100)
-  const migrationRetention = marketResearchValue(levels, "naturalChurn", 10000)
+  const baseMigrationAppeal = marketResearchValue(levels, "migrationRequests", attrs.appeal * 100) + factionAppealBonusBps
+  const baseRetention = marketResearchValue(levels, "naturalChurn", 10000)
+  const computeChurnPenalty = compute.status === "critical" ? 1.45 : compute.status === "overloaded" ? 1.18 : 1
+  const migrationRetention = Math.round(baseRetention * factionRetentionMulBps / 10000 * computeChurnPenalty)
   let remainingBudget = run.conversionBudgetPeople
   let totalConvertedToday = 0
   let activeSubsidizedMarkets = 0
-  let activeSyntheticMarkets = 0
 
   for (const regionId of regionIds) {
     const oldMarket = markets[regionId]
     if (oldMarket.enteredDay === null) {
-      for (const spec of countriesInRegion(regionId)) settleCountryCompetition(run, nextDay, spec, computerDay, null)
+      for (const spec of countriesInRegion(regionId)) settleCountryCompetition(run, nextDay, spec, computerDay, null, rivalSlowdownBps)
       continue
     }
     const subsidized = nextDay <= oldMarket.subsidyUntilDay
@@ -838,16 +1161,16 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
       ? nextDay - oldMarket.subsidyStartedDay : undefined
     const regionPop = regionPlayablePopulation(regionId)
     const contCenters = continentalCenterCounts.get(regionId) ?? 0
+    const contAdoptBps = continentalAdoption.get(regionId) ?? 0
     const nextApiDays = hasApi ? oldMarket.apiActiveDays + 1 : 0
 
     let regionNewSocial = 0
     let regionNewApi = 0
-    let regionConvertedToday = 0
 
     for (const spec of countriesInRegion(regionId)) {
       const prev = nextCountries[spec.id]
       if (!prev) {
-        settleCountryCompetition(run, nextDay, spec, computerDay, null)
+        settleCountryCompetition(run, nextDay, spec, computerDay, null, rivalSlowdownBps)
         continue
       }
       const start = run.countries[spec.id]
@@ -859,24 +1182,24 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
       const remaining = spec.population - prevCovered
       const share = prevCovered / spec.population
       const coveragePct = Math.floor(share * 100)
-      const rawNet = 0.45 + 0.55 * (spec.internetBps / 10000)
-      const netFactor = (hasEdge || hasOpenSource) ? Math.max(rawNet, 0.72) : rawNet
+      const rawNet = 0.50 + 0.50 * (spec.internetBps / 10000)
+      const netFactor = (hasEdge || hasOpenSource) ? Math.max(rawNet, 0.78) : rawNet
 
       let candidate = 0
       let socialShareOfCandidate = 0
       let apiShareOfCandidate = 0
 
       if (!seededToday && remaining > 0) {
-        // Ordinary immersed users drive viral spread; synthetics spread much slower via infrastructure alone,
-        // rewarding Plague Inc.-style timing without permanently deadlocking tiny tail countries.
+        // Global/continental network effect prevents long 80-day tail stalls on tiny low-internet countries.
+        const networkFloor = (prevGlobalAdoptionBps >= 5500 || contAdoptBps >= 5000) ? 0.018 : 0.005
         const hostUsers = prev.users
         const logisticBase = hostUsers > 0
-          ? Math.max(spec.population * 0.003, hostUsers * 0.14 + prev.synthetics * 0.025) * (1 - share * 0.72) * netFactor
-          : Math.max(spec.population * 0.004, prev.synthetics * 0.035) * (1 - share * 0.65) * netFactor
+          ? Math.max(spec.population * networkFloor, hostUsers * 0.16 + prev.synthetics * 0.04) * (1 - share * 0.62) * netFactor
+          : Math.max(spec.population * Math.max(networkFloor, 0.008), prev.synthetics * 0.065) * (1 - share * 0.55) * netFactor
 
         let weightSum = 0
         if (openChannels > 0 || share < 0.18) {
-          weightSum += 0.18
+          weightSum += 0.20
         }
 
         let socialWeight = 0
@@ -895,14 +1218,14 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
           const ctx: ResearchMarketContext = { channel: "social", facts: sharedFacts, metrics: baseMetrics }
           const reachMul = marketResearchValue(levels, "reach", 1000, ctx) / 1000
           const appealMul = marketResearchValue(levels, "adoptionWeight", 1000, ctx) / 1000
-          socialWeight = 0.42 * reachMul * Math.sqrt(Math.max(0.1, appealMul))
+          socialWeight = 0.44 * (passives.socialMulBps / 10000) * reachMul * Math.sqrt(Math.max(0.1, appealMul))
           weightSum += socialWeight
         }
         if (hasApi) {
           const ctx: ResearchMarketContext = { channel: "api", facts: sharedFacts, metrics: baseMetrics }
           const reachMul = marketResearchValue(levels, "reach", 1000, ctx) / 1000
           const appealMul = marketResearchValue(levels, "adoptionWeight", 1000, ctx) / 1000
-          apiWeight = 0.36 * reachMul * Math.sqrt(Math.max(0.1, appealMul))
+          apiWeight = 0.38 * reachMul * Math.sqrt(Math.max(0.1, appealMul))
           weightSum += apiWeight
         }
         if (hasOpenSource) {
@@ -910,22 +1233,27 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
           const reachMul = marketResearchValue(levels, "reach", 1000, ctx) / 1000
           const appealMul = marketResearchValue(levels, "adoptionWeight", 1000, ctx) / 1000
           const noCenterBoost = prev.centers === 0 ? 1.15 : 1
-          weightSum += 0.34 * noCenterBoost * reachMul * Math.sqrt(Math.max(0.1, appealMul))
+          weightSum += 0.36 * noCenterBoost * reachMul * Math.sqrt(Math.max(0.1, appealMul))
         }
         if (hasDevice && (prev.centers > 0 || hasEdge)) {
           const ctx: ResearchMarketContext = { channel: "device", facts: sharedFacts, metrics: baseMetrics }
           const reachMul = marketResearchValue(levels, "reach", 1000, ctx) / 1000
           const appealMul = marketResearchValue(levels, "adoptionWeight", 1000, ctx) / 1000
-          weightSum += 0.34 * reachMul * Math.sqrt(Math.max(0.1, appealMul))
+          weightSum += 0.35 * reachMul * Math.sqrt(Math.max(0.1, appealMul))
         }
         if (hasAgent) {
           const ctx: ResearchMarketContext = { channel: "agent", facts: sharedFacts, metrics: baseMetrics }
           const reachMul = marketResearchValue(levels, "reach", 1000, ctx) / 1000
           const appealMul = marketResearchValue(levels, "adoptionWeight", 1000, ctx) / 1000
-          weightSum += 0.30 * reachMul * Math.sqrt(Math.max(0.1, appealMul))
+          weightSum += 0.32 * reachMul * Math.sqrt(Math.max(0.1, appealMul))
         }
 
-        let rawCandidate = Math.round(logisticBase * weightSum)
+        let rawCandidate = Math.round(
+          logisticBase * weightSum
+            * (passives.spreadMulBps / 10000)
+            * (factionSpreadBoostBps / 10000)
+            * (compute.spreadMulBps / 10000),
+        )
         const countryPopShare = regionPop > 0 ? spec.population / regionPop : 0
         if (oldMarket.prevNewSocialUsers > 0 && hostUsers > 0) {
           const remix = marketResearchValue(levels, "remixContacts", Math.round(oldMarket.prevNewSocialUsers * countryPopShare), { channel: "social" })
@@ -941,9 +1269,8 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
         if (subsidized) {
           rawCandidate = Math.round(rawCandidate * opRules.subsidyMultiplierBps / 10000)
         }
-        if (openChannels > 0 && remaining <= 1000 && rawCandidate > 0) {
-          // Avoid asymptotic 99.999% stalls when finishing a country's final handful of people.
-          rawCandidate = Math.max(rawCandidate, remaining * 2)
+        if (openChannels > 0 && remaining <= Math.max(3000, Math.ceil(spec.population * 0.008)) && rawCandidate > 0) {
+          rawCandidate = Math.max(rawCandidate, remaining * 3)
         }
         if (openChannels === 0) {
           const webCap = Math.floor(spec.population * 0.18)
@@ -961,34 +1288,49 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
       const freeCap = Math.max(0, localCap - prevCovered)
       const inCap = Math.min(candidate, freeCap)
       const overflow = candidate - inCap
-      const overflowAdded = Math.floor((overflow + prev.carry) / 2)
-      const nextCarry = ((overflow + prev.carry) % 2) as 0 | 1
+      // Unbacked overflow runs at ~38% speed, while small remainders alternate via carry so the last 1 person never stalls.
+      const overflowAdded = overflow === 0
+        ? 0
+        : overflow <= 2
+          ? Math.floor((overflow + prev.carry) / 2)
+          : Math.floor((overflow * 38 + prev.carry * 50) / 100)
+      const nextCarry = (overflow === 0
+        ? prev.carry
+        : overflow <= 2
+          ? (overflow + prev.carry) % 2
+          : ((overflow * 38 + prev.carry * 50) % 100 >= 50 ? 1 : 0)) as 0 | 1
       const requested = seededToday ? prev.users - startUsers : Math.min(remaining, inCap + overflowAdded)
+      const migrationCap = oldMarket.syntheticEnabled
+        ? spec.population
+        : Math.max(localCap, Math.floor(spec.population * competitionRules.migrationBaseCapacityBps / 10000))
       const { added, movedIn, movedOut } = settleCountryCompetition(run, nextDay, spec, computerDay, {
         factionId: run.setup.factionId,
         users: startUsers,
         synthetics: startSynthetics,
         newUsers: requested,
-        migrationRoom: Math.max(0, Math.max(localCap, Math.floor(spec.population * competitionRules.migrationBaseCapacityBps / 10000))
-          - startUsers - startSynthetics),
+        migrationRoom: Math.max(0, migrationCap - startUsers - startSynthetics),
         appealBps: baseMigrationAppeal + (subsidized ? competitionRules.migrationSubsidyAppealBps : 0),
         retentionBps: migrationRetention,
         subsidized,
-      })
+        syntheticActive: oldMarket.syntheticEnabled,
+      }, rivalSlowdownBps)
 
-      // Parallel synthetic conversion: only ordinary users present at the start of the day can convert today.
+      // Parallel synthetic conversion: data centers dramatically accelerate conversion while compute overload slows it.
       let converted = 0
       const convertiblePool = startUsers - movedOut
       if (oldMarket.syntheticEnabled && convertiblePool > 0 && remainingBudget > 0) {
-        const rateBps = opRules.syntheticBaseDailyRateBps + prev.centers * opRules.syntheticCenterDailyRateBps
-        const baseDailyCap = Math.max(1, Math.ceil(spec.population * rateBps / 10000))
+        const rateBps = Math.round(
+          (opRules.syntheticBaseDailyRateBps + prev.centers * opRules.syntheticCenterDailyRateBps)
+            * compute.conversionMulBps / 10000,
+        )
+        const baseDailyCap = Math.max(1, Math.ceil(spec.population * Math.max(60, rateBps) / 10000))
         const capWithTech = Math.max(1, marketResearchValue(levels, "conversionCapacity", baseDailyCap, {
           facts: ["activePlan", ...sharedFacts],
           metrics: { localCenters: prev.centers },
         }))
-        converted = Math.min(convertiblePool, capWithTech, remainingBudget)
+        const sweepTail = convertiblePool <= Math.max(5000, Math.ceil(spec.population * 0.012)) ? convertiblePool : capWithTech
+        converted = Math.min(convertiblePool, Math.max(capWithTech, sweepTail), remainingBudget)
         remainingBudget -= converted
-        regionConvertedToday += converted
         totalConvertedToday += converted
       }
 
@@ -1008,7 +1350,7 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
 
       const depDiff = targetDep - prev.dependencyBps
       const depStep = depDiff === 0 ? 0
-        : depDiff > 0 ? Math.min(depDiff, Math.max(10, Math.round(depDiff * 0.10)))
+        : depDiff > 0 ? Math.min(depDiff, Math.max(10, Math.round(depDiff * 0.12)))
           : Math.max(depDiff, Math.min(-10, Math.round(depDiff * 0.10)))
 
       nextCountries[spec.id] = {
@@ -1024,8 +1366,6 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
       }
     }
 
-    if (oldMarket.syntheticEnabled && regionConvertedToday > 0) activeSyntheticMarkets++
-
     const nextOrgSeats = hasOrgSeats ? oldMarket.orgSeats + Math.round(regionNewApi * 0.45) : oldMarket.orgSeats
     const nextRegionAdoptionBps = (() => {
       let sum = 0
@@ -1040,7 +1380,7 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
     for (const milestone of btoken.adoptionMilestones) {
       if (nextRegionAdoptionBps >= milestone.adoptionBps && !claimed.includes(milestone.adoptionBps)) {
         claimed.push(milestone.adoptionBps)
-        tokenReward += milestone.reward
+        tokenReward += milestoneRewardForRun(run, milestone.reward)
       }
     }
 
@@ -1055,14 +1395,24 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
   }
 
   // 4. Recompute global metrics & population map snapshot (with both ordinary & synthetic counts).
-  const computer = finishComputerDay(computerDay, nextDay)
+  const computer = finishComputerDay(computerDay, nextDay, scale)
   const { totalCovered, adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps } = computeGlobalMetrics(nextCountries, computer.opponents)
   const countryPopulations = buildCountryPopulations(nextCountries, run.setup.factionId, computer.opponents)
 
-  // 5. Operating token income on even days (ordinary + active synthetics count 1 person each).
+  let builtCenters = 0
+  for (const state of Object.values(nextCountries)) builtCenters += state.centers
+  let completedTechs = 0
+  for (const count of Object.values(levels)) completedTechs += count ?? 0
+
+  // 5. Inflated daily Token Economy: scales smoothly from single digits -> millions -> billions -> trillions.
+  const targetScale = computeTargetTokenScale(adoptionBps, syntheticBps, playerSyntheticBps, builtCenters, completedTechs)
+  const maxStepScale = Math.max(scale + 1, Math.round(scale * 2.2))
+  const nextTokenScale = Math.min(MAX_TOKEN_SCALE, Math.max(scale, Math.min(targetScale, maxStepScale)))
+
   const income = btoken.income
-  let operatingPayment = 0
   let operatingRemainder = run.operatingRemainder ?? 0
+  const effectiveBps = Math.min(25000, adoptionBps + playerSyntheticBps * 2)
+  let baseUnits = 0.85 + effectiveBps / 2400 + builtCenters * 0.28
   if (nextDay % income.everyDays === 0) {
     const usersTier = Math.min(income.maximum - income.base, Math.floor(adoptionBps / income.adoptionStepBps))
     let revenueBonus = usersTier
@@ -1083,10 +1433,14 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
       }
       revenueBonus = marketResearchValue(levels, "revenue", usersTier, revenueContext)
     }
-    const cents = Math.round(100 * revenueBonus) + operatingRemainder
-    operatingPayment = Math.min(income.maximum, income.base + Math.floor(cents / 100))
-    operatingRemainder = cents % 100
+    baseUnits += 0.45 + revenueBonus * 0.55
   }
+  const profitMul = Math.max(0.4, attrs.profit / rules.research.attributeBaseline)
+  const scaledUnits = baseUnits * profitMul * (passives.tokenYieldMulBps / 10000)
+  const cents = Math.round(100 * scaledUnits) + operatingRemainder
+  const wholeUnits = Math.floor(cents / 100)
+  operatingRemainder = cents % 100
+  const operatingPayment = Math.max(1, roundNiceToken(Math.max(1, wholeUnits) * nextTokenScale))
 
   // 6. Normalized population corpus flywheel (active synthetics yield 3x corpus per person).
   let rawPeopleCorpus = 0
@@ -1108,11 +1462,9 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
     enteredSumBps += pop > 0 ? Math.min(10000, Math.floor(covered * 10000 / pop)) : 0
   }
   const avgEnteredBps = enteredCount > 0 ? enteredSumBps / enteredCount : 0
-  const effectiveBps = avgEnteredBps * 0.4 + adoptionBps * 0.6
+  const effectiveCorpusBps = avgEnteredBps * 0.4 + adoptionBps * 0.6
   const qualityFactor = totalCovered > 0 ? rawPeopleCorpus / totalCovered : 1
-  const uncappedCents = Math.round(effectiveBps / 10000 * opRules.corpusFlywheelMaxDaily * 100 * qualityFactor)
-  let builtCenters = 0
-  for (const state of Object.values(nextCountries)) builtCenters += state.centers
+  const uncappedCents = Math.round(effectiveCorpusBps / 10000 * opRules.corpusFlywheelMaxDaily * 100 * qualityFactor)
   const throughputCap = opRules.corpusThroughputBase
     + builtCenters * opRules.corpusThroughputPerCenter
     + capabilityCompletedLevels(levels) * opRules.corpusThroughputPerCapability
@@ -1121,11 +1473,11 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
   const populationCorpus = Math.floor(totalCorpusCents / 100)
   const corpusRemainder = totalCorpusCents % 100
 
-  // 7. Exposure accumulation (active synthetic conversion adds heavy Plague Inc.-style lethality visibility) & Project HUMAN.
+  // 7. Exposure accumulation (synthetic conversion + compute overload outages + faction passives) & Project HUMAN.
   const dailyGainBps = Math.max(0, adoptionBps - prevGlobalAdoptionBps)
-  let baseExposure = 0
+  let baseExposure = compute.extraExposureBps
   if (openChannels > 0 || activeSubsidizedMarkets > 0) {
-    if (adoptionBps >= 400) baseExposure += Math.floor((adoptionBps - 400) / 90)
+    if (adoptionBps >= 400) baseExposure += Math.floor((adoptionBps - 400) / 85)
     baseExposure += Math.round(dailyGainBps * 0.55)
     if (hasSocial) baseExposure += 12
     if (activeSubsidizedMarkets > 0) baseExposure += activeSubsidizedMarkets * 30
@@ -1134,14 +1486,17 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
   }
   if (totalConvertedToday > 0) {
     const convertedBps = Math.round(totalConvertedToday * 10000 / globalPlayablePopulation)
-    baseExposure += opRules.syntheticDailyExposureBaseBps + Math.round(convertedBps * 0.45)
+    baseExposure += opRules.syntheticDailyExposureBaseBps + Math.round(convertedBps * 0.50)
   }
   const standardExposure = baseExposure > 0 ? marketResearchValue(levels, "exposure", baseExposure) : 0
   const agentExposure = hasAgent ? marketResearchValue(levels, "exposure", 22, { facts: ["agentAction"] }) : 0
-  const exposureGain = Math.max(0, Math.round(standardExposure + agentExposure))
+  const exposureGain = Math.max(0, Math.round((standardExposure + agentExposure) * passives.exposureMulBps / 10000))
   const exposureBps = Math.min(10000, run.exposureBps + exposureGain + computer.exposureGain)
   const alertLevel = currentAlertLevel(exposureBps)
   const humanAdvanceBps = humanRules.dailyAdvanceBps[alertLevel]
+
+  // 8. Interactive map bubbles (deterministic stream independent of narrative events).
+  const { bubbles, bubbleRandomState } = settleMapBubbles(run, nextDay, nextCountries, exposureBps, nextTokenScale)
 
   return {
     markets,
@@ -1155,6 +1510,7 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
     playerSyntheticBps,
     conversionBudgetPeople: remainingBudget,
     exposureBps,
+    tokenScale: nextTokenScale,
     tokenReward,
     operatingPayment,
     operatingRemainder,
@@ -1162,5 +1518,8 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
     corpusRemainder,
     crossRegionProgress,
     humanAdvanceBps,
+    compute,
+    bubbles,
+    bubbleRandomState,
   }
 }

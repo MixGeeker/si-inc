@@ -2,6 +2,7 @@ import {
   advanceDay,
   buildDataCenter,
   buyBuildCard,
+  collectMapBubble,
   createRun,
   dailyOutcome,
   fundConversion,
@@ -17,6 +18,7 @@ import {
 import { decisions, type DecisionId } from "../../../../packages/rules/v0.1/events/decisions.ts"
 import { endings, type Outcome } from "../../../../packages/rules/v0.1/endings/standard.ts"
 import type { ActionId } from "../../../../packages/rules/v0.1/evolution/actions.ts"
+import type { FactionAbilityId } from "../../../../packages/rules/v0.1/factions/roster.ts"
 import { researchNode, trees, type SkillId } from "../../../../packages/rules/v0.1/evolution/trees.ts"
 import { isFactionId, isRegionId, standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
 import type { RegionId } from "../../../../packages/rules/v0.1/world/regions.ts"
@@ -95,7 +97,8 @@ export type SceneEvent =
   | { type: "build-data-center"; countryId: string; runId: string; completedDay: number; seq: number }
   | { type: "fund-conversion"; tokens: number; runId: string; completedDay: number; seq: number }
   | { type: "toggle-synthetic"; regionId: RegionId; enabled: boolean; runId: string; completedDay: number; seq: number }
-  | { type: "use-action"; abilityId: ActionId; targetRegionId?: RegionId; runId: string; completedDay: number; seq: number }
+  | { type: "use-action"; abilityId: ActionId | FactionAbilityId; targetRegionId?: RegionId; runId: string; completedDay: number; seq: number }
+  | { type: "collect-bubble"; bubbleId: string; runId: string; completedDay: number; seq: number }
   | { type: "open-decision"; id: DecisionId; instanceId?: string }
   | { type: "choose"; id: DecisionId; instanceId?: string; choiceId: string }
   | { type: "request-exit" }
@@ -226,6 +229,12 @@ export function sceneReducer(scene: Scene, event: SceneEvent): Scene {
       if (run === scene.run) return scene
       const outcome = dailyOutcome(run)
       return outcome ? { kind: "ending", outcome, run } : { ...scene, run }
+    }
+    case "collect-bubble": {
+      if (scene.kind !== "campaign" || scene.panel !== null
+        || scene.run.runId !== event.runId || scene.run.completedDay !== event.completedDay) return scene
+      const run = collectMapBubble(scene.run, event.bubbleId, event.seq)
+      return run === scene.run ? scene : { ...scene, run }
     }
     case "open-decision":
       if (scene.kind === "campaign" && scene.panel === "news" && Object.hasOwn(decisions, event.id)

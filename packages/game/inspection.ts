@@ -5,6 +5,7 @@ import {
   advanceDay,
   buildDataCenter,
   buyBuildCard,
+  collectMapBubble,
   createRun,
   fundConversion,
   grantDeveloperTokens,
@@ -84,6 +85,7 @@ export function runTimeline(run: RunState): RunTraceEntry[] | null {
       else if (command.kind === "fundConversion") cursor = fundConversion(before, command.tokens, command.seq)
       else if (command.kind === "toggleSynthetic") cursor = toggleSyntheticProgram(before, command.regionId as RegionId, command.enabled, command.seq)
       else if (command.kind === "useAbility") cursor = useAction(before, command.abilityId, command.seq, command.targetRegionId as RegionId | undefined)
+      else if (command.kind === "collectBubble") cursor = collectMapBubble(before, command.bubbleId, command.seq)
       else if (command.kind === "chooseEvent") {
         event = before.events.find(entry => entry.instanceId === command.eventInstanceId)
         if (event?.content.kind !== "decision") return null
@@ -96,6 +98,7 @@ export function runTimeline(run: RunState): RunTraceEntry[] | null {
   }
   const expected = researchState(run), actual = researchState(cursor)
   if (index !== run.commands.length || cursor.completedDay !== run.completedDay || cursor.balance !== run.balance
+    || cursor.tokenScale !== run.tokenScale || cursor.lifetimeTokens !== run.lifetimeTokens
     || (cursor.operatingRemainder ?? 0) !== (run.operatingRemainder ?? 0)
     || cursor.exposureBps !== run.exposureBps || cursor.buildCards !== run.buildCards
     || cursor.adoptionBps !== run.adoptionBps || cursor.dependencyBps !== run.dependencyBps
@@ -103,14 +106,19 @@ export function runTimeline(run: RunState): RunTraceEntry[] | null {
     || cursor.conversionBudgetPeople !== run.conversionBudgetPeople
     || cursor.syntheticActivatedDay !== run.syntheticActivatedDay
     || cursor.corpusRemainder !== run.corpusRemainder || cursor.crossRegionProgress !== run.crossRegionProgress
+    || cursor.bubbleRandomState !== run.bubbleRandomState
     || cursor.actionCooldowns.publicStatementUntilDay !== run.actionCooldowns.publicStatementUntilDay
     || cursor.actionCooldowns.protocolRebuildUntilDay !== run.actionCooldowns.protocolRebuildUntilDay
+    || cursor.actionCooldowns.factionAbilityUntilDay !== run.actionCooldowns.factionAbilityUntilDay
+    || cursor.actionCooldowns.factionEffectUntilDay !== run.actionCooldowns.factionEffectUntilDay
+    || !sameSnapshotData(cursor.bubbles, run.bubbles)
     || !sameSnapshotData(cursor.countries, run.countries) || !sameSnapshotData(cursor.opponents, run.opponents)
     || !sameSnapshotData(cursor.countryPopulations, run.countryPopulations)
     || cursor.researchBps !== run.researchBps || expected.corpus !== actual.corpus
     || expected.unlockedSlots !== actual.unlockedSlots || expected.projects.length !== actual.projects.length) return null
   const matches = sameSnapshotData(cursor.markets, run.markets) && expected.projects.every((p, i) => p.skillId === actual.projects[i].skillId
-    && p.startedDay === actual.projects[i].startedDay && p.slot === actual.projects[i].slot)
+    && p.startedDay === actual.projects[i].startedDay && p.slot === actual.projects[i].slot
+    && p.workDone === actual.projects[i].workDone && p.completedDay === actual.projects[i].completedDay)
   const eventMatches = cursor.events.length === run.events.length && cursor.events.every((event, i) => {
     const expected = run.events[i]
     return event.instanceId === expected.instanceId && event.day === expected.day

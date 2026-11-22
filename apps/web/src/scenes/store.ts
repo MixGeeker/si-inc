@@ -1,10 +1,12 @@
 import { acceptWithoutChange, createEventStore } from "../../../../packages/game/event-store.ts"
+import type { MapBubble } from "../../../../packages/game/operations.ts"
 import { projectsCompleting, researchState, type ResearchProject } from "../../../../packages/game/research.ts"
 import { grantDeveloperTokens, type RunEvent, type RunSetup } from "../../../../packages/game/run.ts"
 import type { GameCommand, TokenGrant } from "../../../../packages/game/types.ts"
 import { defaultLocale, isLocale, type Locale } from "../../../../packages/rules/locales.ts"
 import type { Outcome } from "../../../../packages/rules/v0.1/endings/standard.ts"
 import type { ActionId } from "../../../../packages/rules/v0.1/evolution/actions.ts"
+import type { FactionAbilityId } from "../../../../packages/rules/v0.1/factions/roster.ts"
 import { isRegionId } from "../../../../packages/rules/v0.1/scenario.ts"
 import { regionOfCountry, type RegionId } from "../../../../packages/rules/v0.1/world/regions.ts"
 import { computePlaceById, computePlaces } from "../cartography/compute-markers.ts"
@@ -87,7 +89,8 @@ export type GameNotice =
   | { type: "synthetic-funded"; tokens: number; budgetPeople: number }
   | { type: "synthetic-toggled"; regionId: RegionId; enabled: boolean; firstActivation: boolean }
   | { type: "eternal-night-started" }
-  | { type: "action-used"; abilityId: ActionId; targetRegionId?: RegionId }
+  | { type: "action-used"; abilityId: ActionId | FactionAbilityId; targetRegionId?: RegionId }
+  | { type: "bubble-collected"; bubble: MapBubble }
   | { type: "decision-resolved"; command: Extract<GameCommand, { kind: "chooseEvent" }> }
   | { type: "run-ended"; outcome: Outcome | "withdrawn" }
 
@@ -293,6 +296,10 @@ function gameNotices(event: GameEvent, { scene, layers }: GameState, previous: G
     const notices: GameNotice[] = [{ type: "action-used", abilityId: event.abilityId, targetRegionId: event.targetRegionId }]
     if (scene.kind === "ending") notices.push({ type: "run-ended", outcome: scene.outcome })
     return notices
+  }
+  if (event.type === "collect-bubble" && scene.kind === "campaign") {
+    const bubble = visibleRunState(previous.scene)?.bubbles.find(entry => entry.id === event.bubbleId)
+    if (bubble) return [{ type: "bubble-collected", bubble }]
   }
   if (event.type === "dev-grant-token") {
     const command = visibleRunState(scene)?.commands.at(-1)

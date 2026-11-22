@@ -90,6 +90,12 @@ export function attachGameSound(
     store.on("action-used", (_, snapshot) => {
       if (snapshot.scene.kind !== "ending") emit("faction_ability")
     }),
+    store.on("bubble-collected", ({ bubble }, snapshot) => {
+      if (snapshot.scene.kind === "ending") return
+      if (bubble.kind === "corpus") emit("skill_evolve")
+      else if (bubble.kind === "alert") emit("faction_ability")
+      else emit("datacenter_deploy")
+    }),
     store.on("decision-resolved", (_, snapshot) => {
       checkResearchThreshold(snapshot)
       if (snapshot.scene.kind !== "ending") emit("faction_ability")

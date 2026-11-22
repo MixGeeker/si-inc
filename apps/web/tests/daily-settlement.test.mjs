@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { replayForRun, runTimeline } from "../../../packages/game/inspection.ts"
+import { actionCost, buildCardCost } from "../../../packages/game/operations.ts"
 import { nextCommandSeq } from "../../../packages/game/run.ts"
 import { createDayClock } from "../src/scenes/clock.ts"
 import { stepDeveloperRun } from "../src/scenes/developer.ts"
@@ -8,7 +9,7 @@ import { visibleRunState } from "../src/scenes/machine.ts"
 import { createGameStore } from "../src/scenes/store.ts"
 
 const dayMs = 4000
-const targetDay = 160
+const targetDay = 130
 const start = { type: "start", runId: "daily-settlement-equivalence", seed: 42,
   factionId: "claude", startRegionId: "as", difficultyId: "standard" }
 const runOf = store => visibleRunState(store.getSnapshot().scene)
@@ -20,14 +21,14 @@ const ordersByDay = new Map([
   [4, [research("reinforcement-learning")]],
   [6, [research("agent-tasks")]],
   [8, [research("multimodal")]],
-  [9, [research("regulatory-adaptation")]],
-  [13, [slot(3), research("version-rebuild")]],
-  [19, [research("multilingual"), research("reinforcement-learning")]],
+  [11, [research("regulatory-adaptation")]],
+  [16, [slot(3), research("version-rebuild")]],
+  [24, [research("multilingual"), research("reinforcement-learning")]],
 ])
 const choices = { "unexpected-coding": "keep", "community-router": "pass", "inference-dividend": "cash",
   "audit-request": "routine", "research-exchange": "hold" }
 const noticeTypes = ["run-started", "research-slot-unlocked", "research-started", "research-completed",
-  "build-card-bought", "data-center-built", "action-used",
+  "build-card-bought", "data-center-built", "action-used", "bubble-collected",
   "event-occurred", "decision-resolved", "run-ended"]
 
 function fakeHost() {
@@ -133,7 +134,8 @@ function play(mode) {
       }
       store.dispatch({ type: "back" })
     }
-    if (day === 0) {
+    const beforeOps = runOf(store)
+    if (beforeOps.countries.CHN.centers === 0 && beforeOps.balance >= buildCardCost(beforeOps)) {
       store.dispatch({ type: "open-panel", panel: "actions" })
       const beforeBuy = runOf(store)
       store.dispatch({ type: "buy-build-card", runId: beforeBuy.runId, completedDay: day, seq: nextCommandSeq(beforeBuy) })
@@ -141,8 +143,13 @@ function play(mode) {
       store.dispatch({ type: "build-data-center", countryId: "CHN", runId: beforeBuild.runId, completedDay: day, seq: nextCommandSeq(beforeBuild) })
       store.dispatch({ type: "back" })
     }
+    const forBubble = runOf(store)
+    if (forBubble.bubbles.length > 0 && notices.filter(({ notice }) => notice.type === "bubble-collected").length < 2) {
+      store.dispatch({ type: "collect-bubble", bubbleId: forBubble.bubbles[0].id, runId: forBubble.runId, completedDay: day, seq: nextCommandSeq(forBubble) })
+    }
     const current = runOf(store)
-    if (current.exposureBps >= 2200 && current.balance >= 10 && day >= current.actionCooldowns.publicStatementUntilDay) {
+    const prCost = actionCost(current, "public-statement")
+    if (current.exposureBps >= 2200 && current.balance >= prCost && day >= current.actionCooldowns.publicStatementUntilDay) {
       store.dispatch({ type: "open-panel", panel: "actions" })
       store.dispatch({ type: "use-action", abilityId: "public-statement", runId: current.runId, completedDay: day, seq: nextCommandSeq(current) })
       store.dispatch({ type: "back" })
@@ -209,9 +216,9 @@ test("1x and 5x clocks with and without pauses match developer settlements beyon
   }
 
   const { run, notices, dailyFacts } = expected
-  assert.equal(run.completedDay, 160)
+  assert.equal(run.completedDay, targetDay)
   assert.ok(run.balance >= 0)
-  assert.ok(run.research.corpus > 2600)
+  assert.ok(run.research.corpus > 2000)
   assert.equal(run.researchBps, 400)
   assert.equal(run.countries.CHN.centers, 1)
   assert.ok(run.adoptionBps > 0 && run.exposureBps < 2500)
@@ -219,20 +226,18 @@ test("1x and 5x clocks with and without pauses match developer settlements beyon
   assert.equal(notices.filter(({ notice }) => notice.type === "run-ended").length, 0)
   assert.equal(notices.filter(({ notice }) => notice.type === "build-card-bought").length, 1)
   assert.equal(notices.filter(({ notice }) => notice.type === "data-center-built").length, 1)
+  assert.ok(notices.filter(({ notice }) => notice.type === "bubble-collected").length >= 1)
   assert.ok(notices.filter(({ notice }) => notice.type === "action-used").length >= 1)
-  assert.deepEqual(notices.filter(({ day, notice }) => day === 9 && ["research-completed", "event-occurred"].includes(notice.type))
-    .map(({ notice }) => [notice.type, notice.project?.skillId ?? notice.entry.content.id]),
-  [["research-completed", "agent-tasks"], ["event-occurred", "ai-search"]])
-  assert.deepEqual(notices.filter(({ day, notice }) => day === 22 && notice.type === "research-completed")
+  assert.deepEqual(notices.filter(({ day, notice }) => day === 28 && notice.type === "research-completed")
     .map(({ notice }) => notice.project.skillId), ["multilingual", "reinforcement-learning"])
-  assert.ok(dailyFacts[22].corpus - dailyFacts[21].corpus >= 16)
-  assert.ok(dailyFacts[23].corpus - dailyFacts[22].corpus >= 18)
+  assert.ok(dailyFacts[28].corpus - dailyFacts[27].corpus >= 16)
+  assert.ok(dailyFacts[29].corpus - dailyFacts[28].corpus >= 18)
 
   const coding = run.events.find(entry => entry.content.id === "unexpected-coding")
   const followUp = run.events.find(entry => entry.sourceInstanceId === coding.instanceId)
-  assert.equal(coding.day, 10)
-  assert.equal(coding.resolvedDay, 12)
-  assert.equal(followUp.day, 14)
+  assert.ok(coding && coding.day >= 12)
+  assert.equal(coding.resolvedDay, coding.day + 2)
+  assert.equal(followUp.day, coding.resolvedDay + 2)
   assert.equal(followUp.content.id, "coding-integrated")
   const completions = notices.filter(({ notice }) => notice.type === "research-completed")
   assert.equal(completions.length, 11)

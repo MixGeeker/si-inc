@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { readFileSync } from "node:fs"
-import { advanceDay, createRun } from "../../../packages/game/run.ts"
+import { advanceDay, createRun, decisionChoiceForRun } from "../../../packages/game/run.ts"
 import { computePlaces, computePlaceLabel } from "../src/cartography/compute-markers.ts"
 import { countryName } from "../src/cartography/place-names.ts"
 import { languages } from "../src/i18n/languages.ts"
@@ -78,10 +78,11 @@ test("a paid daily decision translates in the archive and settles identically ac
     const { scene } = store.getSnapshot()
     assert.equal(scene.kind, "decision")
     const choose = { type: "choose", id: scene.id, instanceId: scene.instanceId, choiceId: "sponsor" }
+    const scaled = decisionChoiceForRun(scene.back.run, scene.id, "sponsor")
     const before = scene.back.run.balance
     send(choose)
     const settled = store.getSnapshot().scene.run
-    assert.equal(settled.balance, before - 3)
+    assert.equal(settled.balance, before - scaled.cost + scaled.effect.tokens)
     assert.ok(settled.events.every(e => Object.keys(e.content).sort().join() === "id,kind"))
     send(choose)
     send({ type: "open-panel", panel: "menu" })

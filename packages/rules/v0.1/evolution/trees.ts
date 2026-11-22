@@ -13,6 +13,8 @@ export interface Skill {
   readonly description: string
   readonly cost: number
   readonly days: number
+  /** Active training compute units (CU) occupied while this study is in progress. */
+  readonly computeLoad: number
   /** Complete at least one member of every group. */
   readonly requires: readonly (readonly SkillId[])[]
   readonly attributes: Readonly<Partial<ModelAttributes>>

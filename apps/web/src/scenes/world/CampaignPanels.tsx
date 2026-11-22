@@ -3,9 +3,12 @@ import { decisions } from "../../../../../packages/rules/v0.1/events/decisions"
 import { actions } from "../../../../../packages/rules/v0.1/evolution/actions"
 import { channelTechnologies, type Channel } from "../../../../../packages/rules/v0.1/evolution/market-effects"
 import {
+  actionCost,
+  computePressure,
   corpusYieldBreakdown,
   currentAlertLevel,
   currentPhase,
+  estimatedDailyTokenIncome,
   totalCenters,
   victoryProgress,
 } from "../../../../../packages/game/operations"
@@ -19,7 +22,7 @@ import { SceneDialog } from "../Dialog"
 import type { Scene } from "../machine"
 import { EventEffects } from "./EventEffects"
 import { FactionStandings } from "./FactionStandings"
-import { formatCompactPeople } from "./hudContent"
+import { formatCompactPeople, formatCompactTokens } from "./hudContent"
 import "./narrative-events.css"
 
 export function MarketPanel({ run }: { run: RunState }) {
@@ -30,16 +33,20 @@ export function MarketPanel({ run }: { run: RunState }) {
   const alertId = currentAlertLevel(run.exposureBps)
   const phaseId = currentPhase(run.adoptionBps ?? 0)
   const yieldInfo = corpusYieldBreakdown(run)
+  const compute = computePressure(run)
   const victory = victoryProgress(run)
   const globalSynthMet = victory.globalSyntheticBps >= victory.globalSyntheticTargetBps
   const playerShareMet = victory.playerHasMajority
+  const fmtTok = (n: number) => formatCompactTokens(n, locale, number)
   return <>
     <p>{ui.startMarket} · {scenario.regions[setup.startRegionId]} · {scenario.phases[phaseId].name}</p>
     <dl className="readings">
+      <div><dt>{ui.ops.computePressure}</dt><dd>{ui.ops.computeUsage(compute.totalDemand, compute.supply, percent.format(compute.loadBps / 10000))} · {ui.ops.computeStatuses[compute.status]}</dd></div>
       <div><dt>{ui.ops.globalAdoption}</dt><dd>{percent.format((run.adoptionBps ?? 0) / 10000)}</dd></div>
       <div><dt>{ui.ops.syntheticGlobal}</dt><dd>{percent.format(run.syntheticBps / 10000)}</dd></div>
       <div><dt>{ui.ops.exposure}</dt><dd>{percent.format(run.exposureBps / 10000)} · {scenario.alerts[alertId]}</dd></div>
       <div><dt>{ui.ops.playerCenters}</dt><dd>{totalCenters(run)} · {ui.ops.ownedCards(run.buildCards)}</dd></div>
+      <div><dt>{ui.income}</dt><dd>{ui.ops.tokenDaily(fmtTok(estimatedDailyTokenIncome(run)))} · {ui.ops.lifetimeTokens(fmtTok(run.lifetimeTokens))}</dd></div>
       <div><dt>{ui.ops.rawCorpus}</dt><dd>{ui.ops.rawCorpusUnit(formatCompactPeople(yieldInfo.rawPeopleCorpus, locale, number))}</dd></div>
       <div><dt>{ui.ops.corpusFlywheel}</dt><dd>{ui.ops.corpusBreakdown(yieldInfo.fixed, yieldInfo.populationCapped, yieldInfo.throughputCap)}</dd></div>
     </dl>
@@ -53,7 +60,7 @@ export function MarketPanel({ run }: { run: RunState }) {
     <details><summary>{standardScenario.factions[setup.factionId].name} · {ability.name}</summary><p>{ability.description}</p></details>
     <details><summary>{ui.activeAbilities}</summary>
       <dl className="readings">{actions.map(action => <div key={action.id}>
-        <dt>{scenario.actions[action.id].name}<br/><small>{scenario.actions[action.id].description}</small></dt><dd>{ui.tokens(action.cost)}</dd>
+        <dt>{scenario.actions[action.id].name}<br/><small>{scenario.actions[action.id].description}</small></dt><dd>{fmtTok(actionCost(run, action.id))} token</dd>
       </div>)}</dl>
     </details>
     <details><summary>{ui.income}</summary>
@@ -110,13 +117,14 @@ export function DecisionDialog({ scene, back, choose, inspect }: {
 export function DecisionChoices({ scene, choose }: {
   scene: Extract<Scene, { kind: "decision" }>; choose: (choiceId: string) => void
 }) {
-  const { ui, scenario, percent } = useLanguage()
+  const { ui, scenario, locale, number, percent } = useLanguage()
   const decision = decisions[scene.id]
   const run = scene.back.run
   const live = scene.instanceId !== undefined
+  const fmtTok = (n: number) => `${formatCompactTokens(n, locale, number)} token`
   return <>
     <div className="narrative-resources">
-      <span>{ui.balance(ui.tokens(run.balance))}</span>
+      <span>{ui.balance(fmtTok(run.balance))}</span>
       <span>{ui.lab.corpusCount(researchState(run).corpus)}</span>
       <span>{ui.lab.humanProgress(percent.format(run.researchBps / 10000))}</span>
     </div>
@@ -134,7 +142,7 @@ export function DecisionChoices({ scene, choose }: {
         <span className="narrative-choice-title">{label}<span aria-hidden="true">↗</span></span>
         <span className="narrative-choice-copy">{scenario.choices[scene.id][c.id].result}</span>
         <span className="narrative-payment">{ui.narrative.cost} · {c.cost || c.corpusCost
-          ? [c.cost ? ui.tokens(c.cost) : null, c.corpusCost ? ui.lab.corpusCount(c.corpusCost) : null].filter(Boolean).join(" / ")
+          ? [c.cost ? fmtTok(c.cost) : null, c.corpusCost ? ui.lab.corpusCount(c.corpusCost) : null].filter(Boolean).join(" / ")
           : ui.narrative.free}</span>
         {forecast && <span className="narrative-choice-outcome"><span>{ui.narrative.expected}</span><EventEffects effect={forecast}/></span>}
         {c.followUp && <span className="narrative-follow-up">{canDeliverFollowUp ? ui.narrative.followUpAfter(c.followUp.delayDays) : ui.narrative.followUpUnavailable}</span>}

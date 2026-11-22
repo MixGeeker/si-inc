@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
+import { advanceDay, createRun } from "../../../packages/game/run.ts"
 import { createDayClock } from "../src/scenes/clock.ts"
 import { visibleRunState } from "../src/scenes/machine.ts"
 import { createGameStore, gamePlaybackSpeed, pauseReasons } from "../src/scenes/store.ts"
@@ -126,8 +127,9 @@ test("campaign settings preserve preferences, menu return and partial-day progre
       assert.equal(runOf(store).completedDay, 1)
       host.elapse(800)
       assert.equal(runOf(store).completedDay, 2)
-      assert.equal(runOf(store).balance, 19)
-      assert.equal(runOf(store).research.corpus, 48)
+      const expectedAfterTwoDays = advanceDay(advanceDay(createRun({ ...selection, difficultyId: "standard" }, 42, `settings-clock-${manualPaused}`)))
+      assert.equal(runOf(store).balance, expectedAfterTwoDays.balance)
+      assert.equal(runOf(store).research.corpus, expectedAfterTwoDays.research.corpus)
       assert.equal(notices.filter(notice => notice.type === "run-started").length, 1)
       assert.deepEqual(createGameStore().getSnapshot().sound, { muted: false, volume: 65 })
       assert.equal(createGameStore().getSnapshot().layers.night, true)

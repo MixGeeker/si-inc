@@ -1,11 +1,10 @@
-import { btoken } from "../rules/v0.1/economy/btoken.ts"
 import { decisions, type DecisionChoice, type DecisionDefinition, type DecisionEffect, type DecisionId } from "../rules/v0.1/events/decisions.ts"
 import { eventPool, type EventContent } from "../rules/v0.1/events/pool.ts"
-import { news } from "../rules/v0.1/events/news.ts"
+import { news, type MilestoneNewsId } from "../rules/v0.1/events/news.ts"
 import { actionById } from "../rules/v0.1/evolution/actions.ts"
 import { researchNode, type SkillId } from "../rules/v0.1/evolution/trees.ts"
 import type { Outcome } from "../rules/v0.1/endings/standard.ts"
-import type { FactionId } from "../rules/v0.1/factions/roster.ts"
+import { factions, type FactionId } from "../rules/v0.1/factions/roster.ts"
 import { isFactionId, resolveStartRegionId, standardScenario } from "../rules/v0.1/scenario.ts"
 import { countrySpec } from "../rules/v0.1/world/countries.ts"
 import type { RegionId } from "../rules/v0.1/world/regions.ts"
@@ -14,26 +13,51 @@ import type { CountryPopulations } from "./population.ts"
 import type { ComputerFactions } from "./competition.ts"
 import { marketResearchValue } from "./market-research.ts"
 import {
+  actionCost,
+  buildCardCost,
   buildCountryPopulations,
   canBuildDataCenter,
   canBuyBuildCard,
+  canCollectBubble,
   canFundConversion,
   canToggleSynthetic,
   canUseAction,
   computeGlobalMetrics,
+  computePressure,
+  conversionPeopleForTokens,
   enterMarketState,
+  hallucinationWindfallTokens,
   hasPlayerSyntheticMajority,
   initialOperations,
+  isPlayerFactionAbility,
+  newMarketReward,
   publicStatementReliefBps,
+  roundNiceToken,
   settleOperationsDay,
   syntheticActivationExposureBps,
-  syntheticPeoplePerToken,
+  tokenScaleOf,
+  totalCenters,
   type ActionCooldowns,
   type CountryRunState,
+  type MapBubble,
   type MarketRunState,
 } from "./operations.ts"
-import { completedLevel, completionDay, firstIdleSlot, initialResearch, parallelCompletionCorpus, projectsCompleting, researchCost, researchLevels, researchState, researchStatus,
-  dailyCorpus, type ResearchState } from "./research.ts"
+import {
+  advanceResearchProjects,
+  completedLevel,
+  completionDay,
+  dailyCorpus,
+  firstIdleSlot,
+  initialResearch,
+  isProjectCompleted,
+  parallelCompletionCorpus,
+  projectRemainingDays,
+  researchCost,
+  researchLevels,
+  researchState,
+  researchStatus,
+  type ResearchState,
+} from "./research.ts"
 
 export interface RunSetup {
   readonly factionId: FactionId
@@ -45,6 +69,7 @@ export interface RunEvent {
   readonly instanceId: string
   readonly day: number
   readonly content: EventContent
+  readonly milestone?: boolean
   readonly choiceId?: string
   readonly sourceSkillId?: SkillId
   readonly resolvedDay?: number
@@ -63,7 +88,11 @@ export interface RunState {
   /** Fully settled days. Commands at N affect the settlement of day N + 1 onward. */
   readonly completedDay: number
   readonly balance: number
-  /** Hundredths of an operating token carried into the next income settlement. */
+  /** Current economic token scale multiplier (1 -> millions -> billions -> trillions). */
+  readonly tokenScale: number
+  /** Cumulative tokens processed/earned during this run. */
+  readonly lifetimeTokens: number
+  /** Hundredths of an operating token unit carried into the next income settlement. */
   readonly operatingRemainder?: number
   readonly adoptionBps: number | null
   readonly dependencyBps: number | null
@@ -80,6 +109,8 @@ export interface RunState {
   readonly corpusRemainder: number
   readonly crossRegionProgress: number
   readonly actionCooldowns: ActionCooldowns
+  readonly bubbles: readonly MapBubble[]
+  readonly bubbleRandomState: number
   readonly researchBps: number
   readonly research: ResearchState
   readonly events: readonly RunEvent[]
@@ -113,7 +144,7 @@ export function createRun(input: { [K in keyof RunSetup]: string }, seed: number
     || !startRegionId || difficultyId !== standardScenario.difficulty.id
     || typeof runId !== "string" || !runId.trim()) return null
   const setup: RunSetup = { factionId, startRegionId, difficultyId }
-  const ops = initialOperations(setup)
+  const ops = initialOperations(setup, seed)
   return {
     runId, rulesVersion: rules.rulesVersion, setup, seed,
     completedDay: 0, balance: rules.initialBtoken, operatingRemainder: 0,
@@ -163,8 +194,12 @@ function codingMilestoneDay(run: RunState): number | undefined {
   const definition: DecisionDefinition = decisions[id]
   if (!definition.requiresSkill || !definition.delayDays
     || run.events.some(entry => entry.content.id === id)) return undefined
-  const completions = researchState(run).projects.filter(project => project.skillId === definition.requiresSkill)
-    .map(completionDay)
+  const workPerDay = computePressure(run).researchWorkPerDay
+  const completions = researchState(run).projects
+    .filter(project => project.skillId === definition.requiresSkill)
+    .map(project => isProjectCompleted(run, project)
+      ? completionDay(project)
+      : run.completedDay + projectRemainingDays(run, project, workPerDay))
   if (!completions.length) return undefined
   const completed = Math.min(...completions)
   const draw = nextRandom((run.seed ^ completed ^ 0x9e3779b9) >>> 0)
@@ -223,6 +258,26 @@ function advanceNarrativeEvents(run: RunState): RunState {
   return { ...run, schedule, events: additions.length ? [...run.events, ...additions] : run.events }
 }
 
+function milestoneAdditions(previous: RunState, next: RunState, computeStatus: string): RunEvent[] {
+  const seen = new Set(previous.events.map(entry => entry.content.id))
+  const results: RunEvent[] = []
+  function push(id: MilestoneNewsId) {
+    if (seen.has(id)) return
+    seen.add(id)
+    results.push({ ...eventInstance(next, { kind: "news", id }), milestone: true })
+  }
+  if (totalCenters(next) >= 1) push("milestone-first-center")
+  if (computeStatus === "overloaded" || computeStatus === "critical") push("milestone-compute-overload")
+  if (next.syntheticActivatedDay !== null) push("milestone-eternal-night")
+  if (next.researchBps > 0) push("milestone-human-started")
+  if (next.researchBps >= 5000) push("milestone-human-half")
+  if (next.researchBps >= 8000) push("milestone-human-critical")
+  if (next.lifetimeTokens >= 1_000_000) push("milestone-million-tokens")
+  if (next.lifetimeTokens >= 100_000_000) push("milestone-billion-tokens")
+  if (next.lifetimeTokens >= 1_000_000_000_000) push("milestone-trillion-tokens")
+  return results
+}
+
 export function advanceDay(run: RunState): RunState {
   if (dailyOutcome(run) || !Number.isSafeInteger(run.completedDay) || run.completedDay < 0
     || run.completedDay === Number.MAX_SAFE_INTEGER) return run
@@ -230,18 +285,22 @@ export function advanceDay(run: RunState): RunState {
   const research = researchState(run)
   const op = settleOperationsDay(run, day)
   const payment = op.operatingPayment + op.tokenReward
-  const finishing = projectsCompleting(run, day)
+  const { projects, finishing } = advanceResearchProjects(run, day, op.compute.researchWorkPerDay)
   const danger = finishing.reduce((sum, p) => sum + (researchNode(p.skillId).skill.dangerBps ?? 0), 0)
   const corpusIncome = dailyCorpus(run) + parallelCompletionCorpus(run, finishing.length) + op.populationCorpus
   if (!Number.isSafeInteger(run.balance) || run.balance < 0 || !Number.isSafeInteger(research.corpus) || research.corpus < 0
     || !Number.isSafeInteger(payment) || payment < 0 || !Number.isSafeInteger(corpusIncome) || corpusIncome < 0) return run
   // Natural income saturates at the representable limit without stopping the day clock.
-  const balance = run.balance + Math.min(payment, Number.MAX_SAFE_INTEGER - run.balance)
+  const balanceGain = Math.min(payment, Number.MAX_SAFE_INTEGER - run.balance)
+  const balance = run.balance + balanceGain
+  const lifetimeTokens = run.lifetimeTokens + Math.min(payment, Number.MAX_SAFE_INTEGER - run.lifetimeTokens)
   const corpus = research.corpus + Math.min(corpusIncome, Number.MAX_SAFE_INTEGER - research.corpus)
   const next: RunState = {
     ...run,
     completedDay: day,
     balance,
+    tokenScale: op.tokenScale,
+    lifetimeTokens,
     operatingRemainder: op.operatingRemainder,
     adoptionBps: op.adoptionBps,
     dependencyBps: op.dependencyBps,
@@ -256,11 +315,15 @@ export function advanceDay(run: RunState): RunState {
     opponents: op.opponents,
     corpusRemainder: op.corpusRemainder,
     crossRegionProgress: op.crossRegionProgress,
+    bubbles: op.bubbles,
+    bubbleRandomState: op.bubbleRandomState,
     researchBps: Math.min(rules.projectHuman.completionBps, run.researchBps + op.humanAdvanceBps + danger),
-    research: { ...research, corpus },
+    research: { ...research, corpus, projects },
   }
   if (dailyOutcome(next)) return next
-  return advanceNarrativeEvents(next)
+  const milestones = milestoneAdditions(run, next, op.compute.status)
+  const withMilestones = milestones.length ? { ...next, events: [...next.events, ...milestones] } : next
+  return advanceNarrativeEvents(withMilestones)
 }
 
 export function pendingDecision(run: RunState, instanceId: string, id: DecisionId) {
@@ -300,7 +363,7 @@ export function startResearch(run: RunState, skillId: string, seq: number): RunS
   if ((status !== "available" && status !== "upgradable") || research.corpus < cost) return run
   const slot = firstIdleSlot(run)
   if (slot === null) return run
-  const project = { skillId: node.skill.id, slot, startedDay: run.completedDay }
+  const project = { skillId: node.skill.id, slot, startedDay: run.completedDay, workDone: 0 }
   const command: GameCommand = { kind: "buySkill", skillId, day: run.completedDay, seq }
   return { ...run, commands: [...run.commands, command],
     research: { ...research, corpus: research.corpus - cost, projects: [...research.projects, project] } }
@@ -320,10 +383,11 @@ export function grantDeveloperTokens(run: RunState, amount: number, seq: number)
 
 export function buyBuildCard(run: RunState, seq: number): RunState {
   if (!isNextCommandSeq(run, seq) || canBuyBuildCard(run) !== "available") return run
+  const cost = buildCardCost(run)
   const command: GameCommand = { kind: "buyBuildCard", day: run.completedDay, seq }
   return {
     ...run,
-    balance: run.balance - btoken.buildCardCost,
+    balance: run.balance - cost,
     buildCards: run.buildCards + 1,
     commands: [...run.commands, command],
   }
@@ -358,7 +422,7 @@ export function buildDataCenter(run: RunState, countryId: string, seq: number): 
 
 export function fundConversion(run: RunState, tokens: number, seq: number): RunState {
   if (!isNextCommandSeq(run, seq) || canFundConversion(run, tokens) !== "available") return run
-  const quota = syntheticPeoplePerToken(run) * tokens
+  const quota = conversionPeopleForTokens(run, tokens)
   const command: GameCommand = { kind: "fundConversion", tokens, day: run.completedDay, seq }
   return {
     ...run,
@@ -372,7 +436,8 @@ export function toggleSyntheticProgram(run: RunState, regionId: RegionId, enable
   if (!isNextCommandSeq(run, seq) || canToggleSynthetic(run, regionId, enabled) !== "available") return run
   const market = run.markets[regionId]
   const firstInMarket = enabled && market.syntheticActivatedDay === null
-  const exposureDelta = firstInMarket ? syntheticActivationExposureBps(run) : 0
+  const passives = factions[run.setup.factionId].passives
+  const exposureDelta = firstInMarket ? Math.round(syntheticActivationExposureBps(run) * passives.exposureMulBps / 10000) : 0
   const command: GameCommand = { kind: "toggleSynthetic", regionId, enabled, day: run.completedDay, seq }
   return {
     ...run,
@@ -390,11 +455,78 @@ export function toggleSyntheticProgram(run: RunState, regionId: RegionId, enable
   }
 }
 
+export function collectMapBubble(run: RunState, bubbleId: string, seq: number): RunState {
+  if (!isNextCommandSeq(run, seq) || canCollectBubble(run, bubbleId) !== "available") return run
+  const bubble = run.bubbles.find(entry => entry.id === bubbleId)
+  if (!bubble) return run
+  const remaining = run.bubbles.filter(entry => entry.id !== bubbleId)
+  const command: GameCommand = { kind: "collectBubble", bubbleId, day: run.completedDay, seq }
+  if (bubble.kind === "traffic") {
+    const gain = Math.min(bubble.value, Number.MAX_SAFE_INTEGER - run.balance)
+    const lifetimeGain = Math.min(bubble.value, Number.MAX_SAFE_INTEGER - run.lifetimeTokens)
+    return {
+      ...run,
+      balance: run.balance + gain,
+      lifetimeTokens: run.lifetimeTokens + lifetimeGain,
+      bubbles: remaining,
+      commands: [...run.commands, command],
+    }
+  }
+  if (bubble.kind === "corpus") {
+    const research = researchState(run)
+    const gain = Math.min(bubble.value, Number.MAX_SAFE_INTEGER - research.corpus)
+    return {
+      ...run,
+      research: { ...research, corpus: research.corpus + gain },
+      bubbles: remaining,
+      commands: [...run.commands, command],
+    }
+  }
+  return {
+    ...run,
+    exposureBps: Math.max(0, run.exposureBps - bubble.value),
+    researchBps: Math.max(0, run.researchBps - rules.bubbles.alertHumanReliefBps),
+    bubbles: remaining,
+    commands: [...run.commands, command],
+  }
+}
+
 export function useAction(run: RunState, abilityId: string, seq: number, targetRegionId?: RegionId): RunState {
   if (!isNextCommandSeq(run, seq) || canUseAction(run, abilityId, targetRegionId) !== "available") return run
+  const op = rules.operations
+
+  if (isPlayerFactionAbility(run, abilityId)) {
+    const faction = factions[run.setup.factionId]
+    const ability = faction.ability
+    const cost = actionCost(run, abilityId)
+    const command: GameCommand = { kind: "useAbility", abilityId, day: run.completedDay, seq }
+    const exposureDelta = ability.exposureBps > 0
+      ? Math.max(0, Math.round(marketResearchValue(researchLevels(run), "exposure", ability.exposureBps)
+        * faction.passives.exposureMulBps / 10000))
+      : 0
+    const windfall = ability.id === "hallucination-smoke" ? hallucinationWindfallTokens(run) : 0
+    const humanRelief = "humanReliefBps" in ability ? ability.humanReliefBps : 0
+    const afterCost = run.balance - cost
+    const balance = afterCost + Math.min(windfall, Number.MAX_SAFE_INTEGER - afterCost)
+    const lifetimeTokens = run.lifetimeTokens + Math.min(windfall, Number.MAX_SAFE_INTEGER - run.lifetimeTokens)
+    return {
+      ...run,
+      balance,
+      lifetimeTokens,
+      exposureBps: Math.min(10000, run.exposureBps + exposureDelta),
+      researchBps: Math.max(0, run.researchBps - humanRelief),
+      actionCooldowns: {
+        ...run.actionCooldowns,
+        factionAbilityUntilDay: run.completedDay + ability.cooldownDays,
+        factionEffectUntilDay: run.completedDay + ability.durationDays,
+      },
+      commands: [...run.commands, command],
+    }
+  }
+
   const action = actionById(abilityId)
   if (!action) return run
-  const op = rules.operations
+  const cost = actionCost(run, action.id)
   const command: GameCommand = targetRegionId !== undefined
     ? { kind: "useAbility", abilityId: action.id, targetRegionId, day: run.completedDay, seq }
     : { kind: "useAbility", abilityId: action.id, day: run.completedDay, seq }
@@ -403,7 +535,7 @@ export function useAction(run: RunState, abilityId: string, seq: number, targetR
     const relief = publicStatementReliefBps(run)
     return {
       ...run,
-      balance: run.balance - action.cost,
+      balance: run.balance - cost,
       exposureBps: Math.max(0, run.exposureBps - relief),
       actionCooldowns: { ...run.actionCooldowns, publicStatementUntilDay: run.completedDay + op.prCooldownDays },
       commands: [...run.commands, command],
@@ -413,7 +545,7 @@ export function useAction(run: RunState, abilityId: string, seq: number, targetR
   if (action.id === "protocol-rebuild") {
     return {
       ...run,
-      balance: run.balance - action.cost,
+      balance: run.balance - cost,
       researchBps: Math.max(0, run.researchBps - op.protocolRebuildHumanBps),
       exposureBps: Math.max(0, run.exposureBps - op.protocolRebuildExposureBps),
       actionCooldowns: { ...run.actionCooldowns, protocolRebuildUntilDay: run.completedDay + op.protocolRebuildCooldownDays },
@@ -426,9 +558,12 @@ export function useAction(run: RunState, abilityId: string, seq: number, targetR
     const countries = { ...run.countries } as Record<string, CountryRunState>
     if (!enterMarketState(run, targetRegionId, run.completedDay, markets, countries)) return run
     const { adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps } = computeGlobalMetrics(countries, run.opponents)
+    const reward = newMarketReward(run)
+    const lifetimeTokens = run.lifetimeTokens + Math.min(reward, Number.MAX_SAFE_INTEGER - run.lifetimeTokens)
     return {
       ...run,
-      balance: run.balance - action.cost + btoken.newMarketReward,
+      balance: run.balance - cost + reward,
+      lifetimeTokens,
       markets,
       countries,
       countryPopulations: buildCountryPopulations(countries, run.setup.factionId, run.opponents),
@@ -442,10 +577,13 @@ export function useAction(run: RunState, abilityId: string, seq: number, targetR
 
   if (action.id === "market-subsidy" && targetRegionId) {
     const market = run.markets[targetRegionId]
-    const exposureDelta = Math.max(0, Math.round(marketResearchValue(researchLevels(run), "exposure", op.subsidyExposureBps)))
+    const passives = factions[run.setup.factionId].passives
+    const exposureDelta = Math.max(0, Math.round(
+      marketResearchValue(researchLevels(run), "exposure", op.subsidyExposureBps) * passives.exposureMulBps / 10000,
+    ))
     return {
       ...run,
-      balance: run.balance - action.cost,
+      balance: run.balance - cost,
       exposureBps: Math.min(10000, run.exposureBps + exposureDelta),
       markets: {
         ...run.markets,
@@ -462,10 +600,23 @@ export function useAction(run: RunState, abilityId: string, seq: number, targetR
   return run
 }
 
-/** The UI and reducer read the same authored choice. */
+/** The UI and reducer read the same authored choice, scaled to the current token economy. */
 export function decisionChoiceForRun(run: RunState, id: DecisionId, choiceId: string): DecisionChoice | undefined {
   if (!Object.hasOwn(decisions, id)) return undefined
-  return decisions[id].choices.find(choice => choice.id === choiceId)
+  const choice = decisions[id].choices.find(entry => entry.id === choiceId)
+  if (!choice) return undefined
+  const scale = tokenScaleOf(run)
+  if (scale <= 1) return choice
+  return {
+    ...choice,
+    cost: choice.cost > 0 ? roundNiceToken(choice.cost * scale) : 0,
+    effect: {
+      ...choice.effect,
+      tokens: choice.effect.tokens !== 0
+        ? Math.sign(choice.effect.tokens) * roundNiceToken(Math.abs(choice.effect.tokens) * scale)
+        : 0,
+    },
+  }
 }
 
 /** Preview the same net changes that settlement records, even before the player can afford them. */
@@ -518,12 +669,13 @@ export function resolveDecision(run: RunState, instanceId: string, id: DecisionI
   const research = researchState(run)
   const effect = decisionEffectForRun(run, id, choiceId)!
   const balance = run.balance + effect.tokens
+  const lifetimeGain = effect.tokens > 0 ? Math.min(effect.tokens, Number.MAX_SAFE_INTEGER - run.lifetimeTokens) : 0
   const corpus = research.corpus + effect.corpus
   const researchBps = run.researchBps + effect.humanBps
   const resolved = { ...entry, choiceId, resolvedDay: run.completedDay, effect,
     ...(choice.followUp ? { followUpDay: run.completedDay + choice.followUp.delayDays } : {}) }
   return {
-    ...run, balance, researchBps, research: { ...research, corpus },
+    ...run, balance, lifetimeTokens: run.lifetimeTokens + lifetimeGain, researchBps, research: { ...research, corpus },
     events: run.events.map(event => event === entry ? resolved : event),
     commands: [...run.commands, command],
   }

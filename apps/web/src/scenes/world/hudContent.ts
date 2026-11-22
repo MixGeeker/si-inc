@@ -1,17 +1,22 @@
 import {
+  canUseAction,
+  computePressure,
   corpusYieldBreakdown,
+  countryBuildOptions,
   currentAlertLevel,
+  estimatedDailyTokenIncome,
   regionSummary,
   totalCenters,
+  type ComputeStatus,
   type RegionSummary,
 } from "../../../../../packages/game/operations.ts"
-import { researchState } from "../../../../../packages/game/research.ts"
-import type { RunState } from "../../../../../packages/game/run.ts"
+import { activeResearchProjects, researchState } from "../../../../../packages/game/research.ts"
+import { canUnlockSlot, type RunState } from "../../../../../packages/game/run.ts"
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario.ts"
 import { regionCapacity, regionIds, regionOfCountry, regions, type RegionId } from "../../../../../packages/rules/v0.1/world/regions.ts"
 import { computePlaces } from "../../cartography/compute-markers.ts"
 import { languages, type Language } from "../../i18n/languages.ts"
-import { previewSpeeds } from "../machine.ts"
+import { previewSpeeds, type MapPanel } from "../machine.ts"
 
 const empty = "—"
 const globalReferenceSlots = regionIds.reduce((sum, id) => sum + regionCapacity(id), 0)
@@ -31,6 +36,69 @@ export function formatCompactPeople(count: number, locale: "zh-CN" | "en", numbe
   return number.format(count)
 }
 
+/** Compact inflated token display spanning single digits -> thousands -> millions -> billions -> trillions. */
+export function formatCompactTokens(count: number, locale: "zh-CN" | "en", number: Intl.NumberFormat): string {
+  const abs = Math.abs(count)
+  const sign = count < 0 ? "−" : ""
+  if (abs < 10_000) return `${sign}${number.format(abs)}`
+  if (locale === "zh-CN") {
+    if (abs >= 1e12) return `${sign}${(abs / 1e12).toFixed(abs >= 1e14 ? 1 : 2)} 万亿`
+    if (abs >= 1e8) return `${sign}${(abs / 1e8).toFixed(abs >= 1e10 ? 1 : 2)} 亿`
+    return `${sign}${(abs / 1e4).toFixed(abs >= 1e6 ? 0 : 1)} 万`
+  }
+  if (abs >= 1e12) return `${sign}${(abs / 1e12).toFixed(abs >= 1e14 ? 1 : 2)}T`
+  if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(abs >= 1e11 ? 1 : 2)}B`
+  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(abs >= 1e8 ? 1 : 2)}M`
+  return `${sign}${(abs / 1e3).toFixed(1)}K`
+}
+
+export interface CampaignAdvisor {
+  readonly text: string
+  readonly panel: MapPanel
+  readonly urgent: boolean
+}
+
+function buildAdvisor(run: RunState, language: Language, computeLoadText: string, computeStatus: ComputeStatus): CampaignAdvisor {
+  const { ui, percent } = language
+  const research = researchState(run)
+  const activeCount = activeResearchProjects(run).length
+  const idleSlots = Math.max(0, research.unlockedSlots - activeCount)
+
+  if (computeStatus === "critical" || computeStatus === "overloaded") {
+    return { text: ui.ops.advisor.overload(computeLoadText), panel: "actions", urgent: true }
+  }
+  if (run.researchBps >= 4500 && canUseAction(run, "protocol-rebuild") === "available") {
+    return { text: ui.ops.advisor.highHuman(percent.format(run.researchBps / 10000)), panel: "actions", urgent: true }
+  }
+  if (run.exposureBps >= 4000 && canUseAction(run, "public-statement") === "available") {
+    return { text: ui.ops.advisor.highExposure(percent.format(run.exposureBps / 10000)), panel: "actions", urgent: true }
+  }
+  if (research.unlockedSlots === 0 && canUnlockSlot(run, 1)) {
+    return { text: ui.ops.advisor.unlockSlot, panel: "overview", urgent: false }
+  }
+  if (run.buildCards > 0 && countryBuildOptions(run).some(o => o.status === "available")) {
+    return { text: ui.ops.advisor.deployCard(run.buildCards), panel: "actions", urgent: false }
+  }
+  if (idleSlots > 0 && research.corpus >= 10) {
+    return { text: ui.ops.advisor.idleSlot(idleSlots), panel: "overview", urgent: false }
+  }
+  const unentered = regionIds.find(id => run.markets[id].enteredDay === null)
+  if (unentered && canUseAction(run, "cross-border-cloud", unentered) === "available") {
+    return { text: ui.ops.advisor.expandMarket, panel: "actions", urgent: false }
+  }
+  if (run.syntheticActivatedDay !== null) {
+    return {
+      text: ui.ops.advisor.syntheticRace(percent.format(run.playerSyntheticBps / 10000), percent.format(run.syntheticBps / 10000)),
+      panel: "world",
+      urgent: false,
+    }
+  }
+  if ((run.adoptionBps ?? 0) >= 2200) {
+    return { text: ui.ops.advisor.trySynthetic, panel: "actions", urgent: false }
+  }
+  return { text: ui.ops.advisor.expandAndBuild, panel: "actions", urgent: false }
+}
+
 export function hudContent(
   run: RunState | null,
   globalView: boolean,
@@ -38,11 +106,13 @@ export function hudContent(
   placeId: RegionId | null = null,
   countryId: string | null = null,
 ) {
-  const { ui, scenario, number, percent } = language
+  const { ui, scenario, locale, number, percent } = language
   if (run) {
     const { factions, rules } = standardScenario
     const yieldInfo = corpusYieldBreakdown(run)
     const alertId = currentAlertLevel(run.exposureBps)
+    const compute = computePressure(run)
+    const computeLoadText = percent.format(compute.loadBps / 10000)
     const opponents = Object.values(run.opponents)
     const regionMap = {} as Record<RegionId, RegionSummary>
     const rivalsByRegion = {} as Record<RegionId, readonly string[]>
@@ -53,22 +123,33 @@ export function hudContent(
     }
     const adoptionText = run.adoptionBps === null ? empty : percent.format(run.adoptionBps / 10000)
     const syntheticText = percent.format(run.syntheticBps / 10000)
+    const dailyTokens = estimatedDailyTokenIncome(run)
+    const tokenText = formatCompactTokens(run.balance, locale, number)
+    const tokenDailyText = ui.ops.tokenDaily(formatCompactTokens(dailyTokens, locale, number))
+    const research = researchState(run)
+    const activeCount = activeResearchProjects(run).length
+    const idleSlots = Math.max(0, research.unlockedSlots - activeCount)
     return {
       kind: "campaign" as const,
       date: ui.day(run.completedDay),
       overview: ui.research,
       speeds: rules.speedMultipliers,
-      token: number.format(run.balance),
+      token: tokenText,
+      tokenDetail: run.buildCards > 0 ? `${tokenDailyText} · ${ui.cards(number.format(run.buildCards))}` : tokenDailyText,
       cards: number.format(run.buildCards),
       buildCards: run.buildCards,
       centers: totalCenters(run),
-      corpus: number.format(researchState(run).corpus),
-      yieldText: ui.lab.daily(yieldInfo.totalDaily),
+      corpus: number.format(research.corpus),
+      yieldText: idleSlots > 0 ? `${ui.lab.daily(yieldInfo.totalDaily)} · ${ui.lab.idle} ${idleSlots}` : ui.lab.daily(yieldInfo.totalDaily),
       adoptionText,
       syntheticText,
       syntheticActive: run.syntheticActivatedDay !== null,
-      worldStatus: ui.worldStatus(adoptionText, syntheticText),
-      worldStatusFull: ui.worldStatusFull(adoptionText, syntheticText),
+      computeStatus: compute.status,
+      computeLoadText,
+      computeAlert: compute.status === "overloaded" || compute.status === "critical",
+      worldStatus: ui.worldStatus(adoptionText, syntheticText, computeLoadText),
+      worldStatusFull: ui.worldStatusFull(adoptionText, syntheticText, computeLoadText),
+      advisor: buildAdvisor(run, language, computeLoadText, compute.status),
       dependencyText: run.dependencyBps === null ? empty : percent.format(run.dependencyBps / 10000),
       exposureText: `${ui.exposure} ${percent.format(run.exposureBps / 10000)} · ${scenario.alerts[alertId]}`,
       human: run.researchBps ? ui.lab.humanProgress(percent.format(run.researchBps / 10000)) : ui.humanInactive,

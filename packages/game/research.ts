@@ -6,6 +6,10 @@ export interface ResearchProject {
   readonly skillId: SkillId
   readonly slot: number
   readonly startedDay: number
+  /** Accumulated research work units where 100 units = 1 standard day at normal compute load. */
+  readonly workDone?: number
+  /** Actual day the project finished; omitted while still active (or in legacy fixtures). */
+  readonly completedDay?: number
 }
 
 export interface ResearchState {
@@ -24,12 +28,78 @@ export function researchState(run: RunState): ResearchState {
   return run.research
 }
 
+export function projectWorkRequired(project: Pick<ResearchProject, "skillId">): number {
+  return researchNode(project.skillId).skill.days * 100
+}
+
+export function projectWorkDone(run: RunState, project: ResearchProject): number {
+  const required = projectWorkRequired(project)
+  if (project.completedDay !== undefined) {
+    return project.completedDay <= run.completedDay ? required : Math.min(required, project.workDone ?? 0)
+  }
+  if (project.workDone !== undefined) return Math.max(0, Math.min(required, project.workDone))
+  return Math.max(0, Math.min(required, (run.completedDay - project.startedDay) * 100))
+}
+
+export function isProjectCompleted(run: RunState, project: ResearchProject): boolean {
+  if (project.completedDay !== undefined) return project.completedDay <= run.completedDay
+  if (project.workDone !== undefined) return project.workDone >= projectWorkRequired(project)
+  return project.startedDay + researchNode(project.skillId).skill.days <= run.completedDay
+}
+
 export function completionDay(project: ResearchProject): number {
-  return project.startedDay + researchNode(project.skillId).skill.days
+  return project.completedDay ?? (project.startedDay + researchNode(project.skillId).skill.days)
+}
+
+export function projectRemainingDays(run: RunState, project: ResearchProject, workPerDay = 100): number {
+  if (isProjectCompleted(run, project)) return 0
+  const remainingWork = Math.max(1, projectWorkRequired(project) - projectWorkDone(run, project))
+  return Math.max(1, Math.ceil(remainingWork / Math.max(1, workPerDay)))
+}
+
+export function activeResearchProjects(run: RunState): ResearchProject[] {
+  return researchState(run).projects.filter(p => !isProjectCompleted(run, p))
+}
+
+export function activeResearchComputeLoad(run: RunState): number {
+  let total = 0
+  for (const project of researchState(run).projects) {
+    if (!isProjectCompleted(run, project)) total += researchNode(project.skillId).skill.computeLoad
+  }
+  return total
+}
+
+export function advanceResearchProjects(
+  run: RunState,
+  nextDay: number,
+  workPerDay: number,
+): { readonly projects: readonly ResearchProject[]; readonly finishing: readonly ResearchProject[] } {
+  const current = researchState(run).projects
+  if (!current.length) return { projects: current, finishing: [] }
+  const projects: ResearchProject[] = []
+  const finishing: ResearchProject[] = []
+  const rate = Math.max(1, Math.round(workPerDay))
+  for (const project of current) {
+    if (isProjectCompleted(run, project)) {
+      projects.push(project)
+      continue
+    }
+    const required = projectWorkRequired(project)
+    const prevWork = projectWorkDone(run, project)
+    const nextWork = Math.min(required, prevWork + rate)
+    if (nextWork >= required) {
+      const done: ResearchProject = { ...project, workDone: required, completedDay: nextDay }
+      projects.push(done)
+      finishing.push(done)
+    } else {
+      projects.push({ ...project, workDone: nextWork })
+    }
+  }
+  return { projects, finishing }
 }
 
 export function completedLevel(run: RunState, id: SkillId): number {
-  return researchState(run).projects.filter(p => p.skillId === id && completionDay(p) <= run.completedDay).length
+  return researchState(run).projects.filter(p => p.skillId === id && isProjectCompleted(run, p)).length
 }
 
 export function researchCost(run: RunState, node: ResearchNode): number {
@@ -44,7 +114,7 @@ export type SkillLevels = Readonly<Partial<Record<SkillId, number>>>
 export function researchLevels(run: RunState): SkillLevels {
   const levels: Partial<Record<SkillId, number>> = {}
   for (const project of researchState(run).projects) {
-    if (completionDay(project) <= run.completedDay) levels[project.skillId] = (levels[project.skillId] ?? 0) + 1
+    if (isProjectCompleted(run, project)) levels[project.skillId] = (levels[project.skillId] ?? 0) + 1
   }
   return levels
 }
@@ -65,12 +135,15 @@ export function researchAttributes(run: RunState): ModelAttributes {
 }
 
 export function dailyCorpus(run: RunState): number {
-  return researchState(run).projects.reduce((income, project) => completionDay(project) <= run.completedDay
+  return researchState(run).projects.reduce((income, project) => isProjectCompleted(run, project)
     ? income + (researchNode(project.skillId).skill.dailyCorpusBonus ?? 0) : income, rules.dailyCorpus)
 }
 
 export function projectsCompleting(run: RunState, day: number) {
-  return researchState(run).projects.filter(project => completionDay(project) === day)
+  return researchState(run).projects.filter(project =>
+    project.completedDay !== undefined
+      ? project.completedDay === day
+      : project.workDone === undefined && project.startedDay + researchNode(project.skillId).skill.days === day)
 }
 
 export function parallelCompletionCorpus(run: RunState, count: number) {
@@ -80,7 +153,7 @@ export function parallelCompletionCorpus(run: RunState, count: number) {
 }
 
 export function slotProject(run: RunState, slot: number) {
-  return researchState(run).projects.find(p => p.slot === slot && completionDay(p) > run.completedDay)
+  return researchState(run).projects.find(p => p.slot === slot && !isProjectCompleted(run, p))
 }
 
 export function firstIdleSlot(run: RunState): number | null {
@@ -98,7 +171,7 @@ export function researchStatus(run: RunState, node: ResearchNode): ResearchStatu
   const skill = node.skill
   const latest = projects.filter(p => p.skillId === skill.id).at(-1)
   if (latest) {
-    if (completionDay(latest) > run.completedDay) return "active"
+    if (!isProjectCompleted(run, latest)) return "active"
     return skill.repeatCostStep !== undefined ? "upgradable" : "completed"
   }
   const taken = new Set(projects.map(p => p.skillId))

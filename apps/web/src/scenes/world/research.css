@@ -44,6 +44,11 @@ dialog.research-dialog {
 .lab-day small::before { content: "Ⅱ"; margin-right: .35em; color: var(--amber); }
 .lab-human { margin-left: auto; color: var(--muted); font-size: .82em; }
 .lab-human b { color: var(--risk); font-weight: 600; }
+.lab-compute { display: flex; align-items: center; gap: .55em; padding: .24em .62em; border: 1px solid var(--border); font-size: .8em; font-variant-numeric: tabular-nums; color: var(--ui-ink-soft); white-space: nowrap; }
+.lab-compute.is-overloaded { border-color: var(--risk); color: var(--risk); background: var(--ui-risk-bg); }
+.lab-compute b { font-weight: 600; }
+.lab-compute-preview { margin: .35em 0 0; padding: .35em .55em; font-size: .8em; border: 1px solid var(--border); color: var(--ui-ink-soft); }
+.lab-compute-preview.is-risk { border-color: var(--risk); color: var(--risk); background: var(--ui-risk-bg); }
 .lab-balance { border-left: 1px solid var(--border); padding-left: 1.5em; }
 .lab-balance .lab-icon { width: 1.4em; height: 1.4em; color: var(--accent); }
 .lab-balance > span { font-size: .9em; color: var(--ui-ink-soft); }

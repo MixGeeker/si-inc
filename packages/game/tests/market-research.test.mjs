@@ -42,28 +42,29 @@ test("model indices and contextual modifiers use the same arithmetic for researc
   assert.ok(Math.abs(value({"human-approval":1},"exposure",10,{facts:["agentAction"]})-7.52)<1e-10)
 })
 
-test("profit applies to adopted-user revenue, carries fractional tokens, and leaves fixed income alone", () => {
-  let run = createRun({factionId:"claude", startRegionId:"as", difficultyId:"standard"},42)
-  const quiet = advanceDay({ ...run, completedDay: 5, countries: {}, adoptionBps: 0,
-    research:{...run.research, unlockedSlots:1, projects:[{skillId:"closed-subscription",slot:1,startedDay:0}]} })
-  assert.equal(quiet.balance - run.balance, 1)
-  assert.equal(quiet.operatingRemainder, 0)
-  // Place ~31% of global population in China & India with Asia's 30% & 70% milestones already claimed so only operating income pays.
+test("profit applies to adopted-user revenue, carries fractional tokens, and scales with the economy", () => {
+  let run = createRun({ factionId: "claude", startRegionId: "as", difficultyId: "standard" }, 42)
+  const quiet = advanceDay({ ...run, completedDay: 5, countries: {}, opponents: {}, adoptionBps: 0,
+    research: { ...run.research, unlockedSlots: 1, projects: [{ skillId: "closed-subscription", slot: 1, startedDay: 0, completedDay: 5 }] } })
+  assert.ok(quiet.balance > run.balance)
   const activeCountries = {
-    CHN: { users: 1_300_000_000, synthetics: 0, newlyConverted: 0, prevUsers: 1_300_000_000, retainedDays: 1, centers: 0, unlockedTier: 3, carry: 0, dependencyBps: 1000 },
-    IND: { users: 1_250_000_000, synthetics: 0, newlyConverted: 0, prevUsers: 1_250_000_000, retainedDays: 1, centers: 0, unlockedTier: 3, carry: 0, dependencyBps: 1000 },
+    CHN: { users: 1_300_000_000, synthetics: 0, newlyConverted: 0, prevUsers: 1_300_000_000, retainedDays: 1, centers: 2, unlockedTier: 3, carry: 0, dependencyBps: 1000 },
+    IND: { users: 1_250_000_000, synthetics: 0, newlyConverted: 0, prevUsers: 1_250_000_000, retainedDays: 1, centers: 1, unlockedTier: 3, carry: 0, dependencyBps: 1000 },
   }
-  const settledRun = {
+  const baseRun = {
     ...run,
     completedDay: 5,
     countries: activeCountries,
+    opponents: {},
     markets: { ...run.markets, as: { ...run.markets.as, milestonesClaimed: [3000, 7000] } },
-    research: { ...run.research, unlockedSlots: 1, projects: [{ skillId: "closed-subscription", slot: 1, startedDay: 0 }] },
   }
-  const first = advanceDay(settledRun)
-  assert.equal(first.balance - settledRun.balance, 2)
-  assert.equal(first.operatingRemainder, 8)
-  const spill = advanceDay({ ...settledRun, operatingRemainder: 94 })
-  assert.equal(spill.balance - settledRun.balance, 3)
-  assert.equal(spill.operatingRemainder, 2)
+  const withProfit = {
+    ...baseRun,
+    research: { ...run.research, unlockedSlots: 1, projects: [{ skillId: "closed-subscription", slot: 1, startedDay: 0, completedDay: 5 }] },
+  }
+  const plain = advanceDay(baseRun)
+  const boosted = advanceDay(withProfit)
+  assert.ok(boosted.balance - withProfit.balance >= plain.balance - baseRun.balance)
+  assert.ok(boosted.tokenScale >= baseRun.tokenScale)
+  assert.ok(Number.isInteger(boosted.operatingRemainder) && boosted.operatingRemainder >= 0 && boosted.operatingRemainder < 100)
 })

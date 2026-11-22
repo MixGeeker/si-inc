@@ -53,6 +53,32 @@
   color: var(--ui-ink-soft);
 }
 
+.ops-compute-card.is-warn {
+  border-color: var(--ui-accent-line);
+}
+
+.ops-compute-card.is-danger {
+  border-color: var(--ui-risk);
+  background: var(--ui-risk-bg);
+}
+
+.ops-compute-card.is-danger dd,
+.ops-compute-card.is-danger small:first-of-type {
+  color: var(--ui-risk);
+}
+
+.ops-faction-card {
+  border-color: var(--ui-cyan-line-strong);
+  background: linear-gradient(135deg, rgba(16, 36, 62, .52), rgba(8, 14, 28, .48));
+}
+
+.ops-passive-note {
+  display: block;
+  margin-top: .32em;
+  font-size: .78em;
+  color: var(--ui-cyan-soft);
+}
+
 .ops-section {
   display: grid;
   gap: .55em;

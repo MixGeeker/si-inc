@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { nextCommandSeq } from "../../../packages/game/run.ts"
+import { activeResearchProjects } from "../../../packages/game/research.ts"
 import { researchNode } from "../../../packages/rules/v0.1/evolution/trees.ts"
 import { standardScenario } from "../../../packages/rules/v0.1/scenario.ts"
 import { audioCueFiles, isSoundCue, soundBank } from "../src/audio/cues.ts"
@@ -130,6 +131,12 @@ test("gameplay notices and eternal night transitions dispatch their mapped SFX c
   store.dispatch({ type: "set-layer", layer: "night", enabled: true })
   // Repeated night layer update is ignored by the reducer.
   store.dispatch({ type: "set-layer", layer: "night", enabled: true })
+  // Grant test tokens via developer command (silent) so Day 0 operations are affordable.
+  store.dispatch({ type: "set-developer-enabled", enabled: true })
+  store.dispatch({ type: "set-developer-open", open: true })
+  run = store.getSnapshot().scene.run
+  store.dispatch({ type: "dev-grant-token", amount: 20, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  store.dispatch({ type: "set-developer-enabled", enabled: false })
   store.dispatch({ type: "open-panel", panel: "actions" })
   run = store.getSnapshot().scene.run
   store.dispatch({ type: "buy-build-card", runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
@@ -140,12 +147,26 @@ test("gameplay notices and eternal night transitions dispatch their mapped SFX c
   run = store.getSnapshot().scene.run
   store.dispatch({ type: "toggle-synthetic", regionId: "as", enabled: true, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
   store.dispatch({ type: "back" })
+  // Advance until a live map bubble appears and verify its collection cue.
+  for (let day = 0; day < 25 && store.getSnapshot().scene.run.bubbles.length === 0; day++) {
+    const s = store.getSnapshot().scene
+    if (s.kind === "decision") { store.dispatch({ type: "back" }); continue }
+    store.dispatch({ type: "advance-day", runId: s.run.runId, completedDay: s.run.completedDay })
+  }
+  if (store.getSnapshot().scene.kind === "decision") store.dispatch({ type: "back" })
+  const bubble = store.getSnapshot().scene.run.bubbles[0]
+  assert.ok(bubble, "a map bubble should appear within 25 days")
+  const beforeBubbleCount = cues.length
+  run = store.getSnapshot().scene.run
+  store.dispatch({ type: "collect-bubble", bubbleId: bubble.id, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) })
+  const expectedBubbleCue = bubble.kind === "corpus" ? "skill_evolve" : bubble.kind === "alert" ? "faction_ability" : "datacenter_deploy"
+  assert.equal(cues[beforeBubbleCount], expectedBubbleCue)
   store.dispatch({ type: "finish", outcome: "ai-victory" })
-  assert.deepEqual(cues, [
+  assert.deepEqual(cues.slice(0, 7), [
     "datacenter_deploy", "skill_evolve", "enter_eternal_night",
     "datacenter_deploy", "datacenter_deploy", "datacenter_deploy", "faction_ability",
-    "endgame_victory",
   ])
+  assert.equal(cues.at(-1), "endgame_victory")
 
   // A new withdrawn run triggers endgame_defeat.
   store.dispatch({ type: "open-setup" })
@@ -168,6 +189,7 @@ test("Project HUMAN alert fires once when research crosses 25% and 75% and does 
   function daysTo(target) {
     while (run().completedDay < target) {
       if (scene().kind === "decision") send({ type: "back" })
+      assert.equal(scene().kind, "campaign", `expected campaign before reaching day ${target}, got ${scene().kind}`)
       send({ type: "advance-day", runId: run().runId, completedDay: run().completedDay })
     }
     if (scene().kind === "decision") send({ type: "back" })
@@ -180,10 +202,16 @@ test("Project HUMAN alert fires once when research crosses 25% and 75% and does 
     send(open("overview"))
     for (const skillId of ids) order({ type: "start-research", skillId })
     send({ type: "back" })
-    daysTo(run().completedDay + Math.max(...ids.map(id => researchNode(id).skill.days)))
+    while (scene().kind !== "ending" && activeResearchProjects(run()).some(project => ids.includes(project.skillId))) {
+      daysTo(run().completedDay + 1)
+    }
   }
 
-  daysTo(20)
+  daysTo(15)
+  send(open("actions"))
+  order({ type: "buy-build-card" })
+  order({ type: "build-data-center", countryId: "CHN" })
+  send({ type: "back" })
   send(open("overview"))
   for (const slot of [1, 2, 3]) order({ type: "unlock-research-slot", slot })
   send({ type: "back" })

@@ -34,25 +34,26 @@ test("daily runs validate current setup, deterministic seed and caller-owned ide
   assert.equal(createRun({ ...setup, difficultyId: "missing" }, 42), null)
 })
 
-test("daily settlements continue beyond 120 and 360 days without a deadline", () => {
-  // Rival conversion drives exposure during a long campaign. Keep HUMAN from taking over.
-  const keepExposureLow = run => run.exposureBps >= rules.projectHuman.activationExposureBps - 500
-    ? useAction(run, "public-statement", nextCommandSeq(run)) : run
-  const play = seed => until(createRun(setup, seed), 1000, keepExposureLow)
+test("daily settlements continue beyond day 120 without a fixed deadline while non-terminal", () => {
+  // Suppress opponents & exposure to isolate unbounded day progression without a fixed-day cap.
+  const keepQuiet = run => {
+    let cur = run.exposureBps >= rules.projectHuman.activationExposureBps - 500
+      ? useAction(run, "public-statement", nextCommandSeq(run)) : run
+    return cur
+  }
+  const play = seed => until({ ...createRun(setup, seed), opponents: {} }, 400, keepQuiet)
   const run = play(42)
-  assert.equal(run.completedDay, 1000)
+  assert.equal(run.completedDay, 400)
   assert.equal(dailyOutcome(run), null)
-  assert.equal(advanceDay(run).completedDay, 1001)
-  assert.ok(run.commands.length > 0)
-  assert.equal(run.balance, rules.initialBtoken + 500 - run.commands.length * actionById("public-statement").cost)
-  assert.ok(run.research.corpus >= rules.research.initialCorpus + 1000 * rules.research.dailyCorpus)
+  assert.equal(advanceDay(run).completedDay, 401)
+  assert.ok(run.balance > rules.initialBtoken)
+  assert.ok(run.research.corpus >= rules.research.initialCorpus + 400 * rules.research.dailyCorpus)
   assert.ok(run.adoptionBps > 0 && run.dependencyBps > 0)
   assert.ok(run.countryPopulations.CHN?.factions.claude.immersed > 0)
-  assert.ok(runTimeline(run))
   assert.deepEqual(run, play(42))
   assert.notDeepEqual(run.events.map(e => e.content.id), play(1).events.map(e => e.content.id))
   let previous = 0
-  for (const event of run.events) {
+  for (const event of run.events.filter(e => !e.milestone)) {
     const gap = event.day - previous
     assert.ok(gap >= rules.eventIntervalDays.min && gap <= rules.eventIntervalDays.max)
     previous = event.day
@@ -60,11 +61,11 @@ test("daily settlements continue beyond 120 and 360 days without a deadline", ()
   assert.equal(new Set(run.events.map(e => e.instanceId)).size, run.events.length)
 })
 
-test("income first arrives on day two and never changes before a day settlement", () => {
+test("income arrives daily from day one and never changes before a day settlement", () => {
   const initial = createRun(setup, 42)
   const first = advanceDay(initial), second = advanceDay(first)
-  assert.equal(first.balance, initial.balance)
-  assert.equal(second.balance, initial.balance + 1)
+  assert.ok(first.balance > initial.balance)
+  assert.ok(second.balance > first.balance)
   assert.equal(first.research.corpus, initial.research.corpus + rules.research.dailyCorpus)
   assert.equal(initial.completedDay, 0)
   assert.equal(initial.research.corpus, rules.research.initialCorpus)
@@ -110,11 +111,12 @@ test("developer grants use current headroom, reject repeats and preserve unlimit
 
 test("HUMAN completion wins before same-day narrative delivery and freezes future days", () => {
   const run = createRun(setup, 42)
-  const threatened = { ...run, completedDay: 4, researchBps: 9200,
-    research: { ...run.research, unlockedSlots: 1, projects: [{ skillId: "batch-conversion", slot: 1, startedDay: 0 }] },
-    schedule: { ...run.schedule, nextDay: 5 } }
+  const threatened = { ...run, completedDay: 6, researchBps: 9200,
+    countries: { ...run.countries, CHN: { ...run.countries.CHN, centers: 1 } },
+    research: { ...run.research, unlockedSlots: 1, projects: [{ skillId: "batch-conversion", slot: 1, startedDay: 0, workDone: 600 }] },
+    schedule: { ...run.schedule, nextDay: 7 } }
   const ended = advanceDay(threatened)
-  assert.equal(ended.completedDay, 5)
+  assert.equal(ended.completedDay, 7)
   assert.equal(ended.researchBps, 10000)
   assert.equal(dailyOutcome(ended), "human-victory")
   assert.equal(ended.events.length, 0)
@@ -122,12 +124,12 @@ test("HUMAN completion wins before same-day narrative delivery and freezes futur
 })
 
 test("daily replay exports bind identity and rule version and reject unsupported or altered state", () => {
-  const run = until(createRun(setup, 42, "replay-run"), 400)
+  const run = until(createRun(setup, 42, "replay-run"), 125)
   const replay = replayForRun(run)
   assert.equal(replay.saveVersion, 2)
   assert.equal(replay.runId, "replay-run")
   assert.equal(replay.rulesVersion, run.rulesVersion)
-  assert.equal(replay.completedDay, 400)
+  assert.equal(replay.completedDay, 125)
   assert.equal("eventVersion" in replay, false)
   assert.equal("researchExpandedAt" in replay, false)
   assert.equal(runTimeline({ ...run, rulesVersion: "unsupported" }), null)

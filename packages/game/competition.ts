@@ -62,6 +62,7 @@ interface CountryContestant {
   readonly appealBps: number
   readonly retentionBps: number
   readonly subsidized: boolean
+  readonly syntheticActive: boolean
 }
 
 interface CountryContest {
@@ -159,8 +160,9 @@ function constructionTarget(run: RunState, draft: ComputerDayDraft) {
   return target
 }
 
-export function beginComputerDay(run: RunState, day: number): ComputerDayDraft[] {
+export function beginComputerDay(run: RunState, day: number, tokenScale = 1, rivalSlowdownBps = 10000): ComputerDayDraft[] {
   const opponents = factionIds.flatMap(id => run.opponents[id] ? [run.opponents[id]] : [])
+  const scale = Math.max(1, tokenScale)
   const drafts = opponents.map(previous => ({
     previous,
     countries: { ...previous.countries },
@@ -179,22 +181,29 @@ export function beginComputerDay(run: RunState, day: number): ComputerDayDraft[]
   for (const draft of drafts) {
     const { previous } = draft
     const strategy = computerStrategies[previous.factionId]
+    const passives = factions[previous.factionId].passives
     const researchCost = (competitionRules.researchCosts as readonly number[])[draft.researchLevel]
     if (researchCost !== undefined && draft.corpus >= researchCost) {
       draft.corpus -= researchCost
       draft.researchLevel++
     }
-    if (day % strategy.expansionEveryDays === 0 && draft.balance >= expansionCost) {
+    const scaledExpansionCost = Math.max(1, Math.round(expansionCost * passives.expansionCostMulBps / 10000 * scale))
+    const scaledExpansionReward = Math.max(1, Math.round(btoken.newMarketReward * scale))
+    const enteredMarketCount = regionIds.filter(region => draft.markets[region] !== null).length
+    if (day >= enteredMarketCount * strategy.expansionEveryDays && draft.balance >= scaledExpansionCost) {
       const market = strategy.regions.find(region => draft.markets[region] === null)
       if (market) {
         draft.markets[market] = day
-        draft.balance += btoken.newMarketReward - expansionCost
+        draft.balance += scaledExpansionReward - scaledExpansionCost
       }
     }
     for (const region of regionIds) {
       if (draft.markets[region] === null) continue
-      let toSeed: number = strategy.countriesPerDay
-      for (const spec of countriesInRegion(region)) {
+      const regionCountries = countriesInRegion(region)
+      const enteredCount = regionCountries.filter(spec => previous.countries[spec.id]).length
+      const dynamicBoost = enteredCount >= 10 ? 3 : enteredCount >= 4 ? 1 : 0
+      let toSeed = Math.max(1, Math.round((strategy.countriesPerDay + dynamicBoost) * rivalSlowdownBps / 10000))
+      for (const spec of regionCountries) {
         if (toSeed === 0) break
         if (previous.countries[spec.id]) continue
         draft.seeds.add(spec.id)
@@ -205,17 +214,20 @@ export function beginComputerDay(run: RunState, day: number): ComputerDayDraft[]
     if (draft.syntheticActivatedDay === null && day >= strategy.conversionStartDay
       && Object.entries(previous.countries).some(([countryId, state]) => state.users > 0 && canComputerConvert(run, countrySpec(countryId)!))) {
       draft.syntheticActivatedDay = day
-      draft.exposureGain += competitionRules.activationExposureBps
+      draft.exposureGain += Math.round(competitionRules.activationExposureBps * passives.exposureMulBps / 10000)
     }
-    if (draft.syntheticActivatedDay !== null && draft.conversionBudgetPeople < competitionRules.conversionReservePeople && draft.balance >= 1) {
-      draft.balance--
-      draft.conversionBudgetPeople += operations.syntheticTokenPeople
+    const unitFundCost = Math.max(1, Math.round(scale))
+    if (draft.syntheticActivatedDay !== null && draft.conversionBudgetPeople < competitionRules.conversionReservePeople && draft.balance >= unitFundCost) {
+      const units = Math.min(3, Math.floor(draft.balance / unitFundCost))
+      draft.balance -= units * unitFundCost
+      draft.conversionBudgetPeople += units * operations.syntheticTokenPeople
     }
 
     const spec = constructionTarget(run, draft)
-    if (spec && (draft.buildCards > 0 || draft.balance >= btoken.buildCardCost)) {
+    const scaledBuildCardCost = Math.max(1, Math.round(btoken.buildCardCost * scale))
+    if (spec && (draft.buildCards > 0 || draft.balance >= scaledBuildCardCost)) {
       if (draft.buildCards === 0) {
-        draft.balance -= btoken.buildCardCost
+        draft.balance -= scaledBuildCardCost
         draft.buildCards++
       }
       construction.push({ draft, spec })
@@ -243,30 +255,36 @@ function conversionCoverageReached(spec: CountrySpec, open: number) {
   return (spec.population - open) * 10000 >= spec.population * competitionRules.minimumCoverageForConversionBps
 }
 
-function computerContestant(draft: ComputerDayDraft, spec: CountrySpec): CountryContestant | null {
+function computerContestant(draft: ComputerDayDraft, spec: CountrySpec, rivalSlowdownBps: number): CountryContestant | null {
   if (draft.markets[spec.regionId] === null) return null
   const previous = draft.previous.countries[spec.id]
   if (!previous && !draft.seeds.has(spec.id)) return null
   const state = previous ?? emptyCountry
   const strategy = computerStrategies[draft.previous.factionId]
+  const passives = factions[draft.previous.factionId].passives
   const covered = state.users + state.synthetics
   const share = covered / spec.population
-  const netFactor = 0.45 + 0.55 * spec.internetBps / 10000
-  const reachBps = strategy.reachBps + draft.researchLevel * competitionRules.reachPerResearchBps
+  const netFactor = 0.52 + 0.48 * spec.internetBps / 10000
+  const reachBps = Math.round((strategy.reachBps + draft.researchLevel * competitionRules.reachPerResearchBps)
+    * passives.spreadMulBps / 10000 * rivalSlowdownBps / 10000)
   const demand = previous
-    ? Math.round(Math.max(spec.population * 0.003, state.users * 0.14 + state.synthetics * 0.03) * (1 - share * 0.68) * netFactor * reachBps / 10000)
+    ? Math.round(Math.max(spec.population * 0.008, state.users * 0.17 + state.synthetics * 0.06) * (1 - share * 0.55) * netFactor * reachBps / 10000)
     : countrySeedUsers(spec, false)
   const capacity = state.centers * spec.slotCapacity
   const fullSpeed = Math.min(demand, Math.max(0, capacity - covered))
+  const overflowSpeed = Math.ceil((demand - fullSpeed) * 0.55)
+  const migrationBase = Math.max(capacity, Math.round(spec.population * competitionRules.migrationBaseCapacityBps / 10000))
+  const migrationCap = draft.syntheticActivatedDay !== null ? spec.population : migrationBase
   return {
     factionId: draft.previous.factionId,
     users: state.users,
     synthetics: state.synthetics,
-    newUsers: previous ? Math.max(1, fullSpeed + Math.ceil((demand - fullSpeed) / 2)) : demand,
-    migrationRoom: Math.max(0, Math.max(capacity, Math.round(spec.population * competitionRules.migrationBaseCapacityBps / 10000)) - covered),
+    newUsers: previous ? Math.max(1, fullSpeed + overflowSpeed) : demand,
+    migrationRoom: Math.max(0, migrationCap - covered),
     appealBps: strategy.appealBps + draft.researchLevel * competitionRules.appealPerResearchBps,
-    retentionBps: 10000,
+    retentionBps: passives.retentionMulBps,
     subsidized: false,
+    syntheticActive: draft.syntheticActivatedDay !== null,
   }
 }
 
@@ -290,17 +308,26 @@ function settlePopulation(run: RunState, day: number, spec: CountrySpec, open: n
   const settled: CountryContest[] = contestants.map((contestant, index) => ({ contestant, added: added[index], movedIn: 0, movedOut: 0 }))
   if (settled.length <= 1 || !settled.some(({ contestant, added }) => contestant.migrationRoom > added)) return settled
 
+  const saturated = open === 0
   // Build all source offers before any destination applies them. If an inheriting provider has
   // fewer seats than offers, users it cannot take remain at their original provider.
   const offers = settled.map(({ contestant: donor }) => {
     const bids = settled.map(({ contestant: recipient, added }) => {
       if (recipient.factionId === donor.factionId || recipient.migrationRoom <= added) return 0
+      // Once a country is saturated, factions already running synthetic conversion siphon stagnant ordinary users
+      // from factions that have not activated conversion, preventing eternal 80% deadlocks.
+      const syntheticSiphon = saturated && recipient.syntheticActive && !donor.syntheticActive
+      if (syntheticSiphon) {
+        const minTail = donor.users <= Math.max(25000, Math.ceil(spec.population * 0.02)) ? donor.users : 0
+        const siphon = Math.floor(donor.users * competitionRules.siphonMigrationBps / 10000)
+        return Math.min(donor.users, Math.max(minTail, siphon))
+      }
       const difference = recipient.appealBps - donor.appealBps
       const appeal = Math.min(1, Math.max(0, difference / competitionRules.migrationAppealSpreadBps))
       const rate = recipient.subsidized ? competitionRules.subsidizedMigrationBps : competitionRules.migrationBps
       return Math.floor(donor.users * rate / 10000 * appeal * donor.retentionBps / 10000)
     })
-    return allocate(bids, Math.max(...bids), index => initiative(run.seed, day, `${spec.id}:${donor.factionId}`, contestants[index].factionId))
+    return allocate(bids, Math.min(donor.users, Math.max(...bids)), index => initiative(run.seed, day, `${spec.id}:${donor.factionId}`, contestants[index].factionId))
   })
   for (const [destinationIndex, destination] of settled.entries()) {
     const available = Math.max(0, destination.contestant.migrationRoom - destination.added)
@@ -320,10 +347,11 @@ export function settleCountryCompetition(
   spec: CountrySpec,
   drafts: readonly ComputerDayDraft[],
   player: CountryContestant | null,
+  rivalSlowdownBps = 10000,
 ) {
   const contestants = player ? [player] : []
   for (const draft of drafts) {
-    const contestant = computerContestant(draft, spec)
+    const contestant = computerContestant(draft, spec, rivalSlowdownBps)
     if (contestant) contestants.push(contestant)
   }
   if (contestants.length === 0) return { added: 0, movedIn: 0, movedOut: 0 }
@@ -338,8 +366,10 @@ export function settleCountryCompetition(
     let converted = 0
     if (convertible > 0 && draft.syntheticActivatedDay !== null && conversionCoverageReached(spec, open)) {
       const centers = draft.previous.countries[spec.id]?.centers ?? 0
-      const cap = Math.ceil(spec.population * (operations.syntheticBaseDailyRateBps + centers * operations.syntheticCenterDailyRateBps) / 10000)
-      converted = Math.min(convertible, cap, draft.conversionBudgetPeople)
+      const rateBps = Math.round((operations.syntheticBaseDailyRateBps + centers * operations.syntheticCenterDailyRateBps) * rivalSlowdownBps / 10000)
+      const cap = Math.max(1, Math.ceil(spec.population * Math.max(80, rateBps) / 10000))
+      const sweepTail = convertible <= Math.max(5000, Math.ceil(spec.population * 0.01)) ? convertible : cap
+      converted = Math.min(convertible, Math.max(cap, sweepTail), draft.conversionBudgetPeople)
       draft.conversionBudgetPeople -= converted
       draft.converted += converted
     }
@@ -355,8 +385,9 @@ export function settleCountryCompetition(
   return player ? settled[0] : { added: 0, movedIn: 0, movedOut: 0 }
 }
 
-export function finishComputerDay(drafts: readonly ComputerDayDraft[], day: number) {
+export function finishComputerDay(drafts: readonly ComputerDayDraft[], day: number, tokenScale = 1) {
   const opponents: Partial<Record<FactionId, ComputerFactionState>> = {}
+  const scale = Math.max(1, tokenScale)
   let exposureGain = 0
   let firstActivationDay: number | null = null
   for (const draft of drafts) {
@@ -367,9 +398,12 @@ export function finishComputerDay(drafts: readonly ComputerDayDraft[], day: numb
       synthetics += country.synthetics
     }
     const adoption = (users + synthetics) * 10000 / globalPlayablePopulation
+    const passives = factions[draft.previous.factionId].passives
     const { income } = btoken
-    const tokenIncome = day % income.everyDays === 0
-      ? Math.min(income.maximum, income.base + Math.floor(adoption / income.adoptionStepBps)) : 0
+    const baseUnits = (day % income.everyDays === 0
+      ? Math.min(income.maximum, income.base + Math.floor(adoption / income.adoptionStepBps))
+      : 0.7 + adoption / 5500)
+    const tokenIncome = Math.max(1, Math.round(baseUnits * passives.tokenYieldMulBps / 10000 * scale))
     const corpus = rules.research.dailyCorpus + Math.floor((users + synthetics * operations.syntheticCorpusMultiplier)
       / globalPlayablePopulation * operations.corpusFlywheelMaxDaily)
     const { factionId, startRegionId } = draft.previous
@@ -386,7 +420,11 @@ export function finishComputerDay(drafts: readonly ComputerDayDraft[], day: numb
       conversionBudgetPeople: draft.conversionBudgetPeople,
     }
     exposureGain += draft.exposureGain
-    if (draft.converted > 0) exposureGain += competitionRules.conversionExposureBps
+    if (draft.converted > 0) {
+      const convertedPct = draft.converted * 100 / globalPlayablePopulation
+      const rawConvExp = competitionRules.conversionExposureBps + Math.round(convertedPct * competitionRules.conversionExposurePerPctBps)
+      exposureGain += Math.round(rawConvExp * passives.exposureMulBps / 10000)
+    }
     if (draft.syntheticActivatedDay !== null) {
       firstActivationDay = Math.min(firstActivationDay ?? draft.syntheticActivatedDay, draft.syntheticActivatedDay)
     }

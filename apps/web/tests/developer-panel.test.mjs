@@ -6,7 +6,7 @@ import { standardScenario } from "../../../packages/rules/v0.1/scenario.ts"
 import { createDayClock } from "../src/scenes/clock.ts"
 import { stepDeveloperRun } from "../src/scenes/developer.ts"
 import { visibleRunState } from "../src/scenes/machine.ts"
-import { nextEventDay, nextCommandSeq } from "../../../packages/game/run.ts"
+import { decisionChoiceForRun, nextEventDay, nextCommandSeq } from "../../../packages/game/run.ts"
 import { createGameStore, forkDeveloperStore, gamePlaybackSpeed } from "../src/scenes/store.ts"
 
 const start = { type: "start", seed: 8, factionId: "claude", startRegionId: "eu", difficultyId: "standard" }
@@ -63,19 +63,23 @@ test("the next-event readout and manual stepping include earlier research milest
   store.dispatch(enable)
   store.dispatch(open)
   assert.equal(runOf(store).schedule.nextDay, 9)
-  assert.equal(nextEventDay(runOf(store)), 6)
+  assert.equal(nextEventDay(runOf(store)), 8)
   stepDeveloperRun(store, true)
   const decision = store.getSnapshot().scene
-  assert.equal(runOf(store).completedDay, 6)
+  assert.equal(runOf(store).completedDay, 8)
   assert.equal(decision.kind, "decision")
   assert.equal(decision.id, "unexpected-coding")
   store.dispatch({ type: "choose", id: decision.id, instanceId: decision.instanceId, choiceId: "keep" })
-  assert.equal(nextEventDay(runOf(store)), 8)
+  assert.equal(nextEventDay(runOf(store)), 9)
   stepDeveloperRun(store, true)
-  assert.equal(runOf(store).completedDay, 8)
+  assert.equal(runOf(store).completedDay, 9)
+  if (store.getSnapshot().scene.kind === "decision") store.dispatch({ type: "back" })
+  assert.equal(nextEventDay(runOf(store)), 10)
+  stepDeveloperRun(store, true)
+  assert.equal(runOf(store).completedDay, 10)
   assert.equal(store.getSnapshot().scene.kind, "campaign")
   assert.equal(runOf(store).events.at(-1).sourceInstanceId, decision.instanceId)
-  assert.equal(nextEventDay(runOf(store)), 9)
+  assert.equal(nextEventDay(runOf(store)), runOf(store).schedule.nextDay)
 })
 
 test("settings gate the drawer and all manual settlements, including expired and duplicate inputs", () => {
@@ -113,7 +117,8 @@ test("settings gate the drawer and all manual settlements, including expired and
   store.dispatch(first)
   blocked(first)
   store.dispatch(credit(store, 10))
-  assert.deepEqual(notices, [28, 38])
+  const baseBalance = standardScenario.rules.initialBtoken
+  assert.deepEqual(notices, [baseBalance + 10, baseBalance + 20])
   off()
   store.dispatch(step)
   blocked(step)
@@ -138,24 +143,26 @@ test("trial copies settle income, draws, grants and choices independently and ex
   const decision = stepToDecision(trial)
   const before = decision.back.run
   assert.ok(before.completedDay > 0)
-  assert.equal(before.balance, standardScenario.rules.initialBtoken + Math.floor(before.completedDay / 2))
+  assert.ok(before.balance > standardScenario.rules.initialBtoken)
   stepDeveloperRun(trial, true)
   assert.strictEqual(trial.getSnapshot().scene, decision)
-  trial.dispatch(credit(trial, 10))
-  const option = decisions[decision.id].choices.find(choice => choice.cost > 0 && choice.corpusCost === 0)
+  const rawOption = decisions[decision.id].choices.find(choice => choice.cost > 0 && choice.corpusCost === 0)
     ?? decisions[decision.id].choices.find(choice => choice.corpusCost === 0)
-  const choose = { type: "choose", id: decision.id, instanceId: decision.instanceId, choiceId: option.id }
+  const scaledOption = decisionChoiceForRun(before, decision.id, rawOption.id)
+  const firstGrant = Math.max(10, scaledOption.cost)
+  trial.dispatch(credit(trial, firstGrant))
+  const choose = { type: "choose", id: decision.id, instanceId: decision.instanceId, choiceId: rawOption.id }
   trial.dispatch(choose)
   trial.dispatch(choose)
   trial.dispatch(credit(trial, 100))
   const run = runOf(trial)
-  const settled = before.balance + 10 - option.cost + option.effect.tokens
+  const settled = before.balance + firstGrant - scaledOption.cost + scaledOption.effect.tokens
   assert.equal(run.balance, settled + 100)
   assert.equal(notices.filter(type => type === "event-occurred").length, before.events.length)
   assert.deepEqual(notices.filter(type => type !== "event-occurred"), ["dev-token-granted", "decision-resolved", "dev-token-granted"])
   assert.deepEqual(run.commands.map(c => [c.seq, c.kind]), [[1,"devGrantTokens"], [2,"chooseEvent"], [3,"devGrantTokens"]])
   assert.deepEqual(runTimeline(run).slice(0, 3).map(row => [row.before, row.after]),
-    [[settled, settled + 100], [before.balance + 10, settled], [before.balance, before.balance + 10]])
+    [[settled, settled + 100], [before.balance + firstGrant, settled], [before.balance, before.balance + firstGrant]])
   const debug = replayForRun(run)
   assert.equal(debug.format, "debug-replay")
   assert.equal(debug.version, 2)

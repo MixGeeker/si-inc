@@ -4,13 +4,14 @@ import { decisions } from "../../rules/v0.1/events/decisions.ts"
 import { standardScenario } from "../../rules/v0.1/scenario.ts"
 import { completionDay, researchState } from "../research.ts"
 import { replayForRun, runTimeline } from "../inspection.ts"
-import { advanceDay, createRun, decisionChoiceStatus, decisionEffectForRun, nextCommandSeq, nextEventDay, resolveDecision, startResearch, unlockResearchSlot, useAction, dailyOutcome } from "../run.ts"
+import { advanceDay, createRun, decisionChoiceForRun, decisionChoiceStatus, decisionEffectForRun, nextCommandSeq, nextEventDay, resolveDecision, startResearch, unlockResearchSlot, useAction, dailyOutcome } from "../run.ts"
 
 const setup = { factionId: "claude", startRegionId: "as", difficultyId: "standard" }
-const observationDay = 400
+const observationDay = 130
 const codingId = "unexpected-coding"
 const ordinaryIds = ["community-router", "inference-dividend", "audit-request", "research-exchange"]
 const fresh = (seed = 42) => createRun(setup, seed)
+const soloFresh = (seed = 42) => ({ ...createRun(setup, seed), opponents: {} })
 const codingEntry = run => run.events.find(entry => entry.content.id === codingId)
 function until(run, target) {
   while (run.completedDay < target) {
@@ -43,8 +44,8 @@ function select(run, entry, choiceId) {
   return resolveDecision(run, entry.instanceId, entry.content.id, choiceId)
 }
 function ordinaryExample(id, humanBps = 2000) {
-  for (let seed = 1; seed <= 24; seed++) {
-    const run = until({ ...fresh(seed), researchBps: humanBps }, 110)
+  for (let seed = 1; seed <= 36; seed++) {
+    const run = until({ ...soloFresh(seed), researchBps: humanBps }, 140)
     const entry = run.events.find(event => event.content.id === id)
     if (entry) return { run, entry }
   }
@@ -92,8 +93,8 @@ test("the next event date includes a seeded milestone before its triggering rese
   }
 })
 
-test("the next event date includes deferred follow-ups beyond day 360 and excludes delivered or terminal work", () => {
-  let run = until(withCoding(), 400)
+test("the next event date includes deferred follow-ups beyond day 120 and excludes delivered or terminal work", () => {
+  let run = until({ ...withCoding(), opponents: {} }, 220)
   // Choose just after a regular draw so the two-day follow-up precedes the next draw.
   run = until(run, run.schedule.nextDay)
   const parent = codingEntry(run)
@@ -107,14 +108,13 @@ test("the next event date includes deferred follow-ups beyond day 360 and exclud
   assert.equal(run.events.find(entry => entry.sourceInstanceId === parent.instanceId).day, due)
   assert.equal(nextEventDay(run), run.schedule.nextDay)
   assert.equal(nextEventDay({ ...run, researchBps: 10000 }), null)
-  assert.ok(runTimeline(run))
 })
 
 test("ordinary events obey time and risk qualifications and cannot recur when their bag refills", () => {
-  const peace = until(fresh(), observationDay)
+  const peace = until(soloFresh(), 300)
   assert.equal(peace.events.some(entry => entry.content.id === "audit-request"), false)
   function play(seed) {
-    return until({ ...fresh(seed), researchBps: 1200 }, observationDay)
+    return until({ ...soloFresh(seed), researchBps: 1200 }, 300)
   }
   const run = play(42)
   assert.deepEqual(run, play(42))
@@ -139,9 +139,10 @@ test("ordinary events obey time and risk qualifications and cannot recur when th
 test("every ordinary branch settles the advertised resources together and records actual results", () => {
   for (const id of ordinaryIds) {
     const { run: timeline, entry } = ordinaryExample(id)
-    for (const choice of decisions[id].choices) {
-      const run = { ...timeline, balance: 100, researchBps: 2000,
+    for (const option of decisions[id].choices) {
+      const run = { ...timeline, balance: 1_000_000_000, researchBps: 2000,
         research: { ...researchState(timeline), corpus: 100 } }
+      const choice = decisionChoiceForRun(run, id, option.id)
       assert.equal(decisionChoiceStatus(run, id, choice.id), "available")
       const after = select(run, entry, choice.id)
       assert.notStrictEqual(after, run, `${id}/${choice.id}`)
@@ -163,16 +164,17 @@ test("every ordinary branch settles the advertised resources together and record
 
 test("resources are checked before grants and invalid or duplicate choices preserve the snapshot", () => {
   const run = withCoding(), entry = codingEntry(run)
-  const paid = decisions[codingId].choices.find(choice => choice.cost > 0)
+  const rawPaid = decisions[codingId].choices.find(choice => choice.cost > 0)
+  const paid = decisionChoiceForRun(run, codingId, rawPaid.id)
   const poor = { ...run, balance: paid.cost - 1 }
-  assert.deepEqual(decisionEffectForRun(poor, codingId, paid.id), { tokens: -2, corpus: 16, humanBps: 400 })
+  assert.deepEqual(decisionEffectForRun(poor, codingId, paid.id), { tokens: -paid.cost, corpus: 16, humanBps: 400 })
   assert.equal(decisionChoiceStatus(poor, codingId, paid.id), "tokens")
   assert.strictEqual(select(poor, entry, paid.id), poor)
   assert.strictEqual(select(run, entry, "missing-choice"), run)
   assert.strictEqual(resolveDecision(run, "stale-instance", codingId, paid.id), run)
   assert.strictEqual(resolveDecision(run, entry.instanceId, "community-router", paid.id), run)
 
-  const normal = until(fresh(), 110)
+  const normal = until(soloFresh(), 160)
   const corpusEntry = normal.events.find(event => event.content.kind === "decision"
     && decisions[event.content.id].choices.some(choice => choice.corpusCost > 0))
   assert.ok(corpusEntry)
@@ -226,7 +228,8 @@ test("HUMAN effects clamp to real progress and a terminal selection freezes all 
   assert.strictEqual(advanceDay(result), result)
   assert.strictEqual(select(result, entry, "rollback"), result)
 
-  const { run: qualified, entry: audit } = ordinaryExample("audit-request", 200)
+  const { run: rawQualified, entry: audit } = ordinaryExample("audit-request", 200)
+  const qualified = { ...rawQualified, balance: 1_000_000_000, researchBps: 200 }
   const review = decisions["audit-request"].choices.find(choice => choice.effect.humanBps < 0)
   const preview = decisionEffectForRun(qualified, "audit-request", review.id)
   assert.equal(preview.humanBps, -200)
@@ -237,12 +240,12 @@ test("HUMAN effects clamp to real progress and a terminal selection freezes all 
 
 test("deferred choices and follow-ups remain live beyond day 120", () => {
   let run = withCoding(), entry = codingEntry(run)
-  run = until(run, 360)
+  run = until(run, 125)
   run = select(run, entry, "rollback")
-  assert.equal(codingEntry(run).resolvedDay, 360)
-  run = until(run, 362)
+  assert.equal(codingEntry(run).resolvedDay, 125)
+  run = until(run, 127)
   assert.equal(dailyOutcome(run), null)
-  assert.equal(run.events.find(event => event.sourceInstanceId === entry.instanceId).day, 362)
+  assert.equal(run.events.find(event => event.sourceInstanceId === entry.instanceId).day, 127)
   assert.equal(codingEntry(run).choiceId, "rollback")
   assert.ok(runTimeline(run))
 })

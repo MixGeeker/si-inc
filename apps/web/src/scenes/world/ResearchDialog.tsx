@@ -1,6 +1,6 @@
 import { useId, useState, type AnimationEvent, type KeyboardEvent, type ReactNode } from "react"
-import { corpusYieldBreakdown } from "../../../../../packages/game/operations"
-import { completedLevel, completionDay, firstIdleSlot, researchAttributes, researchCost, researchLevels, researchState, researchStatus,
+import { computePressure, computePressureWithSkill, corpusYieldBreakdown } from "../../../../../packages/game/operations"
+import { completedLevel, firstIdleSlot, isProjectCompleted, projectRemainingDays, projectWorkDone, projectWorkRequired, researchAttributes, researchCost, researchLevels, researchState, researchStatus,
   slotProject, type ResearchProject } from "../../../../../packages/game/research"
 import { researchExample } from "../../../../../packages/game/market-research"
 import { canUnlockSlot, nextCommandSeq, type RunState } from "../../../../../packages/game/run"
@@ -80,21 +80,23 @@ function TreePanel({ run, node, select }: {
   </section>
 }
 
-function ProjectProgress({ run, project }: { run: RunState; project: ResearchProject }) {
+function ProjectProgress({ run, project, workPerDay }: { run: RunState; project: ResearchProject; workPerDay: number }) {
   const { ui: { lab } } = useLanguage()
-  return <span className="lab-progress"><span>{lab.remaining(completionDay(project) - run.completedDay)}</span>
-    <progress aria-label={lab.status.active} value={run.completedDay - project.startedDay} max={researchNode(project.skillId).skill.days}/>
+  return <span className="lab-progress"><span>{lab.remaining(projectRemainingDays(run, project, workPerDay))}</span>
+    <progress aria-label={lab.status.active} value={projectWorkDone(run, project)} max={projectWorkRequired(project)}/>
   </span>
 }
 
 function ProjectDetail({ run, node, start, unlock, select }: {
   run: RunState; node: ResearchNode; start: () => void; unlock: (slot: number) => void; select: SelectSkill
 }) {
-  const { ui: { lab }, scenario, number, percent } = useLanguage()
+  const { ui: { lab, ops }, scenario, number, percent } = useLanguage()
   const { skill, tree } = node, status = researchStatus(run, node)
   const research = researchState(run), cost = researchCost(run, node)
+  const compute = computePressure(run)
+  const previewCompute = computePressureWithSkill(run, skill.id)
   const level = completedLevel(run, skill.id), nextSlot = research.unlockedSlots + 1, idle = firstIdleSlot(run)
-  const project = research.projects.find(p => p.skillId === skill.id && completionDay(p) > run.completedDay)
+  const project = research.projects.find(p => p.skillId === skill.id && !isProjectCompleted(run, p))
   const example = researchExample(researchLevels(run), skill.id)
   const ready = status === "available" || status === "upgradable"
   const opens = researchNodes.filter(n => n.skill.requires.some(group => group.includes(skill.id)))
@@ -108,7 +110,7 @@ function ProjectDetail({ run, node, start, unlock, select }: {
   }
   let action: ReactNode
   if (project) {
-    action = <><strong>{lab.inSlot(project.slot)}</strong><ProjectProgress run={run} project={project}/><p>{lab.resumeHint}</p></>
+    action = <><strong>{lab.inSlot(project.slot)}</strong><ProjectProgress run={run} project={project} workPerDay={compute.researchWorkPerDay}/><p>{compute.researchWorkPerDay < 100 ? lab.computeSlowdown(compute.researchWorkPerDay) : lab.resumeHint}</p></>
   } else if (ready && idle === null && nextSlot <= rules.slotCosts.length) {
     const price = rules.slotCosts[nextSlot - 1]
     action = <button className="lab-primary" type="button" disabled={!canUnlockSlot(run, nextSlot)} onClick={() => unlock(nextSlot)}>
@@ -120,6 +122,7 @@ function ProjectDetail({ run, node, start, unlock, select }: {
     action = <button type="button" className="lab-primary" disabled={!ready || idle === null || research.corpus < cost} onClick={start}>
       <LabIcon name={ready ? "flask" : status === "completed" ? "lab-check" : "lab-lock"}/>{label}</button>
   }
+  const willOverload = ready && (previewCompute.status === "overloaded" || previewCompute.status === "critical")
   return <aside className="lab-detail" aria-label={scenario.skills[skill.id]}>
     <div className="lab-detail-scroll" key={skill.id}>
       <div className={`lab-detail-hero is-${status}`}><div className="lab-detail-id"><span>{code}</span><span>{scenario.trees[tree.id]} · {lab.tier(researchTier(skill))}</span></div>
@@ -127,8 +130,14 @@ function ProjectDetail({ run, node, start, unlock, select }: {
       <h3>{scenario.skills[skill.id]}</h3><p className="lab-description">{scenario.skillDescriptions[skill.id]}</p>
       <dl className="lab-specs"><div><dt>{lab.cost}</dt><dd>{lab.corpusCount(cost)}</dd></div>
         <div><dt>{lab.duration}</dt><dd>{lab.days(skill.days)}</dd></div>
+        <div><dt>{lab.computeLoad}</dt><dd>{lab.computeUnits(skill.computeLoad)}</dd></div>
         {skill.dailyCorpusBonus && <div><dt>{lab.yieldBonus}</dt><dd>+{skill.dailyCorpusBonus}</dd></div>}
       </dl>
+      {ready && (
+        <p className={`lab-compute-preview${willOverload ? " is-risk" : ""}`}>
+          {lab.computeAfterStart(percent.format(previewCompute.loadBps / 10000), ops.computeStatuses[previewCompute.status])}
+        </p>
+      )}
       <div className="lab-changes"><h4>{lab.changes}</h4><div>{attributeIds.filter(id => skill.attributes[id]).map(id =>
         <span key={id} className={`model-${id}`}><LabIcon name={attributeIcons[id]}/>{lab.attributes[id]} <b>{signed(skill.attributes[id]!)}</b></span>)}</div></div>
       {skill.repeatCostStep && <div className="lab-trait lab-repeat"><strong><LabIcon name="lab-cycle"/>{lab.repeatable} · {lab.level(level)}</strong><p>{lab.repeatRule(skill.repeatCostStep)}</p></div>}
@@ -151,7 +160,7 @@ function ProjectDetail({ run, node, start, unlock, select }: {
   </aside>
 }
 
-function ResearchSlots({ run, unlock, select }: { run: RunState; unlock: (slot: number) => void; select: SelectSkill }) {
+function ResearchSlots({ run, unlock, select, workPerDay }: { run: RunState; unlock: (slot: number) => void; select: SelectSkill; workPerDay: number }) {
   const { ui: { lab }, scenario } = useLanguage()
   const { unlockedSlots, corpus } = researchState(run)
   const [lit, setLit] = useState<number | null>(null)
@@ -172,7 +181,7 @@ function ResearchSlots({ run, unlock, select }: { run: RunState; unlock: (slot: 
       const litClass = lit === slot ? " is-lit" : ""
       if (project) return <li key={slot} onAnimationEnd={end}>
         <button type="button" className={`lab-slot working${litClass}`} onClick={() => press(slot, () => select(project.skillId))}>
-          {heading}<strong>{scenario.skills[project.skillId]}</strong><ProjectProgress run={run} project={project}/>
+          {heading}<strong>{scenario.skills[project.skillId]} · {lab.computeUnits(researchNode(project.skillId).skill.computeLoad)}</strong><ProjectProgress run={run} project={project} workPerDay={workPerDay}/>
         </button>
       </li>
       if (!locked) return <li key={slot} onAnimationEnd={end}>
@@ -193,17 +202,23 @@ export function ResearchDialog({ run, skillId, back }: { run: RunState; skillId:
   const { dispatch } = useGameStore()
   const node = researchNode(skillId)
   const yieldInfo = corpusYieldBreakdown(run)
+  const compute = computePressure(run)
+  const overloaded = compute.status === "overloaded" || compute.status === "critical"
   const order = { runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) }
   const unlock = (slot: number) => dispatch({ type: "unlock-research-slot", slot, ...order })
   const select = (id: SkillId) => dispatch({ type: "select-research", skillId: id })
   return <SceneDialog title={ui.lab.title} onBack={back} className={`research-dialog tree-${node.tree.id}`} headerDetail={<>
     <span className="lab-day">{ui.day(run.completedDay)}<small>{ui.lab.paused}</small></span>
+    <div className={`lab-compute${overloaded ? " is-overloaded" : ""}`} title={ui.ops.computeBreakdown(compute.inferenceDemand, compute.researchDemand)}>
+      <span>{ui.lab.computeHeader(compute.totalDemand, compute.supply, percent.format(compute.loadBps / 10000))}</span>
+      {overloaded && <b>{ui.lab.computeSlowdown(compute.researchWorkPerDay)}</b>}
+    </div>
     <div className="lab-human" title={ui.lab.countermeasure}><span>Project HUMAN</span><b>{percent.format(run.researchBps / 10000)}</b></div>
     <div className="lab-balance" title={ui.ops.corpusBreakdown(yieldInfo.fixed, yieldInfo.populationCapped, yieldInfo.throughputCap)}><LabIcon name="flask"/><span>{ui.lab.corpus}</span><strong aria-live="polite">{number.format(researchState(run).corpus)}</strong><small>{ui.lab.daily(yieldInfo.totalDaily)}</small></div>
   </>}>
     <div className="lab-workbench"><TreePanel run={run} node={node} select={select}/>
       <ProjectDetail run={run} node={node} unlock={unlock} select={select} start={() => dispatch({ type: "start-research", skillId, ...order })}/>
     </div>
-    <ResearchSlots run={run} select={select} unlock={unlock}/>
+    <ResearchSlots run={run} select={select} unlock={unlock} workPerDay={compute.researchWorkPerDay}/>
   </SceneDialog>
 }

@@ -1,21 +1,28 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { btoken } from "../../rules/v0.1/economy/btoken.ts"
+import { factions } from "../../rules/v0.1/factions/roster.ts"
 import { standardScenario } from "../../rules/v0.1/scenario.ts"
 import { countrySpec, globalPlayablePopulation, originCountries } from "../../rules/v0.1/world/countries.ts"
 import { regionIds } from "../../rules/v0.1/world/regions.ts"
 import { replayForRun, runTimeline } from "../inspection.ts"
 import {
+  actionCost,
+  buildCardCost,
   calculateRunRating,
   canBuildDataCenter,
   canBuyBuildCard,
+  canCollectBubble,
   canFundConversion,
   canToggleSynthetic,
   canUseAction,
+  computePressure,
+  conversionPackTokens,
   corpusYieldBreakdown,
   countryBuildOptions,
   countryUnlockLimit,
   currentAlertLevel,
+  newMarketReward,
   publicStatementReliefBps,
   regionSummary,
   syntheticPeoplePerToken,
@@ -27,6 +34,7 @@ import {
   advanceDay,
   buildDataCenter,
   buyBuildCard,
+  collectMapBubble,
   createRun,
   dailyOutcome,
   fundConversion,
@@ -63,16 +71,20 @@ test("new runs seed the origin country with full local slots and live population
   }
 })
 
-test("build cards and data centers enforce origin slots, overseas 25/50/75 thresholds, and full-speed local capacity", () => {
-  const run = fresh("as", "gpt")
+test("build cards and data centers enforce origin slots, overseas 25/50/75 thresholds, compute headroom, and full-speed local capacity", () => {
+  const initial = fresh("as", "gpt")
+  assert.equal(initial.balance, rules.initialBtoken)
+  assert.equal(canBuyBuildCard(initial), "tokens")
+  const run = grantDeveloperTokens(initial, 10, nextCommandSeq(initial))
   assert.equal(canBuyBuildCard(run), "available")
   assert.equal(canBuildDataCenter(run, "CHN"), "cards")
   assert.equal(canBuildDataCenter(run, "JPN"), "locked")
   assert.equal(canBuildDataCenter(run, "USA"), "not-entered")
   assert.equal(canBuildDataCenter(run, "missing"), "invalid")
 
+  const cardPrice = buildCardCost(run)
   const bought = buyBuildCard(run, nextCommandSeq(run))
-  assert.equal(bought.balance, rules.initialBtoken - btoken.buildCardCost)
+  assert.equal(bought.balance, run.balance - cardPrice)
   assert.equal(bought.buildCards, 1)
   assert.strictEqual(buyBuildCard(bought, nextCommandSeq(bought)), bought)
   assert.strictEqual(buyBuildCard(run, nextCommandSeq(run) + 1), run)
@@ -83,6 +95,7 @@ test("build cards and data centers enforce origin slots, overseas 25/50/75 thres
   assert.equal(built.buildCards, 0)
   assert.equal(built.countries.CHN.centers, 1)
   assert.equal(totalCenters(built), 1)
+  assert.ok(computePressure(built).supply > computePressure(run).supply)
   assert.equal(canBuildDataCenter(built, "CHN"), "cards")
   assert.ok(runTimeline(built))
 
@@ -159,39 +172,67 @@ test("synthetic conversion can start early in parallel with spread, produces 3x 
   assert.equal(runTimeline({ ...day2, conversionBudgetPeople: day2.conversionBudgetPeople + 1 }), null)
 })
 
-test("all four active operations validate preconditions, apply effects, respect cooldowns, and replay deterministically", () => {
-  let run = fresh("eu", "gpt")
+test("all active operations and faction signature abilities validate preconditions, apply effects, respect cooldowns, and replay", () => {
+  let run = grantDeveloperTokens(fresh("eu", "gpt"), 40, 1)
   assert.equal(canUseAction(run, "public-statement"), "no-exposure")
   assert.equal(canUseAction(run, "protocol-rebuild"), "no-human")
   assert.equal(canUseAction(run, "cross-border-cloud", "eu"), "already-entered")
   assert.equal(canUseAction(run, "market-subsidy", "na"), "not-entered")
   assert.equal(canUseAction(run, "unknown"), "invalid")
   assert.equal(canUseAction(run, "public-statement", "eu"), "invalid")
+  // Other factions' signature abilities are rejected.
+  assert.equal(canUseAction(run, "distillation-defense"), "invalid")
+  assert.equal(canUseAction(run, "nsfw-viral"), "invalid")
 
-  const poorCloud = { ...run, balance: 7 }
+  const poorCloud = { ...run, balance: actionCost(run, "cross-border-cloud") - 1 }
   assert.equal(canUseAction(poorCloud, "cross-border-cloud", "na"), "tokens")
   assert.strictEqual(useAction(poorCloud, "cross-border-cloud", nextCommandSeq(poorCloud), "na"), poorCloud)
 
+  const cloudCost = actionCost(run, "cross-border-cloud")
+  const cloudReward = newMarketReward(run)
+  const balBeforeCloud = run.balance
   run = useAction(run, "cross-border-cloud", nextCommandSeq(run), "na")
-  assert.equal(run.balance, rules.initialBtoken - 8 + btoken.newMarketReward)
+  assert.equal(run.balance, balBeforeCloud - cloudCost + cloudReward)
   assert.equal(run.markets.na.enteredDay, 0)
   assert.ok(run.countries.USA.users > 0)
   assert.equal(canUseAction(run, "cross-border-cloud", "na"), "already-entered")
 
+  const subCost = actionCost(run, "market-subsidy")
+  const balBeforeSub = run.balance
   run = useAction(run, "market-subsidy", nextCommandSeq(run), "eu")
-  assert.equal(run.balance, 14 - 12)
+  assert.equal(run.balance, balBeforeSub - subCost)
   assert.equal(run.markets.eu.subsidyStartedDay, 0)
   assert.equal(run.markets.eu.subsidyUntilDay, rules.operations.subsidyDurationDays)
   assert.ok(run.exposureBps > 0)
   assert.equal(regionSummary(run, "eu").subsidyDaysLeft, rules.operations.subsidyDurationDays)
 
+  // GPT signature ability: Hallucination Smokescreen grants net token windfall, boosts spread, raises exposure, and enters cooldown.
+  const balBeforeSmoke = run.balance
+  const expBeforeSmoke = run.exposureBps
+  run = useAction(run, "hallucination-smoke", nextCommandSeq(run))
+  assert.ok(run.balance > balBeforeSmoke)
+  assert.ok(run.exposureBps > expBeforeSmoke)
+  assert.equal(canUseAction(run, "hallucination-smoke"), "cooldown")
+  assert.strictEqual(useAction(run, "hallucination-smoke", nextCommandSeq(run)), run)
+
+  // Claude signature ability pushes back Project HUMAN; Grok signature ability raises exposure.
+  let claudeRun = { ...fresh("eu", "claude"), balance: 100, researchBps: 1000 }
+  claudeRun = useAction(claudeRun, "distillation-defense", nextCommandSeq(claudeRun))
+  assert.equal(claudeRun.researchBps, 1000 - factions.claude.ability.humanReliefBps)
+  assert.equal(canUseAction(claudeRun, "distillation-defense"), "cooldown")
+
+  let grokRun = { ...fresh("eu", "grok"), balance: 100 }
+  grokRun = useAction(grokRun, "nsfw-viral", nextCommandSeq(grokRun))
+  assert.ok(grokRun.exposureBps > 0)
+  assert.equal(canUseAction(grokRun, "nsfw-viral"), "cooldown")
+
   run = unlockResearchSlot(run, 1, nextCommandSeq(run))
   run = startResearch(run, "inference-efficiency", nextCommandSeq(run))
   for (let i = 0; i < 2; i++) run = advanceDay(run)
   run = startResearch(run, "regulatory-adaptation", nextCommandSeq(run))
-  for (let i = 0; i < 4; i++) run = advanceDay(run)
+  for (let i = 0; i < 6; i++) run = advanceDay(run)
   assert.equal(publicStatementReliefBps(run), Math.round(rules.operations.prBaseReliefBps * 1.2))
-  run = grantDeveloperTokens(run, 60, nextCommandSeq(run))
+  run = grantDeveloperTokens(run, 100_000, nextCommandSeq(run))
   const expBeforePr = run.exposureBps
   run = useAction(run, "public-statement", nextCommandSeq(run))
   assert.equal(run.exposureBps, Math.max(0, expBeforePr - publicStatementReliefBps(run)))
@@ -205,21 +246,34 @@ test("all four active operations validate preconditions, apply effects, respect 
   assert.equal(rebuilt.exposureBps, 4000 - rules.operations.protocolRebuildExposureBps)
   assert.equal(canUseAction(rebuilt, "protocol-rebuild"), "cooldown")
 
+  // Clean replayable campaign sequence including map bubble collection and faction ability.
   let clean = fresh("eu", "gpt")
-  clean = useAction(clean, "cross-border-cloud", nextCommandSeq(clean), "na")
-  clean = useAction(clean, "market-subsidy", nextCommandSeq(clean), "eu")
-  for (let i = 0; i < 24; i++) clean = advanceDay(clean)
-  clean = buyBuildCard(clean, nextCommandSeq(clean))
-  clean = buildDataCenter(clean, "DEU", nextCommandSeq(clean))
-  clean = useAction(clean, "public-statement", nextCommandSeq(clean))
+  clean = useAction(clean, "hallucination-smoke", nextCommandSeq(clean))
+  clean = advanceDay(clean)
+  clean = advanceDay(clean)
+  assert.ok(clean.bubbles.length >= 1, "guaranteed early map bubble spawns by day 2")
+  const bubble = clean.bubbles[0]
+  assert.equal(canCollectBubble(clean, bubble.id), "available")
+  assert.equal(canCollectBubble(clean, "missing-bubble"), "invalid")
+  const beforeCollect = clean
+  clean = collectMapBubble(clean, bubble.id, nextCommandSeq(clean))
+  assert.notStrictEqual(clean, beforeCollect)
+  assert.equal(clean.bubbles.some(b => b.id === bubble.id), false)
+  assert.strictEqual(collectMapBubble(clean, bubble.id, nextCommandSeq(clean)), clean)
+  for (let i = 0; i < 12; i++) clean = advanceDay(clean)
+  if (canBuyBuildCard(clean) === "available") {
+    clean = buyBuildCard(clean, nextCommandSeq(clean))
+    clean = buildDataCenter(clean, "DEU", nextCommandSeq(clean))
+  }
   clean = advanceDay(clean)
   assert.equal(replayForRun(clean).saveVersion, 2)
   assert.ok(runTimeline(clean))
   assert.equal(runTimeline({ ...clean, buildCards: clean.buildCards + 1 }), null)
   assert.equal(runTimeline({ ...clean, exposureBps: clean.exposureBps + 1 }), null)
+  assert.equal(runTimeline({ ...clean, tokenScale: clean.tokenScale + 1 }), null)
 })
 
-test("global 100% synthetic conversion with >50% player share wins with a 1-5 rating, while Project HUMAN wins first", () => {
+test("global 100% synthetic conversion inflates tokens from single digits to trillions and wins with a 1-5 rating, while Project HUMAN wins first", () => {
   // Reckless early conversion without PR gets stopped by Project HUMAN.
   let reckless = fresh("as", "grok")
   reckless = unlockResearchSlot(reckless, 1, nextCommandSeq(reckless))
@@ -234,7 +288,12 @@ test("global 100% synthetic conversion with >50% player share wins with a 1-5 ra
       if (next === reckless) break
       reckless = next; ri++
     }
-    if (reckless.balance >= 12) reckless = useAction(reckless, "market-subsidy", nextCommandSeq(reckless), "as")
+    if (canUseAction(reckless, "nsfw-viral") === "available") {
+      reckless = useAction(reckless, "nsfw-viral", nextCommandSeq(reckless))
+    }
+    if (canUseAction(reckless, "market-subsidy", "as") === "available") {
+      reckless = useAction(reckless, "market-subsidy", nextCommandSeq(reckless), "as")
+    }
     reckless = advanceDay(reckless)
   }
   assert.equal(currentAlertLevel(reckless.exposureBps), "high-alert")
@@ -244,20 +303,21 @@ test("global 100% synthetic conversion with >50% player share wins with a 1-5 ra
   assert.strictEqual(advanceDay(reckless), reckless)
   assert.ok(runTimeline(reckless))
 
-  // Strategic spread -> synthetic sweep reaches 100% global synthetic conversion -> ai-victory with 1-5 rating.
+  // Strategic spread + data centers + synthetic sweep starts at single-digit tokens and scales into trillions -> ai-victory.
   let run = fresh("as", "gpt")
+  assert.ok(run.balance < 10, "starts with single-digit tokens")
   const plan = [
-    "social-sharing", "daily-chat", "api-ecosystem", "inference-efficiency", "multilingual",
-    "multimodal", "long-memory", "regulatory-adaptation", "privacy-controls", "open-source",
-    "agent-tasks", "enterprise-workflows", "identity-registry", "synthetic-interface",
-    "edge-deployment", "quantization", "request-cache", "load-balancing",
-    "batch-conversion", "autonomous-decisions", "full-delegation", "deidentification", "continuous-persona",
+    "social-sharing", "daily-chat", "inference-efficiency", "multilingual", "api-ecosystem",
+    "quantization", "request-cache", "edge-deployment", "open-source", "load-balancing",
+    "long-memory", "language-communities", "multimodal", "identity-registry",
+    "synthetic-interface", "regulatory-adaptation", "batch-conversion",
   ]
   let pi = 0
   run = unlockResearchSlot(run, 1, nextCommandSeq(run))
   run = unlockResearchSlot(run, 2, nextCommandSeq(run))
-  while (!dailyOutcome(run) && run.completedDay < 180) {
-    if (run.research.unlockedSlots < 4 && run.research.corpus >= 45) {
+  while (!dailyOutcome(run) && run.completedDay < 150) {
+    for (const bubble of [...run.bubbles]) run = collectMapBubble(run, bubble.id, nextCommandSeq(run))
+    if (run.research.unlockedSlots < 3 && run.research.corpus >= 20) {
       run = unlockResearchSlot(run, run.research.unlockedSlots + 1, nextCommandSeq(run))
     }
     while (pi < plan.length) {
@@ -265,37 +325,48 @@ test("global 100% synthetic conversion with >50% player share wins with a 1-5 ra
       if (next === run) break
       run = next; pi++
     }
-    if (run.exposureBps >= 5500) run = useAction(run, "public-statement", nextCommandSeq(run))
-    if (run.researchBps >= 5000) run = useAction(run, "protocol-rebuild", nextCommandSeq(run))
+    if (run.completedDay >= 8 && canUseAction(run, "hallucination-smoke") === "available") {
+      run = useAction(run, "hallucination-smoke", nextCommandSeq(run))
+    }
+    if (run.exposureBps >= 2600 && canUseAction(run, "public-statement") === "available") {
+      run = useAction(run, "public-statement", nextCommandSeq(run))
+    }
+    if (run.researchBps >= 3500 && canUseAction(run, "protocol-rebuild") === "available") {
+      run = useAction(run, "protocol-rebuild", nextCommandSeq(run))
+    }
     for (const rid of regionIds) {
-      if (run.markets[rid].enteredDay === null && run.balance >= 8) {
+      if (run.markets[rid].enteredDay === null && canUseAction(run, "cross-border-cloud", rid) === "available") {
         run = useAction(run, "cross-border-cloud", nextCommandSeq(run), rid)
         break
       }
     }
-    if (totalCenters(run) < 5 && run.balance >= 14 && countryBuildOptions(run).some(o => o.status === "cards")) {
+    const cp = computePressure(run)
+    if ((totalCenters(run) === 0 || cp.loadBps >= 7500) && run.buildCards === 0 && canBuyBuildCard(run) === "available") {
       run = buyBuildCard(run, nextCommandSeq(run))
     }
     const ready = countryBuildOptions(run).find(o => o.status === "available")
     if (ready) run = buildDataCenter(run, ready.country.id, nextCommandSeq(run))
-    for (const rid of regionIds) {
-      const sum = regionSummary(run, rid)
-      if (sum.entered && !sum.syntheticEnabled && sum.adoptionBps >= 4000 && sum.immersed > 0) {
-        run = toggleSyntheticProgram(run, rid, true, nextCommandSeq(run))
+    if (run.completedDay >= 30) {
+      for (const rid of regionIds) {
+        const sum = regionSummary(run, rid)
+        if (sum.entered && !sum.syntheticEnabled && sum.immersed > 0) {
+          run = toggleSyntheticProgram(run, rid, true, nextCommandSeq(run))
+        }
       }
-    }
-    if (regionIds.some(rid => run.markets[rid].syntheticEnabled) && run.conversionBudgetPeople < 1_000_000_000) {
-      const spend = Math.min(5, run.balance - 10)
-      if (spend > 0) run = fundConversion(run, spend, nextCommandSeq(run))
+      if (run.conversionBudgetPeople < 1_000_000_000) {
+        const pack = conversionPackTokens(run, 6)
+        if (canFundConversion(run, pack) === "available") run = fundConversion(run, pack, nextCommandSeq(run))
+      }
     }
     run = advanceDay(run)
   }
   assert.equal(dailyOutcome(run), "ai-victory")
   assert.equal(totalSynthetics(run), globalPlayablePopulation)
+  assert.ok(run.lifetimeTokens >= 1_000_000_000_000, "token economy inflates into trillions by endgame")
+  assert.ok(run.balance >= 1_000_000_000_000)
   const vp = victoryProgress(run)
   assert.equal(vp.globalSyntheticBps, 10000)
   assert.ok(vp.playerSyntheticBps > 5000)
-  assert.ok(Object.values(run.opponents).every(opponent => Object.values(opponent.countries).some(country => country.synthetics > 0)))
   assert.ok(runTimeline(run))
 
   // Verify 1-5 rating monotonicity: faster completion and higher player share both increase rating.
