@@ -1,5 +1,5 @@
 {
-  "rulesVersion": "v0.1",
+  "rulesVersion": "v0.1.1",
   "regionCount": 6,
   "factionIds": ["gpt", "claude", "grok"],
   "daySecondsAt1x": 4,

@@ -1,5 +1,5 @@
 import { factions, type FactionId } from "../../../../../packages/rules/v0.1/factions/roster"
-import { populationColors } from "../../cartography/population-field"
+import { populationColors } from "../../cartography/population-points"
 import { useLanguage } from "../../i18n/useLanguage"
 import { useGameStore } from "../GameContext"
 import type { PopulationPreview } from "./populationPreview"

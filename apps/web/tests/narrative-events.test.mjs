@@ -1,7 +1,8 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { advanceDay, createRun, nextCommandSeq, resolveDecision, startResearch, unlockResearchSlot } from "../../../packages/game/run.ts"
+import { advanceDay, createRun, nextCommandSeq, resolveDecision, startResearch, unlockResearchSlot, useAction } from "../../../packages/game/run.ts"
 import { decisions } from "../../../packages/rules/v0.1/events/decisions.ts"
+import { standardScenario } from "../../../packages/rules/v0.1/scenario.ts"
 import { sceneReducer, visibleRunState } from "../src/scenes/machine.ts"
 import { createGameStore, forkDeveloperStore } from "../src/scenes/store.ts"
 import { languages } from "../src/i18n/languages.ts"
@@ -12,7 +13,14 @@ const campaign = run => ({ kind: "campaign", panel: null, speed: 2, manualPaused
 const tick = run => ({ type: "dev-step-day", runId: run.runId, completedDay: run.completedDay })
 
 function until(run, target) {
-  while (run.completedDay < target) run = advanceDay(run)
+  while (run.completedDay < target) {
+    if (run.exposureBps >= standardScenario.rules.projectHuman.activationExposureBps - 500) {
+      run = useAction(run, "public-statement", nextCommandSeq(run))
+    }
+    const next = advanceDay(run)
+    assert.equal(next.completedDay, run.completedDay + 1, `The campaign ended before day ${target}`)
+    run = next
+  }
   return run
 }
 

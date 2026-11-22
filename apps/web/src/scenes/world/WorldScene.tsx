@@ -2,20 +2,14 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { regions } from "../../../../../packages/rules/v0.1/world/regions"
 import type { Atlas, Location } from "../../cartography/atlas"
 import { EUROPE, GLOBAL, MapCamera } from "../../cartography/camera"
+import MapViewport from "../../cartography/MapViewport"
 import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
-import { EndingDialog } from "../ending/EndingDialog"
 import { useGameSnapshot, useGameStore } from "../GameContext"
-import { defaultResearchSkill, visibleRunState, type NewsView, type RunSetup } from "../machine"
+import { defaultResearchSkill, visibleRunState, type NewsView } from "../machine"
 import { gamePlaybackSpeed, selectedPlace, type MapSelection, type PlaceFocus } from "../store"
-import { SetupDialog } from "../setup/SetupDialog"
-import { StartScreen } from "../setup/StartScreen"
-import { DifficultyDialog } from "../setup/DifficultyDialog"
-import { SettingsDialog } from "../settings/SettingsDialog"
 import { nextCommandSeq } from "../../../../../packages/game/run"
 import { DecisionDialog, MarketPanel } from "./CampaignPanels"
-import { ActionsDialog } from "./ActionsDialog"
-import { ResearchDialog } from "./ResearchDialog"
 import "./developer-panel.css"
 import Hud from "./Hud"
 import { NewsOverview } from "./NewsLayer"
@@ -27,8 +21,12 @@ import { PopulationControls, PopulationLegend } from "./PopulationControls"
 import { previewPopulations } from "./populationPreview"
 import type { CountryPopulations } from "../../../../../packages/game/population"
 
-const MapViewport = lazy(() => import("../../cartography/MapViewport"))
+export { preloadTerrainTextures } from "../../cartography/TerrainScene"
+
 const DeveloperPanel = lazy(() => import("./DeveloperPanel"))
+const ActionsDialog = lazy(() => import("./ActionsDialog").then(({ ActionsDialog }) => ({ default: ActionsDialog })))
+const ResearchDialog = lazy(() => import("./ResearchDialog").then(({ ResearchDialog }) => ({ default: ResearchDialog })))
+const EndingDialog = lazy(() => import("../ending/EndingDialog").then(({ EndingDialog }) => ({ default: EndingDialog })))
 const noPopulation: CountryPopulations = {}
 
 function locationFor(atlas: Atlas, selection: MapSelection | null): Location | null {
@@ -61,18 +59,11 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       const [lon, lat] = regions[place.id].center
       rig.go({ lon, lat, zoom: place.id === "eu" ? .42 : .29 })
     }
+    const current = store.getSnapshot()
+    if (visibleRunState(current.scene)) goToPlace(selectedPlace(current.selection))
     const off = [
-      store.on("run-started", ({ setup }) => {
-        goToPlace({ kind: "market", id: setup.startRegionId })
-        store.dispatch({ type: "set-layer", layer: "night", enabled: false })
-      }),
-      store.on("synthetic-toggled", ({ firstActivation }) => {
-        if (firstActivation) store.dispatch({ type: "set-layer", layer: "night", enabled: true })
-      }),
-      store.on("return-to-preview", () => {
-        rig.go(EUROPE)
-        store.dispatch({ type: "set-layer", layer: "night", enabled: true })
-      }),
+      store.on("run-started", ({ setup }) => goToPlace({ kind: "market", id: setup.startRegionId })),
+      store.on("return-to-preview", () => rig.go(EUROPE)),
       store.on("map-preset", (event, state) => {
         if (state.scene.kind === "campaign") goToPlace(selectedPlace(state.selection))
         else rig.go(event.view === "global" ? GLOBAL : EUROPE)
@@ -94,6 +85,7 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   const run = visibleRunState(scene)
   const livePopulation = run?.countryPopulations
   const example = scene.kind === "preview" ? populationPreview : null
+  const populationScope = population ? run?.runId ?? (example ? "preview" : null) : null
   const populations = useMemo(() => population
     ? (example ? previewPopulations(example) : livePopulation ?? noPopulation)
     : noPopulation, [population, example, livePopulation])
@@ -104,8 +96,9 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
     if (!marketId) return singleCountry ? [singleCountry] : []
     return Object.keys(regions[marketId].slots).flatMap(id => atlas.countryById.get(id) ?? [])
   }, [atlas, marketId, singleCountry])
-  const content = hudContent(run, location === null, language)
-  const newsItems = run ? campaignNews(run, language) : previewNews(language)
+  const globalView = location === null
+  const content = useMemo(() => hudContent(run, globalView, language), [run, globalView, language])
+  const newsItems = useMemo(() => run ? campaignNews(run, language) : previewNews(language), [run, language])
   const speed = gamePlaybackSpeed(snapshot)
   let playbackScene = scene
   while ("back" in playbackScene) playbackScene = playbackScene.back
@@ -122,20 +115,15 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
     if (newsView === view && newsItemId === itemId) send({ type: "back" })
     else send({ type: "open-panel", panel: "news", newsView: view, newsItemId: itemId })
   }
-  function start(setup: RunSetup) {
-    send({ type: "start", ...setup, seed: crypto.getRandomValues(new Uint32Array(1))[0] })
-  }
   function presets() {
     return <><button onClick={() => send({ type: "map-preset", view: "global" })}>{ui.globalView}</button>
       <button onClick={() => send({ type: "map-preset", view: "europe" })}>{ui.europeView}</button></>
   }
 
   return <>
-    <Suspense fallback={<span className="map-loading" role="status">{ui.mapLoading}</span>}>
-      <MapViewport atlas={atlas} rig={rig} selected={selected} populations={populations} layers={{ cloud, current, reduced, speed, night }}
-        pick={({ country, ...point }) => send({ type: "pick-location", selection: { ...point, countryId: country?.id ?? null } })}
-        marker={run ? undefined : previewMarker} showNews={() => openNews("current", "preview")} showGlobal={showGlobal}/>
-    </Suspense>
+    <MapViewport atlas={atlas} rig={rig} selected={selected} populations={populations} populationScope={populationScope} layers={{ cloud, current, reduced, speed, night }}
+      pick={({ country, ...point }) => send({ type: "pick-location", selection: { ...point, countryId: country?.id ?? null } })}
+      marker={run ? undefined : previewMarker} showNews={() => openNews("current", "preview")} showGlobal={showGlobal}/>
     <Hud location={location} place={place} content={content} zoom={zoom} selectedSpeed={selectedSpeed} manualPaused={manualPaused} paused={speed === 0}
       night={night} toggleNight={() => send({ type: "set-layer", layer: "night", enabled: !night })}
       newsItems={newsItems} newsView={newsView} newsItemId={newsItemId} newsDay={run ? run.completedDay : null}
@@ -178,10 +166,6 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
         toggleSynthetic={run ? (regionId, enabled) => send({ type: "toggle-synthetic", regionId, enabled, runId: run.runId, completedDay: run.completedDay, seq: nextCommandSeq(run) }) : undefined}
         openActions={run ? () => { send({ type: "back" }); send({ type: "open-panel", panel: "actions" }) } : undefined}/>
     </SceneDialog>}
-    {panel === "actions" && scene.kind === "campaign" &&
-      <ActionsDialog run={scene.run} atlas={atlas} initialRegionId={marketId} back={back}/>}
-    {panel === "overview" && scene.kind === "campaign" &&
-      <ResearchDialog run={scene.run} skillId={scene.researchSkillId ?? defaultResearchSkill} back={back}/>}
     {panel === "overview" && scene.kind === "preview" && <SceneDialog title={content.overview} onBack={back}>
       <dl className="readings">
         <div><dt>{ui.name}</dt><dd>{mapPreview.name}</dd></div><div><dt>{ui.dnaPoints}</dt><dd>{mapPreview.dna}</dd></div>
@@ -209,19 +193,15 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       <p>{ui.confirmEndBody}</p>
       <div className="window-actions"><button onClick={back}>{ui.cancel}</button><button onClick={() => send({ type: "withdraw" })}>{ui.confirmEnd}</button></div>
     </SceneDialog>}
-    {scene.kind === "start" && <StartScreen start={() => send({ type: "open-setup" })}
-      settings={() => send({ type: "open-settings" })} explore={() => {
-        send({ type: "back" })
-        const next = store.getSnapshot().scene
-        if (next.kind === "preview" && next.panel !== null) send({ type: "back" })
-      }}/>}
-    {scene.kind === "settings" && <SettingsDialog back={back}/>}
-    {scene.kind === "setup" && <SetupDialog previous={scene.selection}
-      next={selection => send({ type: "open-difficulty", ...selection })} back={back}/>}
-    {scene.kind === "difficulty" && <DifficultyDialog selection={scene.back.selection} start={start} back={back}/>}
     {scene.kind === "decision" && !showDeveloper && <DecisionDialog scene={scene} back={back} inspect={developer.enabled ? openDeveloper : undefined}
       choose={choiceId => send({ type: "choose", id: scene.id, instanceId: scene.instanceId, choiceId })}/>}
-    {scene.kind === "ending" && !showDeveloper && <EndingDialog scene={scene} restart={() => send({ type: "open-setup" })} leave={() => send({ type: "return-to-preview" })}
-      inspect={developer.enabled ? openDeveloper : undefined}/>}
+    <Suspense fallback={null}>
+      {panel === "actions" && scene.kind === "campaign" &&
+        <ActionsDialog run={scene.run} atlas={atlas} initialRegionId={marketId} back={back}/>}
+      {panel === "overview" && scene.kind === "campaign" &&
+        <ResearchDialog run={scene.run} skillId={scene.researchSkillId ?? defaultResearchSkill} back={back}/>}
+      {scene.kind === "ending" && !showDeveloper && <EndingDialog scene={scene} restart={() => send({ type: "open-setup" })} leave={() => send({ type: "return-to-preview" })}
+        inspect={developer.enabled ? openDeveloper : undefined}/>}
+    </Suspense>
   </>
 }

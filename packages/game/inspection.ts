@@ -1,6 +1,5 @@
 import { standardScenario } from "../rules/v0.1/scenario.ts"
-import { regionIds, type RegionId } from "../rules/v0.1/world/regions.ts"
-import { totalCenters, totalImmersed, totalSynthetics } from "./operations.ts"
+import type { RegionId } from "../rules/v0.1/world/regions.ts"
 import { researchState } from "./research.ts"
 import {
   advanceDay,
@@ -41,6 +40,19 @@ export interface RunTraceEntry {
 function traceEntry(before: RunState | null, after: RunState): RunTraceEntry {
   return { day: after.completedDay, before: before?.balance ?? null, after: after.balance,
     corpusBefore: before && researchState(before).corpus, corpusAfter: researchState(after).corpus }
+}
+
+function sameSnapshotData(expected: unknown, actual: unknown): boolean {
+  if (Object.is(expected, actual)) return true
+  if (expected === null || actual === null || typeof expected !== "object" || typeof actual !== "object") return false
+  if (Array.isArray(expected)) {
+    if (!Array.isArray(actual) || expected.length !== actual.length) return false
+  } else if (Array.isArray(actual)) return false
+  const expectedRecord = expected as Record<string, unknown>
+  const actualRecord = actual as Record<string, unknown>
+  const keys = Object.keys(expectedRecord)
+  return keys.length === Object.keys(actualRecord).length && keys.every(key =>
+    Object.hasOwn(actualRecord, key) && sameSnapshotData(expectedRecord[key], actualRecord[key]))
 }
 
 /** Reconstruct each settlement with the rules that produced the run, including deferred decisions. */
@@ -93,20 +105,11 @@ export function runTimeline(run: RunState): RunTraceEntry[] | null {
     || cursor.corpusRemainder !== run.corpusRemainder || cursor.crossRegionProgress !== run.crossRegionProgress
     || cursor.actionCooldowns.publicStatementUntilDay !== run.actionCooldowns.publicStatementUntilDay
     || cursor.actionCooldowns.protocolRebuildUntilDay !== run.actionCooldowns.protocolRebuildUntilDay
-    || totalCenters(cursor) !== totalCenters(run) || totalImmersed(cursor) !== totalImmersed(run)
-    || totalSynthetics(cursor) !== totalSynthetics(run)
+    || !sameSnapshotData(cursor.countries, run.countries) || !sameSnapshotData(cursor.opponents, run.opponents)
+    || !sameSnapshotData(cursor.countryPopulations, run.countryPopulations)
     || cursor.researchBps !== run.researchBps || expected.corpus !== actual.corpus
     || expected.unlockedSlots !== actual.unlockedSlots || expected.projects.length !== actual.projects.length) return null
-  const marketsMatch = regionIds.every(id => {
-    const a = cursor.markets[id], b = run.markets[id]
-    return a.enteredDay === b.enteredDay && a.subsidyUntilDay === b.subsidyUntilDay
-      && a.subsidyStartedDay === b.subsidyStartedDay && a.apiActiveDays === b.apiActiveDays
-      && a.orgSeats === b.orgSeats && a.syntheticEnabled === b.syntheticEnabled
-      && a.syntheticActivatedDay === b.syntheticActivatedDay
-      && a.milestonesClaimed.length === b.milestonesClaimed.length
-      && a.milestonesClaimed.every((m, i) => m === b.milestonesClaimed[i])
-  })
-  const matches = marketsMatch && expected.projects.every((p, i) => p.skillId === actual.projects[i].skillId
+  const matches = sameSnapshotData(cursor.markets, run.markets) && expected.projects.every((p, i) => p.skillId === actual.projects[i].skillId
     && p.startedDay === actual.projects[i].startedDay && p.slot === actual.projects[i].slot)
   const eventMatches = cursor.events.length === run.events.length && cursor.events.every((event, i) => {
     const expected = run.events[i]

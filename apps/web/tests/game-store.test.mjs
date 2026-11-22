@@ -7,6 +7,7 @@ import { researchNode } from "../../../packages/rules/v0.1/evolution/trees.ts"
 import { nextCommandSeq } from "../../../packages/game/run.ts"
 import { slotProject } from "../../../packages/game/research.ts"
 import { runTimeline } from "../../../packages/game/inspection.ts"
+import { visibleRunState } from "../src/scenes/machine.ts"
 import { createGameStore, gamePlaybackSpeed, pauseReasons, selectedPlace } from "../src/scenes/store.ts"
 
 const start = { type: "start", factionId: "claude", startRegionId: "as", difficultyId: "standard", seed: 42 }
@@ -20,6 +21,46 @@ function startGame(store, startRegionId = start.startRegionId) {
 const market = id => ({ kind: "market", id })
 const focus = id => ({ type: "focus-place", place: id === null ? null : market(id) })
 const pick = (countryId, lon, lat) => ({ type: "pick-location", selection: { countryId, lon, lat } })
+
+test("a computer's first synthetic program commits the global night layer during either day step", () => {
+  for (const type of ["advance-day", "dev-step-day"]) {
+    const store = createGameStore()
+    const get = store.getSnapshot
+    const send = store.dispatch
+    startGame(store)
+    assert.equal(get().layers.night, false)
+    if (type === "dev-step-day") {
+      send({ type: "set-developer-enabled", enabled: true })
+      send({ type: "set-developer-open", open: true })
+    }
+    const transitions = []
+    const off = store.on("eternal-night-started", (_, snapshot) => {
+      assert.strictEqual(snapshot, get())
+      const run = visibleRunState(snapshot.scene)
+      assert.equal(snapshot.layers.night, true)
+      assert.equal(run.syntheticActivatedDay, run.completedDay)
+      assert.ok(Object.values(run.opponents).some(rival => rival.syntheticActivatedDay === run.completedDay))
+      transitions.push(run.completedDay)
+    })
+    for (let day = 0; day < 160 && transitions.length === 0; day++) {
+      if (get().scene.kind === "decision") send({ type: "back" })
+      const run = visibleRunState(get().scene)
+      const advance = { type, runId: run.runId, completedDay: run.completedDay }
+      send(advance)
+      const settled = get()
+      send(advance)
+      assert.strictEqual(get(), settled)
+    }
+    assert.equal(transitions.length, 1)
+    send({ type: "set-layer", layer: "night", enabled: false })
+    if (get().scene.kind === "decision") send({ type: "back" })
+    const run = visibleRunState(get().scene)
+    send({ type, runId: run.runId, completedDay: run.completedDay })
+    assert.equal(get().layers.night, false)
+    assert.equal(transitions.length, 1)
+    off()
+  }
+})
 
 test("research orders bind to the open campaign, commit once, and complete alongside a scheduled event", () => {
   const store = createGameStore()

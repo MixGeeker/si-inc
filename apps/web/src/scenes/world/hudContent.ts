@@ -3,8 +3,6 @@ import {
   currentAlertLevel,
   regionSummary,
   totalCenters,
-  totalImmersed,
-  totalSynthetics,
   type RegionSummary,
 } from "../../../../../packages/game/operations.ts"
 import { researchState } from "../../../../../packages/game/research.ts"
@@ -31,14 +29,19 @@ export function formatCompactPeople(count: number, locale: "zh-CN" | "en", numbe
 }
 
 export function hudContent(run: RunState | null, globalView: boolean, language: Language = languages["zh-CN"]) {
-  const { ui, scenario, locale, number, percent, date } = language
+  const { ui, scenario, number, percent, date } = language
   if (run) {
     const { factions, rules } = standardScenario
     const yieldInfo = corpusYieldBreakdown(run)
     const alertId = currentAlertLevel(run.exposureBps)
-    const regions = Object.fromEntries(regionIds.map(id => [id, regionSummary(run, id)])) as Record<RegionId, RegionSummary>
-    const totalUsers = totalImmersed(run)
-    const totalSynths = totalSynthetics(run)
+    const opponents = Object.values(run.opponents)
+    const regions = {} as Record<RegionId, RegionSummary>
+    const rivalsByRegion = {} as Record<RegionId, readonly string[]>
+    for (const id of regionIds) {
+      regions[id] = regionSummary(run, id)
+      rivalsByRegion[id] = opponents.filter(opponent => opponent.markets[id] !== null)
+        .map(opponent => factions[opponent.factionId].name)
+    }
     const adoptionText = run.adoptionBps === null ? empty : percent.format(run.adoptionBps / 10000)
     const syntheticText = percent.format(run.syntheticBps / 10000)
     return {
@@ -54,19 +57,14 @@ export function hudContent(run: RunState | null, globalView: boolean, language: 
       yieldText: ui.lab.daily(yieldInfo.totalDaily),
       adoptionText,
       syntheticText,
-      syntheticActive: regionIds.some(id => run.markets[id].syntheticEnabled),
+      syntheticActive: run.syntheticActivatedDay !== null,
       worldStatus: ui.worldStatus(adoptionText, syntheticText),
       worldStatusFull: ui.worldStatusFull(adoptionText, syntheticText),
       dependencyText: run.dependencyBps === null ? empty : percent.format(run.dependencyBps / 10000),
       exposureText: `${ui.exposure} ${percent.format(run.exposureBps / 10000)} · ${scenario.alerts[alertId]}`,
       human: run.researchBps ? ui.lab.humanProgress(percent.format(run.researchBps / 10000)) : ui.humanInactive,
       regions,
-      factions: Object.entries(factions).map(([id, faction]) => ({
-        name: faction.name,
-        player: id === run.setup.factionId,
-        immersed: id === run.setup.factionId ? formatCompactPeople(totalUsers, locale, number) : empty,
-        synths: id === run.setup.factionId ? formatCompactPeople(totalSynths, locale, number) : empty,
-      })),
+      rivalsByRegion,
     }
   }
   return {

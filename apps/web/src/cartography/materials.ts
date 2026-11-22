@@ -1,16 +1,6 @@
-import { CanvasTexture, DataTexture, LinearFilter, PlaneGeometry, RepeatWrapping, RGBAFormat,
+import { CanvasTexture, DataTexture, LinearFilter, RepeatWrapping, RGBAFormat,
   ShaderMaterial, Texture, Vector2, Vector3 } from "three"
-import { Atlas, relief, type Country } from "./atlas"
-import { WORLD_WIDTH, WORLD_HEIGHT } from "./layout"
-
-export function reliefGeometry(atlas:Atlas) {
-  const mesh = new PlaneGeometry(WORLD_WIDTH,WORLD_HEIGHT,720,360)
-  const points = mesh.getAttribute("position")
-  for (let i=0;i<points.count;i++) points.setZ(i,relief(atlas.heights[i]))
-  mesh.computeVertexNormals()
-  mesh.computeBoundingSphere()
-  return mesh
-}
+import type { Atlas, Country } from "./atlas"
 
 export function borders(atlas:Atlas) {
   const canvas = document.createElement("canvas")
@@ -178,20 +168,26 @@ export function materials(surface:Texture, nightLights:Texture, vapor:Texture, h
         float shadow = cloudShadow(gust.uv + vec2(-.002,.004)) * gust.cover * (1. + .45 * gust.ridge);
         col *= 1. - mix(.12,.22,night) * shadow;
       }
-      vec4 lamps = texture2D(nightLights, coord);
-      float lampGlow = pow(lamps.a, .78);
-      vec3 lampCol = mix(vec3(1.0, .38, .66), vec3(1.0, .93, .78), smoothstep(.18, .85, lamps.a));
-      col = mix(col, lampCol, night * clamp(lampGlow * 1.15, 0., 1.));
+      if(night>0.) {
+        vec4 lamps = texture2D(nightLights, coord);
+        float lampGlow = pow(lamps.a, .78);
+        vec3 lampCol = mix(vec3(1.0, .38, .66), vec3(1.0, .93, .78), smoothstep(.18, .85, lamps.a));
+        col = mix(col, lampCol, night * clamp(lampGlow * 1.15, 0., 1.));
+      }
       vec4 line = texture2D(boundaries,coord);
       vec3 dayLine = mix(col, line.rgb, line.a*.85);
-      vec2 edge = vec2(4.5/4096.,4.5/2048.);
-      float halo = texture2D(boundaries,coord+vec2(edge.x,0.)).a
-        + texture2D(boundaries,coord-vec2(edge.x,0.)).a
-        + texture2D(boundaries,coord+vec2(0.,edge.y)).a
-        + texture2D(boundaries,coord-vec2(0.,edge.y)).a;
-      vec3 nightLine = col + vec3(.08,.78,1.0) * halo * .06;
-      nightLine = mix(nightLine, vec3(.42,.95,1.0), clamp(line.a*.75,0.,.7));
-      col = mix(dayLine, nightLine, night);
+      if(night>0.) {
+        vec2 edge = vec2(4.5/4096.,4.5/2048.);
+        float halo = texture2D(boundaries,coord+vec2(edge.x,0.)).a
+          + texture2D(boundaries,coord-vec2(edge.x,0.)).a
+          + texture2D(boundaries,coord+vec2(0.,edge.y)).a
+          + texture2D(boundaries,coord-vec2(0.,edge.y)).a;
+        vec3 nightLine = col + vec3(.08,.78,1.0) * halo * .06;
+        nightLine = mix(nightLine, vec3(.42,.95,1.0), clamp(line.a*.75,0.,.7));
+        col = mix(dayLine, nightLine, night);
+      } else {
+        col = dayLine;
+      }
       vec2 uv = (coord-selectionRect.xy)/selectionRect.zw;
       if(all(greaterThanEqual(uv,vec2(0.))) && all(lessThanEqual(uv,vec2(1.)))) {
         vec4 mark = texture2D(selected,uv);

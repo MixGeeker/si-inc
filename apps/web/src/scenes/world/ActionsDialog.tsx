@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
 import {
-  canBuildDataCenter,
   canBuyBuildCard,
   canFundConversion,
   canToggleSynthetic,
@@ -71,8 +70,8 @@ export function ActionsDialog({
   const perTokenPeople = syntheticPeoplePerToken(run)
   const firstActivationExp = syntheticActivationExposureBps(run)
   const buildOptions = useMemo(
-    () => countryBuildOptions(run, filterRegion === "all" ? undefined : filterRegion),
-    [run, filterRegion],
+    () => tab === "centers" ? countryBuildOptions(run, filterRegion === "all" ? undefined : filterRegion) : [],
+    [run, filterRegion, tab],
   )
 
   function dispatchBuyCard() {
@@ -261,8 +260,8 @@ export function ActionsDialog({
                         {sum.syntheticEnabled && <span className="ops-pill risk">{ui.ops.convertingActive}</span>}
                       </div>
                       <div className="ops-country-sub">
-                        <span>{ui.ops.regionAdoption} {percent.format(sum.adoptionBps / 10000)}</span>
-                        <span>{ui.ops.regionSynthetic} {percent.format(sum.syntheticBps / 10000)}</span>
+                        <span>{ui.ops.playerRegionAdoption} {percent.format(sum.adoptionBps / 10000)}</span>
+                        <span>{ui.ops.playerRegionSynthetic} {percent.format(sum.syntheticBps / 10000)}</span>
                         <span>{ui.ops.immersedPeople} {formatCompactPeople(sum.immersed, locale, number)} / {formatCompactPeople(sum.synthetics, locale, number)}</span>
                       </div>
                       {firstTime && <span className="ops-action-note">{ui.ops.firstActivationNote(percent.format(firstActivationExp / 10000))}</span>}
@@ -312,8 +311,8 @@ export function ActionsDialog({
               <ul className="ops-country-list">
                 {buildOptions.slice(0, 24).map(option => {
                   const name = countryName(atlas.countryById.get(option.country.id), locale) ?? option.country.id
-                  const buildStatus = canBuildDataCenter(run, option.country.id)
-                  const canBuild = buildStatus === "available"
+                  const { status } = option
+                  const canBuild = status === "available"
                   return (
                     <li key={option.country.id} className={`ops-country-row${canBuild ? " ready" : ""}`}>
                       <div className="ops-country-meta">
@@ -325,15 +324,15 @@ export function ActionsDialog({
                         </div>
                         <div className="ops-country-sub">
                           <span>{scenario.regions[option.country.regionId]}</span>
-                          <span>{ui.developer.adoption} {percent.format(option.adoptionBps / 10000)}</span>
-                          <span>{ui.ops.regionSynthetic} {percent.format(option.syntheticBps / 10000)}</span>
-                          <span>{ui.ops.centersOf(option.centers, option.unlockedLimit, option.country.slots)}</span>
+                          <span>{ui.ops.playerRegionAdoption} {percent.format(option.adoptionBps / 10000)}</span>
+                          <span>{ui.ops.playerRegionSynthetic} {percent.format(option.syntheticBps / 10000)}</span>
+                          <span>{ui.ops.sharedCenters(option.centers, option.unlockedLimit, option.occupiedCenters, option.country.slots)}</span>
                           <span>{ui.ops.localCap(formatCompactPeople(option.localCapacity, locale, number))}</span>
                         </div>
                       </div>
                       <div>
                         <button type="button" disabled={!canBuild} onClick={() => dispatchBuild(option.country.id)}>
-                          {canBuild ? ui.ops.buildHere : ui.ops.unavailable[buildStatus]}
+                          {canBuild ? ui.ops.buildHere : ui.ops.unavailable[status]}
                         </button>
                       </div>
                     </li>

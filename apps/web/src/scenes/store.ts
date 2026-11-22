@@ -86,6 +86,7 @@ export type GameNotice =
   | { type: "data-center-built"; countryId: string; centers: number }
   | { type: "synthetic-funded"; tokens: number; budgetPeople: number }
   | { type: "synthetic-toggled"; regionId: RegionId; enabled: boolean; firstActivation: boolean }
+  | { type: "eternal-night-started" }
   | { type: "action-used"; abilityId: ActionId; targetRegionId?: RegionId }
   | { type: "decision-resolved"; command: Extract<GameCommand, { kind: "chooseEvent" }> }
   | { type: "run-ended"; outcome: Outcome | "withdrawn" }
@@ -122,6 +123,19 @@ function sameSelection(current: MapSelection | null, next: MapSelection | null) 
     && current.countryId === next.countryId && current.siteId === next.siteId && current.islandId === next.islandId
 }
 
+function enteredSyntheticEra(previous: Scene, next: Scene) {
+  return visibleRunState(next)?.syntheticActivatedDay != null && visibleRunState(previous)?.syntheticActivatedDay === null
+}
+
+function setNight(layers: GameState["layers"], night: boolean) {
+  return layers.night === night ? layers : { ...layers, night }
+}
+
+function commitScene(state: GameState, scene: Scene): GameState {
+  const layers = enteredSyntheticEra(state.scene, scene) ? setNight(state.layers, true) : state.layers
+  return { ...state, scene, layers }
+}
+
 function reduceGame(state: GameState, event: GameEvent): GameState | typeof acceptWithoutChange {
   const { scene } = state
   switch (event.type) {
@@ -146,7 +160,7 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
     case "dev-step-day": {
       if (!state.developer.open || scene.kind !== "campaign" || scene.panel !== null) return state
       const next = advanceCampaignDay(scene, event.runId, event.completedDay)
-      return next === scene ? state : { ...state, scene: next }
+      return next === scene ? state : commitScene(state, next)
     }
     case "dev-grant-token": {
       const campaign = scene.kind === "decision" ? scene.back : scene.kind === "campaign" && scene.panel === null ? scene : null
@@ -221,17 +235,19 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
       const next = sceneReducer(scene, event)
       if (next === scene) return state
       if (event.type === "start" && next.kind === "campaign") {
-        return { ...state, scene: next, developer: { ...state.developer, open: false }, populationPreview: null, selection: marketFocus(next.run.setup.startRegionId) }
+        return { ...state, scene: next, layers: setNight(state.layers, false), developer: { ...state.developer, open: false },
+          populationPreview: null, selection: marketFocus(next.run.setup.startRegionId) }
       }
-      if (event.type === "return-to-preview") return { ...state, scene: next, developer: { ...state.developer, open: false }, selection: previewSelection }
+      if (event.type === "return-to-preview") return { ...state, scene: next, layers: setNight(state.layers, true),
+        developer: { ...state.developer, open: false }, selection: previewSelection }
       if ((event.type === "open-start" || event.type === "open-settings" || event.type === "open-setup"
         || event.type === "open-difficulty") && state.developer.open) return { ...state, scene: next, developer: { ...state.developer, open: false } }
-      return { ...state, scene: next }
+      return commitScene(state, next)
     }
   }
 }
 
-function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
+function gameNotices(event: GameEvent, { scene, layers }: GameState, previous: GameState): GameNotice[] {
   if (event.type === "start" && scene.kind === "campaign") {
     return [{ type: "run-started", setup: scene.run.setup, seed: scene.run.seed, runId: scene.run.runId }]
   }
@@ -241,6 +257,7 @@ function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
     if (!run) return []
     const notices: GameNotice[] = projectsCompleting(run, run.completedDay)
       .map(project => ({ type: "research-completed", project }))
+    if (!previous.layers.night && layers.night) notices.push({ type: "eternal-night-started" })
     for (const entry of run.events.filter(entry => entry.day === run.completedDay)) {
       notices.push({ type: "event-occurred", entry })
     }
@@ -266,9 +283,11 @@ function gameNotices(event: GameEvent, { scene }: GameState): GameNotice[] {
     return [{ type: "synthetic-funded", tokens: event.tokens, budgetPeople: scene.run.conversionBudgetPeople }]
   }
   if (event.type === "toggle-synthetic" && (scene.kind === "campaign" || scene.kind === "ending")) {
-    const enableCount = scene.run.commands.filter(c => c.kind === "toggleSynthetic" && c.enabled).length
-    const firstActivation = event.enabled && enableCount === 1
-    return [{ type: "synthetic-toggled", regionId: event.regionId, enabled: event.enabled, firstActivation }]
+    const firstActivation = enteredSyntheticEra(previous.scene, scene)
+    const notices: GameNotice[] = [{ type: "synthetic-toggled", regionId: event.regionId, enabled: event.enabled, firstActivation }]
+    if (!previous.layers.night && layers.night) notices.push({ type: "eternal-night-started" })
+    if (scene.kind === "ending") notices.push({ type: "run-ended", outcome: scene.outcome })
+    return notices
   }
   if (event.type === "use-action" && (scene.kind === "campaign" || scene.kind === "ending")) {
     const notices: GameNotice[] = [{ type: "action-used", abilityId: event.abilityId, targetRegionId: event.targetRegionId }]

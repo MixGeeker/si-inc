@@ -44,6 +44,18 @@ test("actions panel is campaign-only, pauses playback independently, and preserv
   assert.equal(gamePlaybackSpeed(store.getSnapshot()), 2)
 })
 
+test("campaign HUD shows rival markets separately from player expansion", () => {
+  const store = createGameStore()
+  begin(store)
+  const content = hudContent(runOf(store), true, languages.en)
+
+  assert.deepEqual(content.rivalsByRegion.na, [])
+  assert.deepEqual(content.rivalsByRegion.eu, ["Claude"])
+  assert.deepEqual(content.rivalsByRegion.as, ["Grok"])
+  assert.equal(content.regions.eu.entered, false)
+  assert.equal(content.regions.as.entered, false)
+})
+
 test("buying build cards, building data centers, and using active actions update HUD and emit typed notices", () => {
   const store = createGameStore()
   const notices = []

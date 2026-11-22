@@ -1,7 +1,8 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { populationShares } from "../../../packages/game/population.ts"
-import { createPopulationField, populationColors } from "../src/cartography/population-field.ts"
+import { createPopulationPointBuilder, populationColors } from "../src/cartography/population-points.ts"
+import { Y_SCALE } from "../src/cartography/layout.ts"
 import { createGameStore } from "../src/scenes/store.ts"
 import { previewPopulations } from "../src/scenes/world/populationPreview.ts"
 
@@ -48,39 +49,79 @@ test("the country denominator includes uncovered people and rejects contradictor
   assert.equal(populationShares({total:100,factions:{}}),null)
 })
 
-test("animated coverage preserves land area and cohort shares, including holes and detached islands", () => {
-  const w = 90, h = 52, mask = new Uint8ClampedArray(w*h*4)
-  for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
-    if ((x<62 && y>3 && !(x>15 && x<27 && y>11 && y<22)) || (x>72 && y>20 && y<36)) {
-      mask[(y*w+x)*4+3]=x===0 ? 128 : 255
+function cloudColors(cloud) {
+  const points = new Map()
+  let offset = 0
+  for (const { color, start, count } of cloud.groups) {
+    assert.equal(start, offset)
+    for (let point = start; point < start + count; point++) {
+      const xyz = cloud.positions.subarray(point * 3, point * 3 + 3)
+      const rgb = cloud.colors.subarray(point * 3, point * 3 + 3)
+      assert.equal(`#${Array.from(rgb, value => value.toString(16).padStart(2, "0")).join("")}`, color)
+      points.set(xyz.join(","), color)
+      offset++
     }
   }
-  const field = createPopulationField(w,mask,10,932)
-  const area = mask.reduce((sum,value)=>sum+value,0)
-  const input = (total, synthetic) => populationShares({total,factions:{
-    gpt:{immersed:70-synthetic,synthetic},claude:{immersed:30,synthetic:0},
-  }})
-  const colorAt = (pixels,i) => "#" + [pixels[i],pixels[i+1],pixels[i+2]].map(n=>n.toString(16).padStart(2,"0")).join("")
-  let initial
-  for (const t of [0,.75,2.1]) {
-    const partial=field.paint(input(200,20),t)
-    let covered=0,synth=0
-    for(let i=0;i<partial.length;i+=4){
-      const alpha=partial[i+3]
-      assert.ok(alpha<=mask[i+3])
-      covered+=alpha
-      if(alpha && colorAt(partial,i)===populationColors.gpt[1]) synth+=alpha
-    }
-    assert.ok(Math.abs(covered/area-.5)<.001)
-    assert.ok(Math.abs(synth/covered-.2)<.001)
-    const full=field.paint(input(100,20),t)
-    for(let i=3;i<full.length;i+=4) assert.equal(full[i],mask[i])
-    if(initial) assert.notDeepEqual(full,initial)
-    else initial=full.slice()
+  assert.equal(offset * 3, cloud.positions.length)
+  assert.equal(cloud.colors.length, cloud.positions.length)
+  return points
+}
+
+test("country points preserve partial coverage and stable cohorts across snapshots", () => {
+  const shape = { id: "ONE", box: [0, -6, 16, 2],
+    d: "M180,88 188,88 188,96 180,96ZM182,90 185,90 185,93 182,93ZM193,91 196,91 196,94 193,94Z" }
+  const shapeData = new Int16Array(721 * 361)
+  const build = createPopulationPointBuilder([shape], shapeData)
+  const counts = (total, synthetic) => ({ ONE: { total, factions: {
+    gpt: { immersed: 70 - synthetic, synthetic }, claude: { immersed: 30, synthetic: 0 },
+  } } })
+  const full = build(counts(100, 0)), partial = build(counts(200, 20))
+  assert.ok(full.positions.length > 0)
+  assert.equal(partial.positions.length / 3, Math.round(full.positions.length / 6))
+  const cohort = color => partial.groups.find(group => group.color === color)?.count ?? 0
+  const expected = [[populationColors.gpt[0], .5], [populationColors.gpt[1], .2], [populationColors.claude[0], .3]]
+  for (const [color, fraction] of expected) {
+    assert.ok(Math.abs(cohort(color) - partial.positions.length / 3 * fraction) <= 1)
   }
-  const before=field.paint(input(100,0),1).slice(), after=field.paint(input(100,70),1)
-  for(let i=0;i<after.length;i+=4) if(mask[i+3]){
-    const color=colorAt(before,i)
-    assert.equal(colorAt(after,i),color===populationColors.gpt[0] ? populationColors.gpt[1] : color)
+
+  const before = cloudColors(full), after = cloudColors(build(counts(100, 70)))
+  for (const [point, color] of before) {
+    assert.equal(after.get(point), color === populationColors.gpt[0] ? populationColors.gpt[1] : color)
   }
+  for (const point of cloudColors(partial).keys()) assert.ok(before.has(point))
+  assert.deepEqual(build(counts(100, 0)), full)
+  assert.equal(build({}).positions.length, 0)
+
+  let island = 0
+  for (let i = 0; i < full.positions.length; i += 3) {
+    const x = full.positions[i] + 180, y = 90 - full.positions[i + 1] / Y_SCALE
+    if (x > 193 && x < 196 && y > 91 && y < 94) island++
+    else assert.ok(x > 180 && x < 188 && y > 88 && y < 96)
+    assert.ok(!(x > 182 && x < 185 && y > 90 && y < 93))
+  }
+  assert.ok(island > 0)
+})
+
+test("point altitude follows the terrain triangle with a fixed lift", () => {
+  const shape = { id: "ONE", box: [.02, -.48, .48, -.02], d: "M180.02,90.02 180.48,90.02 180.48,90.48 180.02,90.48Z" }
+  const heights = new Int16Array(721 * 361)
+  heights[180 * 721 + 360] = 2500
+  const build = createPopulationPointBuilder([shape], heights)
+  const { positions } = build({ ONE: { total: 1, factions: { gpt: { immersed: 1, synthetic: 0 } } } })
+  assert.ok(positions.some((z, i) => i % 3 === 2 && z > .1))
+  for (let i = 0; i < positions.length; i += 3) {
+    const fraction = Math.max(0, 1 - 2 * (positions[i] - positions[i + 1] / Y_SCALE))
+    assert.ok(Math.abs(positions[i + 2] - (.08 + 2500 * .00055 * fraction)) < .0001)
+  }
+})
+
+test("full global coverage is capped and independent of geometry insertion order", () => {
+  const countries = Array.from({ length: 60 }, (_, i) => ({ id: `T${i}`, box: [-170, 20, -80, 80],
+    d: "M10,10 100,10 100,70 10,70Z" }))
+  const populations = Object.fromEntries(countries.map(({ id }) => [id, { total: 1, factions: { grok: { immersed: 1, synthetic: 0 } } }]))
+  const heights = new Int16Array(721 * 361)
+  const full = createPopulationPointBuilder(countries, heights)(populations)
+  assert.ok(full.positions.length / 3 <= 20_000)
+  assert.ok(full.positions.length / 3 > 19_000)
+  assert.deepEqual(createPopulationPointBuilder(countries.reverse(), heights)(populations), full)
 })
