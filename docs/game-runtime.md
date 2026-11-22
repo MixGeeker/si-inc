@@ -26,6 +26,7 @@
 | 地图选区、昼夜、云层、洋流 | `GameState.selection` 和 `layers` | 地图拾取发 `pick-location`。点中可经营的大洲时保存市场 ID，点中站点或群岛标记时，地图点携带 `siteId` 或 `islandId`，显示名称按当前语言读取。其他经营范围以外的位置保存坐标。市场栏和地区目录用 `focus-place` 定位，全球用 `null`。镜头预设和图层分别走 `map-preset` 和 `set-layer`。 |
 | 界面语言 | `GameState.locale` | `set-locale` 接受 `zh-CN` 或 `en`。首次打开匹配浏览器语言，默认简体中文。玩家选择的语言在本机保存，重开对局时沿用。 |
 | 音效静音、音量 | `GameState.sound` | `set-sound-muted` 接受布尔值，`set-sound-volume` 接受 0–100 的整数。默认开启、音量 65%。静音保留音量；重开沿用设置，浏览器本地保存，下次打开时恢复。 |
+| 自定义快捷键 | `GameState.shortcuts` | `set-shortcut` 更新单条动作键码（冲突时自动与原占用动作互换，拒绝保留键 `WASD`/方向键/`+-`/`Enter`/`Esc` 及非法键码），`reset-shortcuts` 恢复默认；重开沿用，经 `attachShortcutPreference` 写入本机 `localStorage`。键盘适配器 [keyboard.ts](../apps/web/src/input/keyboard.ts) 将物理键码转为有类型事件。 |
 | 滚轮与相机插值、DOM 焦点、画布资源、表单草稿 | 对应组件、渲染器或浏览器适配器 | 在本地处理，玩家确认的操作转成游戏事件。 |
 
 `RunState.completedDay` 表示已完成的整日，开局为 0；当前指令影响接下来的一次日结算，日志中的 `day = N` 表示已完成第 N 天时接受的指令。第 0 天只发开局资源，第一笔周期经营收入在第 2 天末到账。余额使用整数 token，比例使用整数基点（10,000 为 100%）。未计算的普及率和依赖率用 `null`，HUD 显示「—」。自然收入在安全整数上界饱和，仍允许日期推进；会溢出的主动操作返回原状态。

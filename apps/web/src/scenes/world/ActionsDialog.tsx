@@ -32,12 +32,13 @@ import type { Atlas } from "../../cartography/atlas"
 import { countryName } from "../../cartography/place-names"
 import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
-import { useGameStore } from "../GameContext"
+import { useGameSnapshot, useGameStore } from "../GameContext"
 import { formatCompactPeople, formatCompactTokens } from "./hudContent"
 import "./actions.css"
 
 const { rules } = standardScenario
-type OpsTab = "actions" | "synthetic" | "centers"
+const opsTabs = ["actions", "synthetic", "centers"] as const
+type OpsTab = typeof opsTabs[number]
 
 export function ActionsDialog({
   run,
@@ -51,6 +52,7 @@ export function ActionsDialog({
   back: () => void
 }) {
   const store = useGameStore()
+  const shortcuts = useGameSnapshot(state => state.shortcuts)
   const { ui, scenario, locale, number, percent } = useLanguage()
   const enteredRegions = useMemo(() => regionIds.filter(id => run.markets[id].enteredDay !== null), [run.markets])
   const unenteredRegions = useMemo(() => regionIds.filter(id => run.markets[id].enteredDay === null), [run.markets])
@@ -70,6 +72,24 @@ export function ActionsDialog({
   useEffect(() => {
     if (!subsidyTarget || !enteredRegions.includes(subsidyTarget)) setSubsidyTarget(enteredRegions[0] ?? "")
   }, [subsidyTarget, enteredRegions])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+      const tag = (event.target as HTMLElement | null)?.tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+      if (event.code !== "BracketLeft" && event.code !== "BracketRight") return
+      if (Object.values(shortcuts).includes(event.code)) return
+      event.preventDefault()
+      setTab(current => {
+        const index = opsTabs.indexOf(current)
+        const delta = event.code === "BracketRight" ? 1 : -1
+        return opsTabs[(index + delta + opsTabs.length) % opsTabs.length]
+      })
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [shortcuts])
 
   const yieldInfo = corpusYieldBreakdown(run)
   const compute = computePressure(run)
@@ -171,6 +191,7 @@ export function ActionsDialog({
         <button type="button" aria-pressed={tab === "actions"} onClick={() => setTab("actions")}>{ui.ops.actionsSection}</button>
         <button type="button" aria-pressed={tab === "synthetic"} onClick={() => setTab("synthetic")}>{ui.ops.syntheticGlobal} · {percent.format(run.syntheticBps / 10000)}</button>
         <button type="button" aria-pressed={tab === "centers"} onClick={() => setTab("centers")}>{ui.ops.buildSection} ({builtTotal})</button>
+        <span className="ops-tab-hint" aria-hidden="true">{ui.shortcuts.dialogTabHint}</span>
       </nav>
 
       <div className="actions-scroll">

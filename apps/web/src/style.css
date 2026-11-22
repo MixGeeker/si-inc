@@ -70,9 +70,12 @@ button,select,input { font: inherit; }
 .bubble-popup.is-corpus { color: #c4b5fd; }
 .bubble-popup.is-alert { color: #7dd3fc; }
 @keyframes bubble-float { 0% { opacity: 1; transform: translate(-50%, -100%) scale(.95); } 100% { opacity: 0; transform: translate(-50%, -240%) scale(1.1); } }
-.hud-advisor { position: absolute; left: 50%; transform: translateX(-50%); z-index: 4; pointer-events: auto; max-width: min(640px, 78vw); padding: 4px 14px; border: 1px solid var(--ui-cyan-line); background: rgba(7, 15, 28, .78); color: var(--ui-cyan-soft); font-size: clamp(11px, 1.05vw, 13px); letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 18px rgba(0,0,0,.38); }
+.hud-advisor { position: absolute; left: 50%; transform: translateX(-50%); z-index: 4; display: inline-flex; align-items: center; gap: 8px; pointer-events: auto; max-width: min(680px, 80vw); padding: 4px 12px 4px 14px; border: 1px solid var(--ui-cyan-line); background: rgba(7, 15, 28, .78); color: var(--ui-cyan-soft); font-size: clamp(11px, 1.05vw, 13px); letter-spacing: .03em; white-space: nowrap; overflow: hidden; cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 18px rgba(0,0,0,.38); }
+.hud-advisor > span { overflow: hidden; text-overflow: ellipsis; }
+.hud-kbd { flex: 0 0 auto; padding: 1px 6px; border: 1px solid rgba(110, 231, 255, .52); border-bottom-width: 2px; border-radius: 4px; background: rgba(6, 16, 28, .78); color: var(--ui-cyan); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; font-weight: 700; line-height: 1.25; }
 .hud-advisor:hover, .hud-advisor:focus-visible { border-color: var(--ui-cyan); color: #fff; background: rgba(12, 24, 44, .92); }
 .hud-advisor.is-urgent { border-color: var(--ui-risk); color: #fecaca; background: rgba(54, 12, 18, .86); }
+.hud-advisor.is-urgent .hud-kbd { border-color: rgba(252, 165, 165, .65); color: #fecaca; }
 @media (prefers-reduced-motion: reduce) {
   .map-bubble .bubble-halo { animation: none; }
   .bubble-popup { animation: none; }

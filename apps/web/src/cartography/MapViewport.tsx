@@ -1,6 +1,6 @@
 import { Component, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Canvas, useThree } from "@react-three/fiber"
-import { Atlas, nightLightsUrl, relief, surfaceUrl, type Country, type Location } from "./atlas"
+import { Atlas, clamp, nightLightsUrl, relief, surfaceUrl, type Country, type Location } from "./atlas"
 import type { MapBubble } from "../../../../packages/game/operations.ts"
 import type { CountryPopulations } from "../../../../packages/game/population.ts"
 import { standardScenario } from "../../../../packages/rules/v0.1/scenario.ts"
@@ -10,6 +10,8 @@ import { hudScale, Y_SCALE } from "./layout"
 import TerrainScene, { type LayerState } from "./TerrainScene"
 import { countryName } from "./place-names"
 import { useLanguage } from "../i18n/useLanguage"
+import { formatShortcutKey } from "../input/shortcuts"
+import { useGameSnapshot, useGameStore } from "../scenes/GameContext"
 import { formatCompactTokens } from "../scenes/world/hudContent"
 import { computePlaceLabel, computePlaces } from "./compute-markers"
 
@@ -18,7 +20,7 @@ type Props = {
   populations:CountryPopulations; populationScope:string|null
   bubbles?:readonly MapBubble[]
   onCollectBubble?:(bubble:MapBubble)=>void
-  pick:(pos:Location)=>void; showGlobal:()=>void
+  pick:(pos:Location)=>void
 }
 
 class GraphicsBoundary extends Component<{children:ReactNode; fail:()=>void},{failed:boolean}> {
@@ -153,7 +155,9 @@ function ComputeGlyph() {
 
 const emptyBubbles: readonly MapBubble[] = []
 
-export default function MapViewport({atlas,rig,selected,layers,populations,populationScope,bubbles = emptyBubbles,onCollectBubble,pick,showGlobal}:Props) {
+export default function MapViewport({atlas,rig,selected,layers,populations,populationScope,bubbles = emptyBubbles,onCollectBubble,pick}:Props) {
+  const store = useGameStore()
+  const collectKey = useGameSnapshot(state => state.shortcuts.collectBubble)
   const language = useLanguage()
   const { ui, locale, number, percent } = language
   const host=useRef<HTMLDivElement>(null), overlay=useRef<SVGSVGElement>(null), cursorOverlay=useRef<SVGSVGElement>(null), bubbleOverlay=useRef<SVGSVGElement>(null)
@@ -223,21 +227,36 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
     }
   },[altitudes,bubbleCoords,bubbleKey,islands,populationScope,rig])
 
-  function handleBubbleClick(bubble: MapBubble, lon: number, lat: number, z: number) {
-    if (!onCollectBubble) return
-    const pt = rig.screen(lon, lat, z)
-    const text = bubble.kind === "traffic"
-      ? `+${formatCompactTokens(bubble.value, locale, number)} token`
-      : bubble.kind === "corpus"
-        ? ui.ops.bubbles.corpusShort(bubble.value)
-        : `−${percent.format(bubble.value / 10000)} / −${percent.format(standardScenario.rules.bubbles.alertHumanReliefBps / 10000)}`
-    const popupId = `${bubble.id}:${Date.now()}`
-    setPopups(prev => [...prev.slice(-4), { id: popupId, text, kind: bubble.kind, x: pt.x, y: pt.y }])
-    window.setTimeout(() => setPopups(prev => prev.filter(item => item.id !== popupId)), 1150)
-    onCollectBubble(bubble)
-  }
+  // Trigger floating popups from committed bubble-collected notices so both clicks and shortcuts animate identically.
+  useEffect(() => {
+    const timers: number[] = []
+    const off = store.on("bubble-collected", ({ bubble }) => {
+      const country = atlas.countryById.get(bubble.countryId)
+      const lon = country?.lon ?? 0
+      const lat = country?.lat ?? 0
+      const z = relief(atlas.metres(lon, lat)) + .55
+      const raw = rig.screen(lon, lat, z)
+      const x = clamp(raw.visible ? raw.x : rig.width / 2, 80, Math.max(80, rig.width - 80))
+      const y = clamp(raw.visible ? raw.y : rig.height / 2, 90, Math.max(90, rig.height - 150))
+      const text = bubble.kind === "traffic"
+        ? `+${formatCompactTokens(bubble.value, locale, number)} token`
+        : bubble.kind === "corpus"
+          ? ui.ops.bubbles.corpusShort(bubble.value)
+          : `−${percent.format(bubble.value / 10000)} / −${percent.format(standardScenario.rules.bubbles.alertHumanReliefBps / 10000)}`
+      const popupId = `${bubble.id}:${Date.now()}`
+      setPopups(prev => [...prev.slice(-4), { id: popupId, text, kind: bubble.kind, x, y }])
+      timers.push(window.setTimeout(() => setPopups(prev => prev.filter(item => item.id !== popupId)), 1150))
+    })
+    return () => {
+      off()
+      timers.forEach(id => window.clearTimeout(id))
+    }
+  }, [atlas, locale, number, percent, rig, store, ui.ops.bubbles])
+
   useEffect(()=>{
     const el=host.current!
+    const signal=()=>wake.current()
+    rig.onMove = signal
     const detach=attachNavigation(el,rig,atlas,(location,point)=>{
       let distance=Math.max(12,hudScale(rig.width,rig.height)*38), nearest=-1
       computePlaces.forEach((site,i)=>{
@@ -248,17 +267,17 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
       if(nearest<0) {select.current(location);return}
       const site=computePlaces[nearest]
       select.current({...atlas.locate(site.lon,site.lat),siteId:site.id})
-    },showGlobal)
-    const signal=()=>wake.current()
+    })
     const lost=(e:Event)=>{e.preventDefault();setLost(true)}
     const restored=()=>{rig.setFlat(false);setLost(false);wake.current()}
-    const events=["wheel","pointerdown","pointermove","pointerup","keydown"]
+    const events=["wheel","pointerdown","pointermove","pointerup"]
     for (const e of events) el.addEventListener(e,signal)
     el.addEventListener("webglcontextlost",lost,true)
     el.addEventListener("webglcontextrestored",restored,true)
-    return ()=>{detach();for(const e of events) el.removeEventListener(e,signal)
+    return ()=>{detach(); if (rig.onMove === signal) rig.onMove = undefined
+      for(const e of events) el.removeEventListener(e,signal)
       el.removeEventListener("webglcontextlost",lost,true);el.removeEventListener("webglcontextrestored",restored,true)}
-  },[atlas,rig,altitudes,showGlobal])
+  },[atlas,rig,altitudes])
   useEffect(()=>{wake.current()})
   return <div className="map-viewport" ref={host} tabIndex={0} role="region" aria-label={ui.interactiveMap}>
     {!failed && <GraphicsBoundary fail={onFail}><Canvas frameloop="demand" flat linear dpr={[1,1.5]} resize={{offsetSize:true}}
@@ -320,12 +339,13 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
       </g>)}
     </svg>
     <svg ref={bubbleOverlay} className="geo-marks map-bubbles-layer" aria-label={ui.action}>
-      {bubbleCoords.map(({ bubble, lon, lat, z }) => {
-        const title = bubble.kind === "traffic"
+      {bubbleCoords.map(({ bubble }) => {
+        const baseTitle = bubble.kind === "traffic"
           ? ui.ops.bubbles.traffic(formatCompactTokens(bubble.value, locale, number))
           : bubble.kind === "corpus"
             ? ui.ops.bubbles.corpus(bubble.value)
             : ui.ops.bubbles.alert(percent.format(bubble.value / 10000), percent.format(standardScenario.rules.bubbles.alertHumanReliefBps / 10000))
+        const title = `${baseTitle} [${formatShortcutKey(collectKey, locale, true)}]`
         const shortText = bubble.kind === "traffic"
           ? ui.ops.bubbles.trafficShort(formatCompactTokens(bubble.value, locale, number))
           : bubble.kind === "corpus"
@@ -340,12 +360,12 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
           tabIndex={0}
           aria-label={title}
           onPointerDown={e => e.stopPropagation()}
-          onClick={e => { e.stopPropagation(); handleBubbleClick(bubble, lon, lat, z) }}
+          onClick={e => { e.stopPropagation(); onCollectBubble?.(bubble) }}
           onKeyDown={e => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault()
               e.stopPropagation()
-              handleBubbleClick(bubble, lon, lat, z)
+              onCollectBubble?.(bubble)
             }
           }}
         >

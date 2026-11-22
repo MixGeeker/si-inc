@@ -14,6 +14,14 @@ import { spratlyIslands } from "../cartography/place-names.ts"
 import { isSoundCue, type SoundCue } from "../audio/cues.ts"
 import { defaultMusic, resolveMusicTrackId, type MusicSettings } from "../audio/music.ts"
 import { defaultSound, validVolume, type SoundSettings } from "../audio/settings.ts"
+import {
+  applyShortcutBinding,
+  defaultShortcuts,
+  isDefaultShortcuts,
+  sanitizeShortcuts,
+  type ShortcutAction,
+  type ShortcutBindings,
+} from "../input/shortcuts.ts"
 import { advanceCampaignDay, initialScene, playbackSpeed, sceneReducer, visibleRunState, type Scene, type SceneEvent } from "./machine.ts"
 import { initialPopulationPreview, type PopulationPreview } from "./world/populationPreview.ts"
 
@@ -51,6 +59,7 @@ export interface GameState {
   readonly populationPreview: PopulationPreview | null
   readonly sound: SoundSettings
   readonly music: MusicSettings
+  readonly shortcuts: ShortcutBindings
   readonly locale: Locale
   readonly developer: { readonly enabled: boolean; readonly open: boolean }
   readonly environment: { readonly visible: boolean; readonly suspended: boolean }
@@ -70,6 +79,8 @@ export type GameEvent = SceneEvent
   | { type: "set-music-enabled"; enabled: boolean }
   | { type: "set-music-volume"; volume: number }
   | { type: "set-music-track"; trackId: string | null }
+  | { type: "set-shortcut"; action: ShortcutAction; code: string }
+  | { type: "reset-shortcuts" }
   | { type: "set-layer"; layer: keyof typeof initialLayers; enabled: boolean }
   | { type: "open-population-preview" } | { type: "close-population-preview" }
   | { type: "set-preview-population"; field: keyof PopulationPreview; percent: number }
@@ -195,6 +206,12 @@ function reduceGame(state: GameState, event: GameEvent): GameState | typeof acce
       if (trackId === undefined || state.music.trackId === trackId) return state
       return { ...state, music: { ...state.music, trackId } }
     }
+    case "set-shortcut": {
+      const next = applyShortcutBinding(state.shortcuts, event.action, event.code)
+      return next === state.shortcuts ? state : { ...state, shortcuts: next }
+    }
+    case "reset-shortcuts":
+      return isDefaultShortcuts(state.shortcuts) ? state : { ...state, shortcuts: defaultShortcuts }
     case "set-layer":
       if (!Object.hasOwn(initialLayers, event.layer) || typeof event.enabled !== "boolean"
         || state.layers[event.layer] === event.enabled) return state
@@ -324,9 +341,25 @@ function storeFromSnapshot(initial: GameState) {
   } }
 }
 
-export function createGameStore(sound: SoundSettings = defaultSound, locale: Locale = defaultLocale, developerEnabled = false, music: MusicSettings = defaultMusic) {
-  return storeFromSnapshot({ scene: initialScene, layers: initialLayers, selection: previewSelection, populationPreview: null,
-    sound, music, locale, developer: { enabled: developerEnabled, open: false }, environment: { visible: true, suspended: false } })
+export function createGameStore(
+  sound: SoundSettings = defaultSound,
+  locale: Locale = defaultLocale,
+  developerEnabled = false,
+  music: MusicSettings = defaultMusic,
+  shortcuts: ShortcutBindings = defaultShortcuts,
+) {
+  return storeFromSnapshot({
+    scene: initialScene,
+    layers: initialLayers,
+    selection: previewSelection,
+    populationPreview: null,
+    sound,
+    music,
+    shortcuts: sanitizeShortcuts(shortcuts),
+    locale,
+    developer: { enabled: developerEnabled, open: false },
+    environment: { visible: true, suspended: false },
+  })
 }
 
 /** A manual trial owns its subscriptions and queue. The browser clock stays attached to the live store. */

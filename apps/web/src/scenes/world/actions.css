@@ -152,9 +152,17 @@
 .ops-main-tabs {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: .45em;
   border-bottom: 1px solid var(--ui-divider);
   padding-bottom: .55em;
+}
+
+.ops-tab-hint {
+  margin-left: auto;
+  font-size: .74em;
+  color: var(--ui-ink-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .ops-main-tabs button,

@@ -58,6 +58,23 @@ export interface CampaignAdvisor {
   readonly urgent: boolean
 }
 
+export function advisorTargetPanel(run: RunState, computeStatus: ComputeStatus = computePressure(run).status): MapPanel {
+  const research = researchState(run)
+  const activeCount = activeResearchProjects(run).length
+  const idleSlots = Math.max(0, research.unlockedSlots - activeCount)
+
+  if (computeStatus === "critical" || computeStatus === "overloaded") return "actions"
+  if (run.researchBps >= 4500 && canUseAction(run, "protocol-rebuild") === "available") return "actions"
+  if (run.exposureBps >= 4000 && canUseAction(run, "public-statement") === "available") return "actions"
+  if (research.unlockedSlots === 0 && canUnlockSlot(run, 1)) return "overview"
+  if (run.buildCards > 0 && countryBuildOptions(run).some(o => o.status === "available")) return "actions"
+  if (idleSlots > 0 && research.corpus >= 10) return "overview"
+  const unentered = regionIds.find(id => run.markets[id].enteredDay === null)
+  if (unentered && canUseAction(run, "cross-border-cloud", unentered) === "available") return "actions"
+  if (run.syntheticActivatedDay !== null) return "world"
+  return "actions"
+}
+
 function buildAdvisor(run: RunState, language: Language, computeLoadText: string, computeStatus: ComputeStatus): CampaignAdvisor {
   const { ui, percent } = language
   const research = researchState(run)

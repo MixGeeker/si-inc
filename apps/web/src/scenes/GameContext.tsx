@@ -4,6 +4,7 @@ import { attachGameSound } from "../audio/game-sound"
 import { attachMusicPreference, readMusicSettings } from "../audio/music"
 import { attachGameMusic } from "../audio/music-player"
 import { readSoundSettings } from "../audio/settings"
+import { attachShortcutPreference, readShortcutSettings } from "../input/shortcuts"
 import { createDayClock } from "./clock"
 import { attachDeveloperPreference, readDeveloperEnabled } from "./developer"
 import { createGameStore, type GameStore } from "./store"
@@ -12,7 +13,7 @@ const GameContext = createContext<GameStore | null>(null)
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [store] = useState(() => {
-    const game = createGameStore(readSoundSettings(), readLocale(), readDeveloperEnabled(), readMusicSettings())
+    const game = createGameStore(readSoundSettings(), readLocale(), readDeveloperEnabled(), readMusicSettings(), readShortcutSettings())
     game.dispatch({ type: "open-start" })
     return game
   })
@@ -24,6 +25,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const stops = attachMusicPreference(store)
     return () => stops.forEach(stop => stop())
   }, [store])
+  useEffect(() => attachShortcutPreference(store), [store])
   useEffect(() => clock.attach(), [clock])
   useEffect(() => attachDeveloperPreference(store), [store])
   return <GameContext.Provider value={store}>{children}</GameContext.Provider>

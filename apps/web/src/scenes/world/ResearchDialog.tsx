@@ -1,4 +1,4 @@
-import { useId, useState, type AnimationEvent, type KeyboardEvent, type ReactNode } from "react"
+import { useEffect, useId, useState, type AnimationEvent, type KeyboardEvent, type ReactNode } from "react"
 import { computePressure, computePressureWithSkill, corpusYieldBreakdown } from "../../../../../packages/game/operations"
 import { completedLevel, firstIdleSlot, isProjectCompleted, projectRemainingDays, projectWorkDone, projectWorkRequired, researchAttributes, researchCost, researchLevels, researchState, researchStatus,
   slotProject, type ResearchProject } from "../../../../../packages/game/research"
@@ -8,7 +8,7 @@ import { attributeIds, researchNode, researchNodes, trees, type ResearchNode, ty
 import { standardScenario } from "../../../../../packages/rules/v0.1/scenario"
 import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
-import { useGameStore } from "../GameContext"
+import { useGameSnapshot, useGameStore } from "../GameContext"
 import { attributeIcons, LabIcon, TechHex, TechMap, treeIcons } from "./ResearchMap"
 import { researchTier } from "./researchLayout"
 import "./research.css"
@@ -31,7 +31,9 @@ function ModelReadout({ run }: { run: RunState }) {
 function TreePanel({ run, node, select }: {
   run: RunState; node: ResearchNode; select: SelectSkill
 }) {
-  const { ui: { lab }, scenario } = useLanguage()
+  const { ui, scenario } = useLanguage()
+  const { lab } = ui
+  const shortcuts = useGameSnapshot(state => state.shortcuts)
   const prefix = useId()
   function changeTree(tree: SkillTree) {
     if (tree.id === node.tree.id) return
@@ -40,6 +42,21 @@ function TreePanel({ run, node, select }: {
       pool.find(s => researchStatus(run, researchNode(s.id)) === status)).find(Boolean)
     select((first ?? pool[0]).id)
   }
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+      const tag = (event.target as HTMLElement | null)?.tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+      if (event.code !== "BracketLeft" && event.code !== "BracketRight") return
+      if (Object.values(shortcuts).includes(event.code)) return
+      event.preventDefault()
+      const index = trees.findIndex(tree => tree.id === node.tree.id)
+      const delta = event.code === "BracketRight" ? 1 : -1
+      changeTree(trees[(index + delta + trees.length) % trees.length])
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  })
   function moveTab(e: KeyboardEvent<HTMLButtonElement>, index: number) {
     const last = trees.length - 1
     const destination: Record<string, number> = { ArrowRight: (index + 1) % trees.length,
@@ -60,6 +77,7 @@ function TreePanel({ run, node, select }: {
           <small>{tree.skills.filter(s => completedLevel(run, s.id) > 0).length}/{tree.skills.length}</small>
         </button>)}
       </div>
+      <span className="lab-tab-hint" aria-hidden="true">{ui.shortcuts.dialogTabHint}</span>
     </div>
     <div className="lab-chart" id={`${prefix}-panel`} role="tabpanel" aria-labelledby={`${prefix}-${node.tree.id}`}>
       <div className="lab-chart-head"><h3>{lab.treeTitle(scenario.trees[node.tree.id])}</h3>

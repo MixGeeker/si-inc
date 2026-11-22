@@ -4,9 +4,11 @@ import type { Atlas, Location } from "../../cartography/atlas"
 import { EUROPE, GLOBAL, MapCamera } from "../../cartography/camera"
 import MapViewport from "../../cartography/MapViewport"
 import { useLanguage } from "../../i18n/useLanguage"
+import { attachKeyboardShortcuts } from "../../input/keyboard"
 import { SceneDialog } from "../Dialog"
 import { useGameSnapshot, useGameStore } from "../GameContext"
 import { defaultResearchSkill, visibleRunState, type NewsView } from "../machine"
+import { ShortcutHelpDialog } from "../shortcuts/ShortcutHelpDialog"
 import { gamePlaybackSpeed, selectedPlace, type MapSelection, type PlaceFocus } from "../store"
 import { nextCommandSeq } from "../../../../../packages/game/run"
 import { DecisionDialog, MarketPanel } from "./CampaignPanels"
@@ -43,14 +45,31 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   const language = useLanguage()
   const { ui, locale } = language
   const { dispatch: send } = store
-  const showGlobal = useCallback(() => send({ type: "map-preset", view: "global" }), [send])
   const snapshot = useGameSnapshot()
   const { scene, selection, layers: { night, cloud, current, population }, populationPreview, developer } = snapshot
   const location = useMemo(() => locationFor(atlas, selection), [atlas, selection])
   const [zoom, setZoom] = useState(EUROPE.zoom)
   const [rig] = useState(() => new MapCamera(setZoom))
   const [reduced, setReduced] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [musicOpen, setMusicOpen] = useState(false)
+  const helpOpenRef = useRef(false)
+  helpOpenRef.current = helpOpen
+  const musicOpenRef = useRef(false)
+  musicOpenRef.current = musicOpen
   const devLauncher = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => attachKeyboardShortcuts(store, {
+    isHelpOpen: () => helpOpenRef.current,
+    setHelpOpen,
+    isMusicMenuOpen: () => musicOpenRef.current,
+    closeMusicMenu: () => setMusicOpen(false),
+    onPanMap: (dx, dy) => {
+      const step = Math.min(rig.width, rig.height) * .12
+      rig.pan({ x: rig.width / 2, y: rig.height / 2 }, { x: rig.width / 2 + dx * step, y: rig.height / 2 + dy * step })
+    },
+    onZoomMap: delta => rig.zoom(rig.target.zoom + delta),
+  }), [store, rig])
   useEffect(() => {
     function goToPlace(place: PlaceFocus | null) {
       if (!place) return rig.go(GLOBAL)
@@ -128,6 +147,25 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       <button onClick={() => send({ type: "map-preset", view: "europe" })}>{ui.europeView}</button></>
   }
 
+  function openSettingsFromHelp() {
+    setHelpOpen(false)
+    const currentScene = store.getSnapshot().scene
+    if (currentScene.kind === "start") {
+      send({ type: "open-settings" })
+      return
+    }
+    if (currentScene.kind === "campaign" || currentScene.kind === "preview") {
+      if (currentScene.panel !== null && currentScene.panel !== "menu") send({ type: "back" })
+      if (store.getSnapshot().scene.kind === "campaign" || store.getSnapshot().scene.kind === "preview") {
+        const refreshed = store.getSnapshot().scene
+        if ((refreshed.kind === "campaign" || refreshed.kind === "preview") && refreshed.panel !== "menu") {
+          send({ type: "open-panel", panel: "menu" })
+        }
+        send({ type: "open-settings" })
+      }
+    }
+  }
+
   return <>
     <MapViewport atlas={atlas} rig={rig} selected={selected} populations={populations} populationScope={populationScope} layers={{ cloud, current, reduced, speed, night }}
       bubbles={scene.kind === "campaign" && panel === null ? scene.run.bubbles : undefined}
@@ -138,10 +176,10 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
         completedDay: scene.run.completedDay,
         seq: nextCommandSeq(scene.run),
       }) : undefined}
-      pick={({ country, ...point }) => send({ type: "pick-location", selection: { ...point, countryId: country?.id ?? null } })}
-      showGlobal={showGlobal}/>
+      pick={({ country, ...point }) => send({ type: "pick-location", selection: { ...point, countryId: country?.id ?? null } })}/>
     <Hud location={location} place={place} content={content} zoom={zoom} selectedSpeed={selectedSpeed} manualPaused={manualPaused} paused={speed === 0}
       night={night} toggleNight={() => send({ type: "set-layer", layer: "night", enabled: !night })}
+      musicOpen={musicOpen} setMusicOpen={setMusicOpen} openShortcutsHelp={() => setHelpOpen(true)}
       newsItems={newsItems} newsView={newsView} newsItemId={newsItemId} newsDay={run ? run.completedDay : null}
       openNews={openNews} closeNews={back} decide={(id, instanceId) => send({ type: "open-decision", id, instanceId })}
       open={panelName => { if (newsView) send({ type: "back" }); send({ type: "open-panel", panel: panelName }) }}
@@ -193,6 +231,7 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
         <button type="button" onClick={() => send({ type: "set-layer", layer: "night", enabled: !night })}>{night ? ui.showDay : ui.showNight}</button>
       </fieldset>}
       <div className="window-actions">{presets()}
+        <button type="button" onClick={() => { send({ type: "back" }); setHelpOpen(true) }}>{ui.shortcuts.title}</button>
         <button type="button" onClick={() => send({ type: "open-settings" })}>{ui.preferences.title}</button>
         {!run && <button type="button" onClick={() => send({ type: "open-start" })}>{ui.front.title}</button>}
       </div>
@@ -212,5 +251,7 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       {scene.kind === "ending" && !showDeveloper && <EndingDialog scene={scene} restart={() => send({ type: "open-setup" })} leave={() => send({ type: "return-to-preview" })}
         inspect={developer.enabled ? openDeveloper : undefined}/>}
     </Suspense>
+    {helpOpen && <ShortcutHelpDialog onClose={() => setHelpOpen(false)}
+      onOpenSettings={scene.kind === "start" || scene.kind === "campaign" || scene.kind === "preview" ? openSettingsFromHelp : undefined}/>}
   </>
 }

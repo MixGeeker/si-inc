@@ -28,6 +28,7 @@ export class MapCamera {
   tilt = 0
   flat = false
   surfaceHit?: (ray:Raycaster)=>{lon:number;lat:number}|null
+  onMove?: () => void
   private dirty = true
   private overview = overviewFrame(1,1)
   constructor(readonly changeZoom: (value:number)=>void) {}
@@ -115,6 +116,7 @@ export class MapCamera {
     this.target.lon = wrapLon(this.target.lon+a.lon-b.lon)
     this.target.lat += a.lat-b.lat
     this.limit(this.target)
+    this.onMove?.()
   }
   zoom(value:number,anchor?:Point) {
     const t = this.target
@@ -128,6 +130,7 @@ export class MapCamera {
     }
     this.limit(t)
     this.changeZoom(t.zoom)
+    this.onMove?.()
   }
   pinch(factor:number,anchor:Point) {
     // Invert the same span curve so a finger-distance ratio works across the overview transition.
@@ -145,10 +148,11 @@ export class MapCamera {
   go(pose:Pose) {
     this.target = {...pose}
     this.changeZoom(pose.zoom)
+    this.onMove?.()
   }
 }
 
-export function attachNavigation(element:HTMLElement, rig:MapCamera, atlas:Atlas, pick:(place:Location,point:Point)=>void, showGlobal:()=>void) {
+export function attachNavigation(element:HTMLElement, rig:MapCamera, atlas:Atlas, pick:(place:Location,point:Point)=>void) {
   const pointers = new Map<number,Point>()
   let start:Point | null = null, dragged = false
   const local = (e:PointerEvent | WheelEvent) => {
@@ -198,17 +202,7 @@ export function attachNavigation(element:HTMLElement, rig:MapCamera, atlas:Atlas
     const units = e.deltaMode===1 ? 16 : e.deltaMode===2 ? rig.height : 1
     rig.zoom(rig.target.zoom-clamp(e.deltaY*units,-320,320)*.00085,local(e))
   }
-  function key(e:KeyboardEvent) {
-    if(e.target!==element) return
-    const step = Math.min(rig.width,rig.height)*.12
-    const moves:Record<string,Point> = {ArrowLeft:{x:step,y:0},ArrowRight:{x:-step,y:0},ArrowUp:{x:0,y:step},ArrowDown:{x:0,y:-step}}
-    if (e.key==="Home") showGlobal()
-    else if (["=","+","-","_"].includes(e.key)) rig.zoom(rig.target.zoom+("=+".includes(e.key) ? .09 : -.09))
-    else if (moves[e.key]) rig.pan({x:rig.width/2,y:rig.height/2},{x:rig.width/2+moves[e.key].x,y:rig.height/2+moves[e.key].y})
-    else return
-    e.preventDefault()
-  }
-  const events = {pointerdown:down,pointermove:move,pointerup:up,pointercancel:up,lostpointercapture:up,wheel,keydown:key}
+  const events = {pointerdown:down,pointermove:move,pointerup:up,pointercancel:up,lostpointercapture:up,wheel}
   for (const [name,fn] of Object.entries(events)) element.addEventListener(name,fn as EventListener,{passive:false})
   return () => { for (const [name,fn] of Object.entries(events)) element.removeEventListener(name,fn as EventListener) }
 }

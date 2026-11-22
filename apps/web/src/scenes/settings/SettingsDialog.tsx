@@ -2,23 +2,71 @@ import { useEffect, useState } from "react"
 import { isLocale, localeNames } from "../../../../../packages/rules/locales"
 import { musicCatalog, musicTrackTitle } from "../../audio/music"
 import { useLanguage } from "../../i18n/useLanguage"
+import {
+  findShortcutConflict,
+  formatShortcutKey,
+  isBindableShortcutCode,
+  isDefaultShortcuts,
+  reservedShortcutCodes,
+  shortcutGroups,
+  type ShortcutAction,
+} from "../../input/shortcuts"
 import { SceneDialog } from "../Dialog"
 import { useGameSnapshot, useGameStore } from "../GameContext"
 import "./settings.css"
 
+const modifierCodes = new Set([
+  "ShiftLeft", "ShiftRight", "ControlLeft", "ControlRight", "AltLeft", "AltRight", "MetaLeft", "MetaRight", "CapsLock",
+])
+
 export function SettingsDialog({ back }: { back: () => void }) {
   const store = useGameStore()
-  const { locale, sound, music, layers, developer } = useGameSnapshot()
+  const { locale, sound, music, layers, developer, shortcuts } = useGameSnapshot()
   const { ui, percent } = useLanguage()
   const text = ui.preferences
+  const shortcutText = ui.shortcuts
   const [fullscreen, setFullscreen] = useState(() => Boolean(document.fullscreenElement))
   const [fullscreenError, setFullscreenError] = useState(false)
+  const [recording, setRecording] = useState<ShortcutAction | null>(null)
+  const [shortcutNotice, setShortcutNotice] = useState<{ kind: "info" | "error"; text: string } | null>(null)
 
   useEffect(() => {
     const changed = () => setFullscreen(Boolean(document.fullscreenElement))
     document.addEventListener("fullscreenchange", changed)
     return () => document.removeEventListener("fullscreenchange", changed)
   }, [])
+
+  useEffect(() => {
+    if (!recording) return
+    const onCapture = (event: KeyboardEvent) => {
+      if (modifierCodes.has(event.code)) return
+      event.preventDefault()
+      event.stopPropagation()
+      event.stopImmediatePropagation()
+      if (event.code === "Escape" || event.key === "Escape") {
+        setRecording(null)
+        setShortcutNotice(null)
+        return
+      }
+      if (reservedShortcutCodes.has(event.code)) {
+        setShortcutNotice({ kind: "error", text: shortcutText.reserved })
+        setRecording(null)
+        return
+      }
+      if (!isBindableShortcutCode(event.code)) {
+        setShortcutNotice({ kind: "error", text: shortcutText.unsupported })
+        setRecording(null)
+        return
+      }
+      const currentBindings = store.getSnapshot().shortcuts
+      const conflict = findShortcutConflict(currentBindings, recording, event.code)
+      store.dispatch({ type: "set-shortcut", action: recording, code: event.code })
+      setRecording(null)
+      setShortcutNotice(conflict ? { kind: "info", text: shortcutText.swapped(shortcutText.actions[conflict]) } : null)
+    }
+    window.addEventListener("keydown", onCapture, true)
+    return () => window.removeEventListener("keydown", onCapture, true)
+  }, [recording, shortcutText, store])
 
   async function toggleFullscreen() {
     try {
@@ -103,6 +151,70 @@ export function SettingsDialog({ back }: { back: () => void }) {
         <label className="settings-check"><input type="checkbox" checked={developer.enabled} onChange={event =>
           store.dispatch({ type: "set-developer-enabled", enabled: event.currentTarget.checked })}/><span>{ui.developer.enable}</span></label>
         <p className="settings-hint">{text.developerHint}</p>
+      </section>
+
+      <section className="settings-section settings-shortcuts" aria-labelledby="settings-shortcuts">
+        <div className="settings-shortcuts-head">
+          <h3 id="settings-shortcuts"><span aria-hidden="true">05</span>{text.shortcuts}</h3>
+          <button
+            type="button"
+            className="settings-shortcuts-reset"
+            disabled={isDefaultShortcuts(shortcuts)}
+            onClick={() => {
+              setRecording(null)
+              setShortcutNotice(null)
+              store.dispatch({ type: "reset-shortcuts" })
+            }}
+          >
+            {shortcutText.reset}
+          </button>
+        </div>
+        <p className="settings-hint">{shortcutText.intro}</p>
+        {recording && (
+          <p className="settings-shortcut-status is-recording" role="status">
+            {shortcutText.actions[recording]} · {shortcutText.listening} ({shortcutText.cancelHint})
+          </p>
+        )}
+        {!recording && shortcutNotice && (
+          <p className={`settings-shortcut-status${shortcutNotice.kind === "error" ? " is-error" : ""}`} role="status">
+            {shortcutNotice.text}
+          </p>
+        )}
+        <div className="settings-shortcuts-groups">
+          {shortcutGroups.map(group => (
+            <div key={group.id} className="settings-shortcut-group">
+              <h4>{shortcutText.groups[group.id]}</h4>
+              <div className="settings-shortcut-list">
+                {group.actions.map(action => {
+                  const isActive = recording === action
+                  return (
+                    <div key={action} className="settings-shortcut-row">
+                      <span>{shortcutText.actions[action]}</span>
+                      <button
+                        type="button"
+                        className={`settings-key-button${isActive ? " is-recording" : ""}`}
+                        aria-pressed={isActive}
+                        onClick={() => {
+                          setShortcutNotice(null)
+                          setRecording(current => current === action ? null : action)
+                        }}
+                      >
+                        {isActive ? shortcutText.listening : formatShortcutKey(shortcuts[action], locale)}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="settings-fixed-shortcuts">
+          <strong>{shortcutText.fixedTitle}:</strong>
+          <span>{shortcutText.fixedPan} ({shortcutText.fixedPanKeys})</span>
+          <span>{shortcutText.fixedZoom} ({shortcutText.fixedZoomKeys})</span>
+          <span>{shortcutText.fixedBack} ({shortcutText.fixedBackKeys})</span>
+          <span>{shortcutText.fixedTabs} ({shortcutText.fixedTabsKeys})</span>
+        </div>
       </section>
     </div>
     <footer className="settings-footer"><span>{text.applied}</span><button type="button" onClick={back}>{ui.close}</button></footer>

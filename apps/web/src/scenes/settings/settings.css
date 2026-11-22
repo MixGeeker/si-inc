@@ -20,7 +20,79 @@
 .settings-dialog .settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; padding-top: 1.1rem; border-top: 1px solid var(--front-line); }
 .settings-dialog .settings-footer > span { color: var(--front-muted); font-size: .8rem; }
 .settings-dialog .settings-footer > button { min-width: 7.5rem; }
+.settings-dialog .settings-shortcuts { grid-column: 1 / -1; }
+.settings-dialog .settings-shortcuts-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.settings-dialog .settings-shortcuts-head h3 { margin-bottom: 0; }
+.settings-dialog .settings-shortcuts-reset { min-height: 2.1rem; font-size: .78rem; padding: .25rem .85rem; }
+.settings-dialog .settings-shortcut-status {
+  margin: .75rem 0 0;
+  padding: .5rem .75rem;
+  border: 1px solid var(--ui-accent);
+  background: rgba(16, 42, 60, .55);
+  color: var(--ui-ink);
+  font-size: .8rem;
+}
+.settings-dialog .settings-shortcut-status.is-recording { border-color: var(--front-amber); color: var(--front-amber); }
+.settings-dialog .settings-shortcut-status.is-error { border-color: var(--ui-risk); color: var(--ui-risk); background: rgba(70, 16, 28, .45); }
+.settings-dialog .settings-shortcuts-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .85rem;
+  margin-top: .95rem;
+}
+.settings-dialog .settings-shortcut-group {
+  padding: .75rem .85rem;
+  border: 1px solid rgba(120, 210, 235, .15);
+  background: rgba(6, 12, 22, .35);
+}
+.settings-dialog .settings-shortcut-group h4 {
+  margin: 0 0 .65rem;
+  color: var(--front-amber);
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+.settings-dialog .settings-shortcut-list { display: grid; gap: .4rem; }
+.settings-dialog .settings-shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  min-height: 2rem;
+  color: var(--ui-ink-soft);
+  font-size: .82rem;
+}
+.settings-dialog .settings-key-button {
+  min-width: 3.4rem;
+  min-height: 1.85rem;
+  padding: .15rem .55rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .76rem;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+.settings-dialog .settings-key-button.is-recording {
+  border-color: var(--front-amber);
+  color: var(--front-amber);
+  box-shadow: 0 0 0 2px rgba(255, 198, 92, .24);
+}
+.settings-dialog .settings-fixed-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem 1.1rem;
+  margin-top: .9rem;
+  padding-top: .75rem;
+  border-top: 1px dashed var(--front-line);
+  color: var(--front-muted);
+  font-size: .77rem;
+  line-height: 1.5;
+}
+.settings-dialog .settings-fixed-shortcuts strong { color: var(--ui-ink-soft); font-weight: 600; }
 .settings-dialog input:focus-visible, .settings-dialog select:focus-visible { outline: 2px solid var(--front-focus); outline-offset: 4px; }
+@media (max-width: 900px) {
+  .settings-dialog .settings-shortcuts-groups { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 640px) {
   .settings-dialog .settings-grid { grid-template-columns: minmax(0, 1fr); }
   .settings-dialog .settings-section { padding: 1rem; }

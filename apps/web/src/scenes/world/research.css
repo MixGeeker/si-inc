@@ -65,6 +65,7 @@ dialog.research-dialog {
 .lab-tree { display: flex; flex-direction: column; background: var(--panel); }
 .lab-tree-head { display: flex; flex: none; align-items: stretch; justify-content: space-between; gap: .65em;
   padding: 0 .9em; border-bottom: 1px solid var(--border); background: var(--lab-panel-head); }
+.lab-tab-hint { align-self: center; font-size: .74em; color: var(--muted); font-family: Consolas, monospace; white-space: nowrap; }
 .lab-tabs { display: flex; align-items: stretch; }
 .lab-tabs button { position: relative; display: flex; align-items: center; gap: .58em; padding: 1em 1.1em;
   color: var(--muted); font-weight: 550; border: 0; }

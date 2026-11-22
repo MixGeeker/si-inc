@@ -1,0 +1,54 @@
+.shortcut-help-dialog { width: min(56rem, 94vw); }
+.shortcut-help-intro { margin: 0 0 1.15rem; color: var(--ui-ink-muted); font-size: .88rem; line-height: 1.65; }
+.shortcut-help-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; }
+.shortcut-help-group { padding: 1rem 1.15rem; border: 1px solid var(--front-line, rgba(120, 210, 235, .22)); background: var(--front-section-bg, rgba(8, 16, 28, .48)); }
+.shortcut-help-group.is-fixed { border-style: dashed; }
+.shortcut-help-group h3 { margin: 0 0 .75rem; color: var(--ui-ink); font-size: .92rem; font-weight: 600; letter-spacing: .04em; }
+.shortcut-help-list { display: grid; gap: .48rem; margin: 0; }
+.shortcut-help-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .24rem 0; border-bottom: 1px solid rgba(120, 210, 235, .1); }
+.shortcut-help-row:last-child { border-bottom: none; }
+.shortcut-help-row dt { color: var(--ui-ink-soft, var(--ui-ink-muted)); font-size: .84rem; }
+.shortcut-help-row dd { margin: 0; flex: 0 0 auto; }
+
+.keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9rem;
+  padding: .16rem .5rem;
+  border: 1px solid var(--ui-accent, #5ce1e6);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: rgba(10, 22, 36, .75);
+  color: var(--ui-ink, #e8f7ff);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.keycap.is-fixed {
+  border-color: rgba(160, 200, 220, .35);
+  color: var(--ui-ink-muted);
+  font-weight: 600;
+}
+
+.shortcut-help-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .85rem;
+  margin-top: 1.2rem;
+  padding-top: .95rem;
+  border-top: 1px solid var(--front-line, rgba(120, 210, 235, .2));
+}
+
+.shortcut-help-footer > span { color: var(--ui-ink-muted); font-size: .8rem; }
+.shortcut-help-actions { display: flex; align-items: center; gap: .6rem; }
+
+@media (max-width: 680px) {
+  .shortcut-help-grid { grid-template-columns: minmax(0, 1fr); }
+}

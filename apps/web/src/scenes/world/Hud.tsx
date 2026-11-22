@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { useGameSnapshot, useGameStore } from "../GameContext"
 import { musicCatalog, musicTrackTitle } from "../../audio/music"
+import { formatShortcutKey } from "../../input/shortcuts"
 import { Glyph, Symbols } from "./Symbols"
 import { surfaceUrl, type Location } from "../../cartography/atlas"
 import { useLanguage } from "../../i18n/useLanguage"
@@ -33,6 +34,9 @@ interface Props {
   paused: boolean
   night: boolean
   toggleNight: () => void
+  musicOpen: boolean
+  setMusicOpen: (open: boolean | ((prev: boolean) => boolean)) => void
+  openShortcutsHelp: () => void
   open: (panel: MapPanel) => void
   openSetup: () => void
   focusPlace: (place: PlaceFocus | null) => void
@@ -42,9 +46,18 @@ interface Props {
 }
 
 function Control({label,run,children,pressed,description,news}:{label:string;run:()=>void;children:ReactNode;pressed?:boolean;description?:string;news?:boolean}) {
-  return <g className="svg-button" data-news={news ? "" : undefined} role="button" tabIndex={0} aria-label={label} aria-pressed={pressed} aria-description={description} onClick={run}
-    onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();run()}}}>
+  return <g className="svg-button" data-news={news ? "" : undefined} role="button" tabIndex={0} aria-label={label} aria-pressed={pressed} aria-description={description}
+    onClick={e => { e.currentTarget.blur(); run() }}
+    onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();run()}}}>
     <title>{label}</title>{children}
+  </g>
+}
+
+function SvgKeycap({ x, y, label }: { x: number; y: number; label: string }) {
+  const width = Math.max(26, label.length * 11 + 14)
+  return <g className="hud-svg-keycap" transform={`translate(${x} ${y})`} pointerEvents="none" aria-hidden="true">
+    <rect width={width} height="22" rx="4" fill="rgba(7, 16, 28, .82)" stroke="var(--hud-edge)" strokeOpacity=".68" strokeWidth="1"/>
+    <text x={width / 2} y="15.5" textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="var(--hud-bloom)">{label}</text>
   </g>
 }
 function Glass({d,accent=false}:{d:string;accent?:boolean}) {
@@ -108,7 +121,7 @@ function ScreenBezel({w,h}:{w:number;h:number}) {
   </g>
 }
 
-function ResourceMeter({x,y,title,value,detail,icon,research,onOpen}:{x:number;y:number;title:string;value:string;detail:string;icon:string;research?:boolean;onOpen?:()=>void}) {
+function ResourceMeter({x,y,title,value,detail,icon,research,shortcut,onOpen}:{x:number;y:number;title:string;value:string;detail:string;icon:string;research?:boolean;shortcut?:string;onOpen?:()=>void}) {
   const glyphWidth = icon === "hexes" ? 72 : 40
   const glyphX = icon === "hexes" ? 260 : 268
   const face = <>
@@ -119,14 +132,16 @@ function ResourceMeter({x,y,title,value,detail,icon,research,onOpen}:{x:number;y
     <path d="M250 9h59l26 25v8h-56l-29-27Z" fill="none" stroke="var(--hud-edge)" strokeOpacity=".28"/>
     <Glyph name={icon} x={glyphX} y={8} width={glyphWidth} height={38}/>
     <text x="8" y="30" fontSize="28">{title}</text>
+    {shortcut && <SvgKeycap x={200} y={9} label={shortcut}/>}
     <text x="8" y="58" fontSize="20" fill="var(--hud-muted)">{detail}</text>
     <rect x="13" y="78" width="321" height="35" fill={research ? "var(--hud-well-cool)" : "var(--hud-well-warm)"}/>
     <path d="M16 79.5h316" stroke="var(--hud-edge)" strokeOpacity=".4"/>
     <Glyph name={icon} x={21} y={78} width={icon === "hexes" ? 50 : 34} height={34}/>
     <text x={icon === "hexes" ? 82 : 75} y="108" fontSize="32">{value}</text>
   </>
+  const accessibleLabel = shortcut ? `${title} (${shortcut})` : title
   return <g transform={`translate(${x} ${y})`}>
-    {onOpen ? <Control label={title} description={`${value} · ${detail}`} run={onOpen}>{face}</Control>
+    {onOpen ? <Control label={accessibleLabel} description={`${value} · ${detail}`} run={onOpen}>{face}</Control>
       : <g role="group" aria-label={`${title} · ${value} · ${detail}`}>{face}</g>}
   </g>
 }
@@ -159,9 +174,9 @@ function StripBar({footer, human}:{footer?:string; human:string}) {
   </>
 }
 
-function CampaignStrip({x,y,place,location,content,focusPlace,openDetails}:{
+function CampaignStrip({x,y,place,location,content,focusPlace,openDetails,regionShortcut}:{
   x:number; y:number; place:PlaceFocus|null; location:Location|null; content:CampaignHud
-  focusPlace:Props["focusPlace"]; openDetails:()=>void
+  focusPlace:Props["focusPlace"]; openDetails:()=>void; regionShortcut:string
 }) {
   const { ui, locale, scenario, percent } = useLanguage()
   const marketName = place ? scenario.regions[place.id] : null
@@ -215,9 +230,9 @@ function CampaignStrip({x,y,place,location,content,focusPlace,openDetails}:{
       <text x="500" y="42" fontSize="34">{currentRegion.centers}</text>
       {currentRivals.length > 0 && <text y="74" fontSize="18" fill="var(--hud-muted)">{ui.ops.rivalPresence(currentRivals.join(" · "))}</text>}
     </g>}
-    <Control label={detailName ? `${ui.regionProfile} · ${detailName}` : ui.locate} run={openDetails}>
-      <rect x="743" y="3" width="223" height="36" fill="transparent"/>
-      <text x="958" y="30" textAnchor="end" fontSize="21" fill="var(--hud-muted)">{place ? ui.regionProfile : detailName ?? ui.locate} ›</text>
+    <Control label={`${detailName ? `${ui.regionProfile} · ${detailName}` : ui.locate} (${regionShortcut})`} run={openDetails}>
+      <rect x="720" y="3" width="246" height="36" fill="transparent"/>
+      <text x="958" y="30" textAnchor="end" fontSize="21" fill="var(--hud-muted)">[{regionShortcut}] {place ? ui.regionProfile : detailName ?? ui.locate} ›</text>
     </Control>
   </g>
 }
@@ -255,11 +270,21 @@ function RegionStrip({location,place,open,x,y,content}:{location:Location|null;p
   </g>
 }
 
-export default function Hud({location,place,content,newsItems,newsView,newsItemId,newsDay,openNews,closeNews,decide,zoom,selectedSpeed,manualPaused,paused,night,toggleNight,open,openSetup,focusPlace,setSpeed,onPause,setZoom}:Props) {
+export default function Hud({location,place,content,newsItems,newsView,newsItemId,newsDay,openNews,closeNews,decide,zoom,selectedSpeed,manualPaused,paused,night,toggleNight,musicOpen,setMusicOpen,openShortcutsHelp,open,openSetup,focusPlace,setSpeed,onPause,setZoom}:Props) {
   const { locale, ui, percent } = useLanguage()
   const music = useGameSnapshot(state => state.music)
+  const shortcuts = useGameSnapshot(state => state.shortcuts)
   const store = useGameStore()
-  const [musicOpen, setMusicOpen] = useState(false)
+  const keyLabel = (code: string) => formatShortcutKey(code, locale, true)
+  const pauseKey = keyLabel(shortcuts.togglePause)
+  const speedKeys = [keyLabel(shortcuts.speed1), keyLabel(shortcuts.speed2), keyLabel(shortcuts.speed5)]
+  const helpKey = keyLabel(shortcuts.toggleHelp)
+  const newsKey = keyLabel(shortcuts.panelNews)
+  const worldKey = keyLabel(shortcuts.panelWorld)
+  const regionKey = keyLabel(shortcuts.panelRegion)
+  const actionsKey = keyLabel(shortcuts.panelActions)
+  const researchKey = keyLabel(shortcuts.panelResearch)
+  const advisorKey = keyLabel(shortcuts.followAdvisor)
   const musicLabel = useRef<HTMLDivElement>(null)
   const musicGroup = useRef<SVGGElement>(null)
   const [musicPlate, setMusicPlate] = useState(156)
@@ -291,11 +316,11 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
   // Keep the news and menu legible when the full map frame scales down.
   const newsUnit = Math.max(unit, Math.min(.52, size.width / 1030))
   const menuUnit = Math.max(unit, Math.min(.60, size.width / 600))
-  const menuWidth = content.kind === "preview" ? 430 : 586
+  const menuWidth = content.kind === "preview" ? 496 : Math.max(586, 408 + musicPlate)
   const stacked = 1010 * newsUnit + menuWidth * menuUnit > size.width
   const menuTop = stacked ? 88 * newsUnit : 0
   const sheetTop = stacked ? menuTop + 115 * menuUnit + 4 : 118 * newsUnit
-  const statusHalf = 180 * menuUnit
+  const statusHalf = 238 * menuUnit
   const statusMin = 1010 * newsUnit + statusHalf
   const statusMax = size.width - menuWidth * menuUnit - statusHalf
   const statusFits = statusMin <= statusMax
@@ -323,23 +348,31 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
         <path d="M914 29h59l33 31v13h-62l-30-29Z" fill="var(--hud-drop-bg)"/>
         <path d="M914 29h59l33 31v13h-62l-30-29Z" fill="none" stroke="var(--hud-drop-edge)" strokeOpacity=".6" strokeWidth="1" filter="url(#edge-glow)"/>
         <path d="m944 42 15 14 16-14" fill="none" stroke="var(--hud-drop-arrow)" strokeWidth="2.4" filter="url(#edge-glow)"/>
-        <Control label={ui.archive} description={ui.allNews} pressed={newsView==="archive"} news run={()=>openNews("archive")}>
+        <Control label={`${ui.archive} (${newsKey})`} description={ui.allNews} pressed={newsView==="archive"} news run={()=>openNews("archive")}>
           <path d="M16 26h96v92H16Z" fill="transparent"/>
         </Control>
+        <SvgKeycap x={24} y={84} label={newsKey}/>
         <Control label={ui.thisDay} pressed={newsView==="day"} news run={()=>openNews("day")}>
           <path d="M910 26h100v52H910Z" fill="transparent"/>
         </Control>
       </g>
       {content.kind === "campaign" && <g transform={`translate(${statusX / unit} ${statusTop / unit}) scale(${menuUnit / unit})`}>
         <g transform="translate(-235 26)">
-          <Control label={ui.ops.factionStandings} description={content.worldStatusFull} run={() => open("world")}>
+          <Control label={`${ui.ops.factionStandings} (${worldKey})`} description={content.worldStatusFull} run={() => open("world")}>
             <Glass d="M0 0h470v51H0Z" accent={content.syntheticActive || content.computeAlert}/>
-            <text x="228" y="34" textAnchor="middle" fontSize="20" fill={content.computeAlert ? "var(--ui-risk)" : undefined}>{content.worldStatus}</text>
-            <text x="452" y="34" textAnchor="end" aria-hidden="true" fontSize="22">›</text>
+            <SvgKeycap x={12} y={14} label={worldKey}/>
+            <text x="242" y="34" textAnchor="middle" fontSize="20" fill={content.computeAlert ? "var(--ui-risk)" : undefined}>{content.worldStatus}</text>
+            <text x="454" y="34" textAnchor="end" aria-hidden="true" fontSize="22">›</text>
           </Control>
         </g>
       </g>}
       <g transform={`translate(${w} ${menuTop / unit}) scale(${menuUnit / unit})`}>
+        <g transform={`translate(${content.kind === "preview" ? -492 : -400 - musicPlate} 26)`}>
+          <Control label={`${ui.shortcuts.title} (${helpKey})`} run={openShortcutsHelp}>
+            <Glass d="M0 0h52v51H0Z"/>
+            <text x="26" y="34" textAnchor="middle" fontSize="22" fontWeight="700" fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">{helpKey}</text>
+          </Control>
+        </g>
         {content.kind === "preview" ? <g transform="translate(-430 26)">
           <Control label={night ? ui.switchDay : ui.switchNight} pressed={night} run={toggleNight}>
             <Glass d="M0 0h92v51H0Z"/>
@@ -362,19 +395,19 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
           </Control>
         </g>}
         <g transform="translate(-326 26)">
-          <Control label={ui.dateMenu} run={()=>open("menu")}>
+          <Control label={`${ui.dateMenu} (Esc)`} run={()=>open("menu")}>
             <Glass d="M0 0h306v51H32L0 18Z"/><text x="30" y="37" fontSize="34">{content.date}</text>
             <path d="M260 4h42v42h-42z M265 9l32 32m0-32-32 32" fill="none" stroke="var(--hud-menu-x)" strokeOpacity=".6" strokeWidth="1.1" filter="url(#edge-glow)"/>
           </Control>
           <Glass d="M90 51h216v38H126Z"/>
-          <Control label={manualPaused ? ui.resumePlayback : ui.pause} pressed={manualPaused}
+          <Control label={`${manualPaused ? ui.resumePlayback : ui.pause} (${pauseKey})`} pressed={manualPaused}
             description={paused && !manualPaused ? ui.automaticallyPaused : undefined} run={() => onPause(!manualPaused)}>
             <rect x="112" y="53" width="38" height="35" fill="transparent"/>
             <g transform="translate(122 61)" fill={paused ? "var(--hud-control-active)" : "var(--hud-control-idle)"}>
               {manualPaused ? <path d="M1 0l17 10L1 20Z"/> : <path d="M1 0h6v20H1zm11 0h6v20h-6z"/>}
             </g>
           </Control>
-          {content.speeds.map((n,index)=><Control key={n} label={ui.speed(n)} pressed={selectedSpeed===n} run={()=>setSpeed(n)}>
+          {content.speeds.map((n,index)=><Control key={n} label={`${ui.speed(n)} (${speedKeys[index] ?? ""})`} pressed={selectedSpeed===n} run={()=>setSpeed(n)}>
             <rect x={150+index*38} y="53" width="38" height="35" fill="transparent"/>
             <g transform={`translate(${169+index*38} 78)`} fill={selectedSpeed===n ? "var(--hud-control-active)" : "var(--hud-control-idle)"} opacity={selectedSpeed===n ? 1 : .7}>
               <text textAnchor="middle" fontSize="16" fontWeight="700">{n}×</text>
@@ -392,11 +425,11 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
       {content.kind === "preview" ? <>
         <ResourceMeter x={20} y={h-130} title={ui.newRun} value={content.marketValue} detail={content.factionDetail} icon="token" onOpen={openSetup}/>
         <RegionStrip x={w/2-503} y={h-HUD.regionHeight} location={location} place={place} open={open} content={content}/>
-        <ResourceMeter x={w-362} y={h-130} title={ui.world} value={ui.layersShort} detail={ui.climateShort} icon="hexes" research onOpen={() => open("world")}/>
+        <ResourceMeter x={w-362} y={h-130} title={ui.world} value={ui.layersShort} detail={ui.climateShort} icon="hexes" research shortcut={worldKey} onOpen={() => open("world")}/>
       </> : <>
-        <ResourceMeter x={20} y={h-130} title={ui.action} value={content.token} detail={content.tokenDetail} icon="token" onOpen={() => open("actions")}/>
-        <CampaignStrip x={w/2-503} y={h-HUD.regionHeight} place={place} location={location} content={content} focusPlace={focusPlace} openDetails={() => open("region")}/>
-        <ResourceMeter x={w-362} y={h-130} title={ui.research} value={content.corpus} detail={content.yieldText} icon="flask" research onOpen={() => open("overview")}/>
+        <ResourceMeter x={20} y={h-130} title={ui.action} value={content.token} detail={content.tokenDetail} icon="token" shortcut={actionsKey} onOpen={() => open("actions")}/>
+        <CampaignStrip x={w/2-503} y={h-HUD.regionHeight} place={place} location={location} content={content} focusPlace={focusPlace} regionShortcut={regionKey} openDetails={() => open("region")}/>
+        <ResourceMeter x={w-362} y={h-130} title={ui.research} value={content.corpus} detail={content.yieldText} icon="flask" research shortcut={researchKey} onOpen={() => open("overview")}/>
       </>}
       <ScreenBezel w={w} h={h}/>
     </svg>
@@ -407,7 +440,8 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
         style={{ top: statusTop + 82 * menuUnit }}
         onClick={() => open(content.advisor.panel)}
       >
-        {content.advisor.text}
+        <span>{content.advisor.text}</span>
+        <kbd className="hud-kbd">{advisorKey}</kbd>
       </button>
     )}
     <input className="zoom-rail" type="range" min="0" max="1000" step="1" value={Math.round(progress*1000)}
