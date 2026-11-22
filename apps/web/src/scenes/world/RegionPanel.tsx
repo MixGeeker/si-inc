@@ -1,5 +1,4 @@
 import {
-  canBuildDataCenter,
   canToggleSynthetic,
   countryBuildOptions,
   regionSummary,
@@ -13,6 +12,7 @@ import { computePlaceById, computePlaceLabel } from "../../cartography/compute-m
 import { countryName } from "../../cartography/place-names"
 import { useLanguage } from "../../i18n/useLanguage"
 import type { PlaceFocus } from "../store"
+import { FactionStandings } from "./FactionStandings"
 import { formatCompactPeople } from "./hudContent"
 
 function Reading({ atlas, place }: { atlas: Atlas; place: Location }) {
@@ -64,10 +64,10 @@ export function RegionPanel({
     <h3>{title}</h3>
     {(place || location) && <dl className="readings">
       {place && summary ? <>
-        <div><dt>{ui.ops.regionAdoption}</dt><dd>{summary.entered ? percent.format(summary.adoptionBps / 10000) : ui.ops.unentered}</dd></div>
-        <div><dt>{ui.ops.regionSynthetic}</dt><dd>{summary.entered ? `${percent.format(summary.syntheticBps / 10000)}${summary.syntheticEnabled ? ` · ${ui.ops.convertingActive}` : ""}` : "—"}</dd></div>
+        <div><dt>{ui.ops.playerRegionAdoption}</dt><dd>{summary.entered ? percent.format(summary.adoptionBps / 10000) : ui.ops.unentered}</dd></div>
+        <div><dt>{ui.ops.playerRegionSynthetic}</dt><dd>{summary.entered ? `${percent.format(summary.syntheticBps / 10000)}${summary.syntheticEnabled ? ` · ${ui.ops.convertingActive}` : ""}` : "—"}</dd></div>
         <div><dt>{ui.ops.immersedPeople}</dt><dd>{formatCompactPeople(summary.immersed, locale, number)} / {formatCompactPeople(summary.synthetics, locale, number)}</dd></div>
-        <div><dt>{ui.ops.centersBuilt}</dt><dd>{summary.centers} / {summary.totalSlots}</dd></div>
+        <div><dt>{ui.ops.playerCenters}</dt><dd>{number.format(summary.centers)}</dd></div>
         {summary.subsidyDaysLeft > 0 && <div><dt>{scenario.actions["market-subsidy"].name}</dt><dd>{ui.ops.subsidyActive(summary.subsidyDaysLeft)}</dd></div>}
         <div><dt>{ui.ops.milestones}</dt><dd>{btoken.adoptionMilestones.map(m =>
           `${percent.format(m.adoptionBps / 10000)}${summary.milestonesClaimed.includes(m.adoptionBps) ? " ✓" : ` (+${m.reward})`}`).join(" · ")}</dd></div>
@@ -79,20 +79,21 @@ export function RegionPanel({
       {location?.islandId && <div><dt>{ui.islands}</dt><dd>{ui.spratly}</dd></div>}
       {!place && location && <Reading atlas={atlas} place={location}/>}
     </dl>}
+    {run && place && <FactionStandings run={run} regionId={place.id}/>}
     {run && place && keyCountries.length > 0 && (
       <details open>
         <summary>{ui.ops.keyCountries} · {ui.ops.ownedCards(run.buildCards)}</summary>
         <ul className="region-country-list">
           {keyCountries.map(option => {
             const name = countryName(atlas.countryById.get(option.country.id), locale) ?? option.country.id
-            const status = canBuildDataCenter(run, option.country.id)
             return (
               <li key={option.country.id} className="region-country-item">
                 <div>
-                  <strong>{name}</strong> · {percent.format(option.adoptionBps / 10000)}{option.syntheticBps > 0 ? ` · ${ui.ops.regionSynthetic} ${percent.format(option.syntheticBps / 10000)}` : ""}
-                  <small>{ui.ops.centersOf(option.centers, option.unlockedLimit, option.country.slots)}</small>
+                  <strong>{name}</strong> · {ui.ops.playerRegionAdoption} {percent.format(option.adoptionBps / 10000)}
+                  {option.syntheticBps > 0 ? ` · ${ui.ops.playerRegionSynthetic} ${percent.format(option.syntheticBps / 10000)}` : ""}
+                  <small>{ui.ops.sharedCenters(option.centers, option.unlockedLimit, option.occupiedCenters, option.country.slots)}</small>
                 </div>
-                {buildCenter && status === "available" && (
+                {buildCenter && option.status === "available" && (
                   <button type="button" onClick={() => buildCenter(option.country.id)}>{ui.ops.buildHere}</button>
                 )}
               </li>

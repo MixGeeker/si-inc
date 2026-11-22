@@ -1,6 +1,7 @@
 export const Y_SCALE = 1.18
 export const WORLD_WIDTH = 360
 export const WORLD_HEIGHT = 180 * Y_SCALE
+export const relief = (metres: number) => Math.max(0, metres) * .00055
 
 // Coordinates in the 2560 × 1440 reference artwork, measured from the nearest edge.
 export const HUD = {

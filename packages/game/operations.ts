@@ -18,10 +18,17 @@ import {
   type CountrySpec,
 } from "../rules/v0.1/world/countries.ts"
 import { regionCapacity, regionIds, type RegionId } from "../rules/v0.1/world/regions.ts"
+import { competitionRules } from "../rules/v0.1/opposition/computer-factions.ts"
+import {
+  beginComputerDay, countryOccupiedCenters, countryOpenPopulation, countrySeedUsers, finishComputerDay,
+  initialComputerFactions, settleCountryCompetition, tierForAdoption, type ComputerFactions,
+} from "./competition.ts"
 import { marketResearchValue } from "./market-research.ts"
 import type { CountryPopulations } from "./population.ts"
 import { attributesForLevels, dailyCorpus, researchLevels, type SkillLevels } from "./research.ts"
 import type { RunSetup, RunState } from "./run.ts"
+
+export { countryOccupiedCenters, countrySeedUsers } from "./competition.ts"
 
 export interface MarketRunState {
   readonly enteredDay: number | null
@@ -98,6 +105,7 @@ export interface CountryBuildOption {
   readonly adoptionBps: number
   readonly syntheticBps: number
   readonly centers: number
+  readonly occupiedCenters: number
   readonly unlockedLimit: number
   readonly unlockedTier: 0 | 1 | 2 | 3
   readonly localCapacity: number
@@ -118,6 +126,7 @@ export interface VictoryProgress {
   readonly globalSyntheticTargetBps: number
   readonly playerSyntheticBps: number
   readonly playerSyntheticTargetBps: number
+  readonly playerHasMajority: boolean
   readonly totalSynthetics: number
   readonly globalPopulation: number
   readonly coveredRegions: number
@@ -154,30 +163,25 @@ export const defaultCooldowns: ActionCooldowns = {
   protocolRebuildUntilDay: -1,
 }
 
-export function countrySeedUsers(country: CountrySpec, origin: boolean): number {
-  const bps = origin ? opRules.originSeedBps : opRules.countryEntrySeedBps
-  const min = origin ? opRules.originSeedMin : opRules.countryEntrySeedMin
-  return Math.min(country.population, Math.max(min, Math.round(country.population * bps / 10000)))
-}
-
 export function buildCountryPopulations(
   countryStates: Readonly<Record<string, CountryRunState>>,
   factionId: FactionId,
+  opponents: ComputerFactions,
 ): CountryPopulations {
-  const result: Record<string, { readonly total: number; readonly factions: Partial<Record<FactionId, { readonly immersed: number; readonly synthetic: number }>> }> = {}
-  for (const [id, state] of Object.entries(countryStates)) {
-    if (state.users <= 0 && state.synthetics <= 0) continue
-    const spec = countrySpec(id)
-    if (!spec) continue
-    result[id] = {
-      total: spec.population,
-      factions: { [factionId]: { immersed: state.users, synthetic: state.synthetics } },
+  const result: Record<string, { total: number; factions: Partial<Record<FactionId, { immersed: number; synthetic: number }>> }> = {}
+  for (const faction of [{ factionId, countries: countryStates }, ...Object.values(opponents)]) {
+    for (const [id, state] of Object.entries(faction.countries)) {
+      if (state.users <= 0 && state.synthetics <= 0) continue
+      const spec = countrySpec(id)
+      if (!spec) continue
+      const record = result[id] ??= { total: spec.population, factions: {} }
+      record.factions[faction.factionId] = { immersed: state.users, synthetic: state.synthetics }
     }
   }
   return result
 }
 
-export function computeGlobalMetrics(countryStates: Readonly<Record<string, CountryRunState>>) {
+export function computeGlobalMetrics(countryStates: Readonly<Record<string, CountryRunState>>, opponents: ComputerFactions) {
   let totalUsers = 0
   let totalSynthetics = 0
   let weightedDep = 0
@@ -189,10 +193,14 @@ export function computeGlobalMetrics(countryStates: Readonly<Record<string, Coun
   }
   const totalCovered = totalUsers + totalSynthetics
   const adoptionBps = Math.min(10000, Math.floor(totalCovered * 10000 / globalPlayablePopulation))
-  const syntheticBps = totalSynthetics >= globalPlayablePopulation
+  let globalSynthetics = totalSynthetics
+  for (const faction of Object.values(opponents)) {
+    for (const country of Object.values(faction.countries)) globalSynthetics += country.synthetics
+  }
+  const syntheticBps = globalSynthetics >= globalPlayablePopulation
     ? 10000
-    : Math.min(9999, Math.floor(totalSynthetics * 10000 / globalPlayablePopulation))
-  const playerSyntheticBps = syntheticBps
+    : Math.min(9999, Math.floor(globalSynthetics * 10000 / globalPlayablePopulation))
+  const playerSyntheticBps = Math.min(10000, Math.floor(totalSynthetics * 10000 / globalPlayablePopulation))
   const dependencyBps = totalCovered > 0 ? Math.min(10000, Math.round(weightedDep / totalCovered)) : 0
   return { totalUsers, totalSynthetics, totalCovered, adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps }
 }
@@ -216,13 +224,15 @@ export function initialOperations(setup: RunSetup) {
       dependencyBps: opRules.initialDependencyBps,
     },
   }
-  const { adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps } = computeGlobalMetrics(countryStates)
+  const opponents = initialComputerFactions(setup)
+  const { adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps } = computeGlobalMetrics(countryStates, opponents)
   return {
     exposureBps: 0,
     buildCards: 0,
     markets,
     countries: countryStates,
-    countryPopulations: buildCountryPopulations(countryStates, setup.factionId),
+    opponents,
+    countryPopulations: buildCountryPopulations(countryStates, setup.factionId, opponents),
     adoptionBps,
     dependencyBps,
     syntheticBps,
@@ -259,10 +269,39 @@ export function totalImmersed(run: RunState): number {
   return sum
 }
 
-export function totalSynthetics(run: RunState): number {
+export function totalPlayerSynthetics(run: RunState): number {
   let sum = 0
   for (const state of Object.values(run.countries)) sum += state.synthetics
   return sum
+}
+
+export function hasPlayerSyntheticMajority(run: RunState): boolean {
+  return totalPlayerSynthetics(run) * 10000 > globalPlayablePopulation * rules.standardVictory.minPlayerSyntheticShareBps
+}
+
+export function totalSynthetics(run: RunState): number {
+  let sum = totalPlayerSynthetics(run)
+  for (const faction of Object.values(run.opponents)) {
+    for (const state of Object.values(faction.countries)) sum += state.synthetics
+  }
+  return sum
+}
+
+export function factionStandings(run: RunState, regionId?: RegionId) {
+  const player = { factionId: run.setup.factionId, balance: run.balance, countries: run.countries }
+  return [player, ...Object.values(run.opponents)].map(faction => {
+    let immersed = 0
+    let synthetics = 0
+    let centers = 0
+    for (const [id, country] of Object.entries(faction.countries)) {
+      if (regionId && countrySpec(id)?.regionId !== regionId) continue
+      immersed += country.users
+      synthetics += country.synthetics
+      centers += country.centers
+    }
+    return { factionId: faction.factionId, isPlayer: faction.factionId === player.factionId,
+      immersed, synthetics, centers, balance: faction.balance }
+  })
 }
 
 export function regionCenters(run: RunState, regionId: RegionId): number {
@@ -431,6 +470,7 @@ export function victoryProgress(run: RunState): VictoryProgress {
     globalSyntheticTargetBps: goal.minGlobalSyntheticBps,
     playerSyntheticBps: run.playerSyntheticBps,
     playerSyntheticTargetBps: goal.minPlayerSyntheticShareBps,
+    playerHasMajority: hasPlayerSyntheticMajority(run),
     totalSynthetics: synths,
     globalPopulation: globalPlayablePopulation,
     coveredRegions,
@@ -438,9 +478,7 @@ export function victoryProgress(run: RunState): VictoryProgress {
 }
 
 export function isRunEnded(run: RunState): boolean {
-  if (run.researchBps >= humanRules.completionBps) return true
-  const synths = totalSynthetics(run)
-  return synths >= globalPlayablePopulation
+  return run.researchBps >= humanRules.completionBps || run.syntheticBps >= rules.standardVictory.minGlobalSyntheticBps
 }
 
 /** 1–5 star rating for victories: faster completion and higher player synthetic share yield higher ratings. */
@@ -473,7 +511,7 @@ export function canBuildDataCenter(run: RunState, countryId: string): ActionAvai
   if (!spec) return "invalid"
   if (run.markets[spec.regionId].enteredDay === null) return "not-entered"
   const currentCenters = run.countries[countryId]?.centers ?? 0
-  if (currentCenters >= spec.slots) return "full"
+  if (countryOccupiedCenters(run, countryId) >= spec.slots) return "full"
   const limit = countryUnlockLimit(run, countryId)
   if (currentCenters >= limit) return "locked"
   if (run.buildCards < 1) return "cards"
@@ -605,6 +643,7 @@ export function countryBuildOptions(run: RunState, regionId?: RegionId): Country
       adoptionBps,
       syntheticBps,
       centers,
+      occupiedCenters: countryOccupiedCenters(run, country.id),
       unlockedLimit,
       unlockedTier,
       localCapacity: localCountryCapacity(country, centers, continentCenters.get(country.regionId) ?? 0, levels),
@@ -635,7 +674,7 @@ export function enterMarketState(
   const existing = countryStates[originId]
   if (!existing || (existing.users === 0 && existing.synthetics === 0)) {
     countryStates[originId] = {
-      users: countrySeedUsers(spec, true),
+      users: Math.min(countrySeedUsers(spec, true), countryOpenPopulation(run, spec)),
       synthetics: existing?.synthetics ?? 0,
       newlyConverted: 0,
       prevUsers: existing?.prevUsers ?? 0,
@@ -663,21 +702,15 @@ function targetDependencyBps(levels: SkillLevels): number {
   return Math.max(800, Math.min(9600, target))
 }
 
-function tierForAdoption(adoptionBps: number): 0 | 1 | 2 | 3 {
-  const [t1, t2, t3] = opRules.unlockThresholdsBps
-  if (adoptionBps >= t3) return 3
-  if (adoptionBps >= t2) return 2
-  if (adoptionBps >= t1) return 1
-  return 0
-}
-
 export interface OperationsDayResult {
   readonly markets: Readonly<Record<RegionId, MarketRunState>>
   readonly countries: Readonly<Record<string, CountryRunState>>
+  readonly opponents: ComputerFactions
   readonly countryPopulations: CountryPopulations
   readonly adoptionBps: number
   readonly dependencyBps: number
   readonly syntheticBps: number
+  readonly syntheticActivatedDay: number | null
   readonly playerSyntheticBps: number
   readonly conversionBudgetPeople: number
   readonly exposureBps: number
@@ -692,6 +725,7 @@ export interface OperationsDayResult {
 
 /** Deterministic daily settlement: ordinary spread & parallel synthetic conversion, capacity, 3x corpus, exposure and Project HUMAN. */
 export function settleOperationsDay(run: RunState, nextDay: number): OperationsDayResult {
+  const computerDay = beginComputerDay(run, nextDay)
   const levels = researchLevels(run)
   const attrs = attributesForLevels(levels)
   const hasSocial = (levels[channelTechnologies.social] ?? 0) > 0
@@ -743,7 +777,7 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
     const regionCountries = countriesInRegion(regionId)
     const unseeded = regionCountries.filter(c => {
       const s = nextCountries[c.id]
-      return !s || (s.users === 0 && s.synthetics === 0)
+      return !s
     })
     if (!unseeded.length) continue
 
@@ -784,6 +818,8 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
   ]
 
   const prevGlobalAdoptionBps = run.adoptionBps ?? 0
+  const baseMigrationAppeal = marketResearchValue(levels, "migrationRequests", attrs.appeal * 100)
+  const migrationRetention = marketResearchValue(levels, "naturalChurn", 10000)
   let remainingBudget = run.conversionBudgetPeople
   let totalConvertedToday = 0
   let activeSubsidizedMarkets = 0
@@ -791,7 +827,10 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
 
   for (const regionId of regionIds) {
     const oldMarket = markets[regionId]
-    if (oldMarket.enteredDay === null) continue
+    if (oldMarket.enteredDay === null) {
+      for (const spec of countriesInRegion(regionId)) settleCountryCompetition(run, nextDay, spec, computerDay, null)
+      continue
+    }
     const subsidized = nextDay <= oldMarket.subsidyUntilDay
     if (subsidized) activeSubsidizedMarkets++
     const marketDay = Math.max(1, nextDay - oldMarket.enteredDay)
@@ -807,7 +846,14 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
 
     for (const spec of countriesInRegion(regionId)) {
       const prev = nextCountries[spec.id]
-      if (!prev || (prev.users <= 0 && prev.synthetics <= 0)) continue
+      if (!prev) {
+        settleCountryCompetition(run, nextDay, spec, computerDay, null)
+        continue
+      }
+      const start = run.countries[spec.id]
+      const startUsers = start?.users ?? 0
+      const startSynthetics = start?.synthetics ?? 0
+      const seededToday = newlyEnteredCountries.has(spec.id) || prev.users > startUsers
 
       const prevCovered = prev.users + prev.synthetics
       const remaining = spec.population - prevCovered
@@ -820,7 +866,7 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
       let socialShareOfCandidate = 0
       let apiShareOfCandidate = 0
 
-      if (!newlyEnteredCountries.has(spec.id) && remaining > 0) {
+      if (!seededToday && remaining > 0) {
         // Ordinary immersed users drive viral spread; synthetics spread much slower via infrastructure alone,
         // rewarding Plague Inc.-style timing without permanently deadlocking tiny tail countries.
         const hostUsers = prev.users
@@ -917,11 +963,22 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
       const overflow = candidate - inCap
       const overflowAdded = Math.floor((overflow + prev.carry) / 2)
       const nextCarry = ((overflow + prev.carry) % 2) as 0 | 1
-      const added = Math.min(remaining, inCap + overflowAdded)
+      const requested = seededToday ? prev.users - startUsers : Math.min(remaining, inCap + overflowAdded)
+      const { added, movedIn, movedOut } = settleCountryCompetition(run, nextDay, spec, computerDay, {
+        factionId: run.setup.factionId,
+        users: startUsers,
+        synthetics: startSynthetics,
+        newUsers: requested,
+        migrationRoom: Math.max(0, Math.max(localCap, Math.floor(spec.population * competitionRules.migrationBaseCapacityBps / 10000))
+          - startUsers - startSynthetics),
+        appealBps: baseMigrationAppeal + (subsidized ? competitionRules.migrationSubsidyAppealBps : 0),
+        retentionBps: migrationRetention,
+        subsidized,
+      })
 
       // Parallel synthetic conversion: only ordinary users present at the start of the day can convert today.
       let converted = 0
-      const convertiblePool = newlyEnteredCountries.has(spec.id) ? 0 : prev.users
+      const convertiblePool = startUsers - movedOut
       if (oldMarket.syntheticEnabled && convertiblePool > 0 && remainingBudget > 0) {
         const rateBps = opRules.syntheticBaseDailyRateBps + prev.centers * opRules.syntheticCenterDailyRateBps
         const baseDailyCap = Math.max(1, Math.ceil(spec.population * rateBps / 10000))
@@ -935,8 +992,9 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
         totalConvertedToday += converted
       }
 
-      const nextUsers = prev.users - converted + added
-      const nextSynthetics = prev.synthetics + converted
+      const previousUsers = convertiblePool - converted
+      const nextUsers = previousUsers + added + movedIn
+      const nextSynthetics = startSynthetics + converted
       const nextCovered = nextUsers + nextSynthetics
 
       regionNewSocial += Math.round(added * socialShareOfCandidate)
@@ -957,8 +1015,8 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
         users: nextUsers,
         synthetics: nextSynthetics,
         newlyConverted: converted,
-        prevUsers: prev.users - converted,
-        retainedDays: (prev.users - converted) > 0 ? Math.min(9999, prev.retainedDays + 1) : 0,
+        prevUsers: previousUsers,
+        retainedDays: previousUsers > 0 ? Math.min(9999, prev.retainedDays + 1) : 0,
         centers: prev.centers,
         unlockedTier,
         carry: nextCarry,
@@ -997,8 +1055,9 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
   }
 
   // 4. Recompute global metrics & population map snapshot (with both ordinary & synthetic counts).
-  const { totalCovered, adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps } = computeGlobalMetrics(nextCountries)
-  const countryPopulations = buildCountryPopulations(nextCountries, run.setup.factionId)
+  const computer = finishComputerDay(computerDay, nextDay)
+  const { totalCovered, adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps } = computeGlobalMetrics(nextCountries, computer.opponents)
+  const countryPopulations = buildCountryPopulations(nextCountries, run.setup.factionId, computer.opponents)
 
   // 5. Operating token income on even days (ordinary + active synthetics count 1 person each).
   const income = btoken.income
@@ -1080,17 +1139,19 @@ export function settleOperationsDay(run: RunState, nextDay: number): OperationsD
   const standardExposure = baseExposure > 0 ? marketResearchValue(levels, "exposure", baseExposure) : 0
   const agentExposure = hasAgent ? marketResearchValue(levels, "exposure", 22, { facts: ["agentAction"] }) : 0
   const exposureGain = Math.max(0, Math.round(standardExposure + agentExposure))
-  const exposureBps = Math.min(10000, run.exposureBps + exposureGain)
+  const exposureBps = Math.min(10000, run.exposureBps + exposureGain + computer.exposureGain)
   const alertLevel = currentAlertLevel(exposureBps)
   const humanAdvanceBps = humanRules.dailyAdvanceBps[alertLevel]
 
   return {
     markets,
     countries: nextCountries,
+    opponents: computer.opponents,
     countryPopulations,
     adoptionBps,
     dependencyBps,
     syntheticBps,
+    syntheticActivatedDay: run.syntheticActivatedDay ?? computer.firstActivationDay,
     playerSyntheticBps,
     conversionBudgetPeople: remainingBudget,
     exposureBps,

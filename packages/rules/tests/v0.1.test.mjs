@@ -28,8 +28,9 @@ test("every playable faction, start market and faction epilogue belongs to the s
   assert.equal(rules.daySecondsAt1x, 4)
   assert.deepEqual(rules.speedMultipliers, [1, 2, 5])
   assert.equal(Object.hasOwn(rules, "maxDays"), false)
-  assert.deepEqual(Object.keys(endings).sort(), ["ai-victory", "human-victory"])
-  for (const locale of [zhCN, en]) assert.equal(Object.hasOwn(locale.endings, "timeout"), false)
+  const outcomes = ["ai-victory", "human-victory", "rival-victory"]
+  assert.deepEqual(Object.keys(endings).sort(), outcomes)
+  for (const locale of [zhCN, en]) assert.deepEqual(Object.keys(locale.endings).sort(), [...outcomes, "withdrawn"])
   for (const id of regionIds) assert.equal(resolveStartRegionId(id), id)
   for (const id of ["we", "ee", "sa", "latam", "__proto__", ["as"]]) assert.equal(resolveStartRegionId(id), undefined)
 })

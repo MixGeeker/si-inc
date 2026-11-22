@@ -18,6 +18,7 @@ import { useLanguage } from "../../i18n/useLanguage"
 import { SceneDialog } from "../Dialog"
 import type { Scene } from "../machine"
 import { EventEffects } from "./EventEffects"
+import { FactionStandings } from "./FactionStandings"
 import { formatCompactPeople } from "./hudContent"
 import "./narrative-events.css"
 
@@ -31,17 +32,18 @@ export function MarketPanel({ run }: { run: RunState }) {
   const yieldInfo = corpusYieldBreakdown(run)
   const victory = victoryProgress(run)
   const globalSynthMet = victory.globalSyntheticBps >= victory.globalSyntheticTargetBps
-  const playerShareMet = victory.playerSyntheticBps > victory.playerSyntheticTargetBps
+  const playerShareMet = victory.playerHasMajority
   return <>
     <p>{ui.startMarket} · {scenario.regions[setup.startRegionId]} · {scenario.phases[phaseId].name}</p>
     <dl className="readings">
       <div><dt>{ui.ops.globalAdoption}</dt><dd>{percent.format((run.adoptionBps ?? 0) / 10000)}</dd></div>
       <div><dt>{ui.ops.syntheticGlobal}</dt><dd>{percent.format(run.syntheticBps / 10000)}</dd></div>
       <div><dt>{ui.ops.exposure}</dt><dd>{percent.format(run.exposureBps / 10000)} · {scenario.alerts[alertId]}</dd></div>
-      <div><dt>{ui.ops.centersBuilt}</dt><dd>{totalCenters(run)} · {ui.ops.ownedCards(run.buildCards)}</dd></div>
+      <div><dt>{ui.ops.playerCenters}</dt><dd>{totalCenters(run)} · {ui.ops.ownedCards(run.buildCards)}</dd></div>
       <div><dt>{ui.ops.rawCorpus}</dt><dd>{ui.ops.rawCorpusUnit(formatCompactPeople(yieldInfo.rawPeopleCorpus, locale, number))}</dd></div>
       <div><dt>{ui.ops.corpusFlywheel}</dt><dd>{ui.ops.corpusBreakdown(yieldInfo.fixed, yieldInfo.populationCapped, yieldInfo.throughputCap)}</dd></div>
     </dl>
+    <FactionStandings run={run}/>
     <details open><summary>{ui.ops.victoryGoal}</summary>
       <ul className="victory-list">
         <li className={globalSynthMet ? "met" : undefined}>{globalSynthMet ? "✓ " : "○ "}{ui.ops.victoryGlobalSynthetic(percent.format(victory.globalSyntheticBps / 10000), percent.format(victory.globalSyntheticTargetBps / 10000))}</li>

@@ -7,10 +7,11 @@ import { researchNode, type SkillId } from "../rules/v0.1/evolution/trees.ts"
 import type { Outcome } from "../rules/v0.1/endings/standard.ts"
 import type { FactionId } from "../rules/v0.1/factions/roster.ts"
 import { isFactionId, resolveStartRegionId, standardScenario } from "../rules/v0.1/scenario.ts"
-import { countrySpec, globalPlayablePopulation } from "../rules/v0.1/world/countries.ts"
+import { countrySpec } from "../rules/v0.1/world/countries.ts"
 import type { RegionId } from "../rules/v0.1/world/regions.ts"
 import type { GameCommand, RunCommand, TokenGrant } from "./types.ts"
 import type { CountryPopulations } from "./population.ts"
+import type { ComputerFactions } from "./competition.ts"
 import { marketResearchValue } from "./market-research.ts"
 import {
   buildCountryPopulations,
@@ -21,12 +22,12 @@ import {
   canUseAction,
   computeGlobalMetrics,
   enterMarketState,
+  hasPlayerSyntheticMajority,
   initialOperations,
   publicStatementReliefBps,
   settleOperationsDay,
   syntheticActivationExposureBps,
   syntheticPeoplePerToken,
-  totalSynthetics,
   type ActionCooldowns,
   type CountryRunState,
   type MarketRunState,
@@ -75,6 +76,7 @@ export interface RunState {
   readonly buildCards: number
   readonly markets: Readonly<Record<RegionId, MarketRunState>>
   readonly countries: Readonly<Record<string, CountryRunState>>
+  readonly opponents: ComputerFactions
   readonly corpusRemainder: number
   readonly crossRegionProgress: number
   readonly actionCooldowns: ActionCooldowns
@@ -122,8 +124,8 @@ export function createRun(input: { [K in keyof RunSetup]: string }, seed: number
 
 export function dailyOutcome(run: RunState): Outcome | null {
   if (run.researchBps >= rules.projectHuman.completionBps) return "human-victory"
-  if (totalSynthetics(run) >= globalPlayablePopulation) {
-    return run.playerSyntheticBps > rules.standardVictory.minPlayerSyntheticShareBps ? "ai-victory" : "human-victory"
+  if (run.syntheticBps >= rules.standardVictory.minGlobalSyntheticBps) {
+    return hasPlayerSyntheticMajority(run) ? "ai-victory" : "rival-victory"
   }
   return null
 }
@@ -246,10 +248,12 @@ export function advanceDay(run: RunState): RunState {
     countryPopulations: op.countryPopulations,
     syntheticBps: op.syntheticBps,
     playerSyntheticBps: op.playerSyntheticBps,
+    syntheticActivatedDay: op.syntheticActivatedDay,
     conversionBudgetPeople: op.conversionBudgetPeople,
     exposureBps: op.exposureBps,
     markets: op.markets,
     countries: op.countries,
+    opponents: op.opponents,
     corpusRemainder: op.corpusRemainder,
     crossRegionProgress: op.crossRegionProgress,
     researchBps: Math.min(rules.projectHuman.completionBps, run.researchBps + op.humanAdvanceBps + danger),
@@ -421,13 +425,13 @@ export function useAction(run: RunState, abilityId: string, seq: number, targetR
     const markets = { ...run.markets } as Record<RegionId, MarketRunState>
     const countries = { ...run.countries } as Record<string, CountryRunState>
     if (!enterMarketState(run, targetRegionId, run.completedDay, markets, countries)) return run
-    const { adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps } = computeGlobalMetrics(countries)
+    const { adoptionBps, syntheticBps, playerSyntheticBps, dependencyBps } = computeGlobalMetrics(countries, run.opponents)
     return {
       ...run,
       balance: run.balance - action.cost + btoken.newMarketReward,
       markets,
       countries,
-      countryPopulations: buildCountryPopulations(countries, run.setup.factionId),
+      countryPopulations: buildCountryPopulations(countries, run.setup.factionId, run.opponents),
       adoptionBps,
       syntheticBps,
       playerSyntheticBps,

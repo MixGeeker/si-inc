@@ -1,14 +1,16 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { advanceDay, canGrantTokens, createRun, dailyOutcome, grantDeveloperTokens, nextCommandSeq, resolveDecision } from "../run.ts"
+import { advanceDay, canGrantTokens, createRun, dailyOutcome, grantDeveloperTokens, nextCommandSeq, resolveDecision, useAction } from "../run.ts"
 import { replayForRun, runTimeline } from "../inspection.ts"
 import { standardScenario } from "../../rules/v0.1/scenario.ts"
 import { decisions } from "../../rules/v0.1/events/decisions.ts"
+import { actionById } from "../../rules/v0.1/evolution/actions.ts"
 
 const setup = { factionId: "claude", startRegionId: "as", difficultyId: "standard" }
 const { rules } = standardScenario
-function until(run, target) {
+function until(run, target, beforeDay = current => current) {
   while (run.completedDay < target) {
+    run = beforeDay(run)
     const next = advanceDay(run)
     assert.notStrictEqual(next, run)
     run = next
@@ -33,17 +35,22 @@ test("daily runs validate current setup, deterministic seed and caller-owned ide
 })
 
 test("daily settlements continue beyond 120 and 360 days without a deadline", () => {
-  const run = until(createRun(setup, 42), 1000)
+  // Rival conversion drives exposure during a long campaign. Keep HUMAN from taking over.
+  const keepExposureLow = run => run.exposureBps >= rules.projectHuman.activationExposureBps - 500
+    ? useAction(run, "public-statement", nextCommandSeq(run)) : run
+  const play = seed => until(createRun(setup, seed), 1000, keepExposureLow)
+  const run = play(42)
   assert.equal(run.completedDay, 1000)
   assert.equal(dailyOutcome(run), null)
   assert.equal(advanceDay(run).completedDay, 1001)
-  assert.equal(run.balance, rules.initialBtoken + 500)
+  assert.ok(run.commands.length > 0)
+  assert.equal(run.balance, rules.initialBtoken + 500 - run.commands.length * actionById("public-statement").cost)
   assert.ok(run.research.corpus >= rules.research.initialCorpus + 1000 * rules.research.dailyCorpus)
   assert.ok(run.adoptionBps > 0 && run.dependencyBps > 0)
   assert.ok(run.countryPopulations.CHN?.factions.claude.immersed > 0)
   assert.ok(runTimeline(run))
-  assert.deepEqual(run, until(createRun(setup, 42), 1000))
-  assert.notDeepEqual(run.events.map(e => e.content.id), until(createRun(setup, 1), 1000).events.map(e => e.content.id))
+  assert.deepEqual(run, play(42))
+  assert.notDeepEqual(run.events.map(e => e.content.id), play(1).events.map(e => e.content.id))
   let previous = 0
   for (const event of run.events) {
     const gap = event.day - previous

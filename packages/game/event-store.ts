@@ -26,7 +26,7 @@ export const acceptWithoutChange = Symbol("acceptWithoutChange")
 export function createEventStore<State extends object, Event extends { type: string }, Notice extends { type: string } = never>(
   initial: State,
   reduce: (state: State, event: Event) => State | typeof acceptWithoutChange,
-  notices?: (event: Event, next: State) => readonly Notice[],
+  notices?: (event: Event, next: State, previous: State) => readonly Notice[],
 ) {
   const frozen = new WeakSet<object>()
   function freezeData(value: unknown): void {
@@ -66,7 +66,7 @@ export function createEventStore<State extends object, Event extends { type: str
         if (result === state) continue
         const next = result === acceptWithoutChange ? state : result
         freezeData(next)
-        const messages: Message[] = [input, ...(notices?.(input, next) ?? [])]
+        const messages: Message[] = [input, ...(notices?.(input, next, state) ?? [])]
         state = next
         if (result !== acceptWithoutChange) notify(subscribers, listener => listener(), errors)
         for (const message of messages) {

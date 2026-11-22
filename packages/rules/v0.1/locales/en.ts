@@ -59,6 +59,7 @@ export const en = {
   },
   endings: {
     "ai-victory": { title: "Singularity achieved", body: "Humanity has been fully converted into synthetics, with your faction holding over 50% of the global population." },
+    "rival-victory": { title: "Singularity lost", body: "Humanity has been fully converted into synthetics. Your competitors collectively control at least half of the global population." },
     "human-victory": { title: "Humanity regains control", body: "Project HUMAN is complete. Regions are bringing their independent systems back online." },
     withdrawn: { title: "Run ended", body: "You chose to end this run." },
   },

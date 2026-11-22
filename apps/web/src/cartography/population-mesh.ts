@@ -1,30 +1,35 @@
-import { CanvasTexture, LinearFilter, PlaneGeometry, ShaderMaterial } from "three"
-import { relief, type Atlas } from "./atlas"
-import { Y_SCALE } from "./layout"
-import type { PopulationSurface } from "./population-surface"
+import { BufferAttribute, BufferGeometry, ShaderMaterial } from "three"
+import type { PopulationPointCloud } from "./population-points"
 
-export function populationMesh(atlas: Atlas, surface: PopulationSurface) {
-  const { west, south, east, north, canvas } = surface
-  const columns = (east - west) * 2, rows = (north - south) * 2
-  const geometry = new PlaneGeometry(east - west, (north - south) * Y_SCALE, columns, rows)
-  geometry.translate((west + east) / 2, (north + south) * Y_SCALE / 2, 0)
-  const vertices = geometry.getAttribute("position")
-  for (let row = 0; row <= rows; row++) for (let col = 0; col <= columns; col++) {
-    const index = ((90 - north) * 2 + row) * 721 + (west + 180) * 2 + col
-    vertices.setZ(row * (columns + 1) + col, relief(atlas.heights[index]))
-  }
+export const populationPointDiameter = 2.5
+
+export function populationGeometry(cloud: PopulationPointCloud) {
+  const geometry = new BufferGeometry()
+  geometry.setAttribute("position", new BufferAttribute(cloud.positions, 3))
+  geometry.setAttribute("color", new BufferAttribute(cloud.colors, 3, true))
   geometry.computeBoundingSphere()
-  const texture = new CanvasTexture(canvas)
-  texture.generateMipmaps = false
-  texture.minFilter = texture.magFilter = LinearFilter
-  const material = new ShaderMaterial({
-    uniforms: { population: { value: texture } }, transparent: true, depthWrite: false,
-    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
-    vertexShader: `varying vec2 coord; void main() {
-      coord = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
-    }`,
-    fragmentShader: `varying vec2 coord; uniform sampler2D population;
-      void main() { gl_FragColor = texture2D(population, coord); }`,
+  return geometry
+}
+
+export function populationMaterial() {
+  return new ShaderMaterial({
+    uniforms: { diameter: { value: populationPointDiameter } },
+    vertexColors: true, transparent: true, depthWrite: false, toneMapped: false,
+    vertexShader: `
+      uniform float diameter;
+      varying vec3 pointColor;
+      void main() {
+        pointColor = color;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = diameter;
+      }`,
+    fragmentShader: `
+      varying vec3 pointColor;
+      void main() {
+        float radius = length(gl_PointCoord - vec2(0.5));
+        float opacity = 1.0 - smoothstep(0.30, 0.50, radius);
+        if (opacity == 0.0) discard;
+        gl_FragColor = vec4(pointColor, opacity);
+      }`,
   })
-  return { surface, geometry, material, texture, uploaded: -1 }
 }

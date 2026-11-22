@@ -280,7 +280,7 @@ test("global 100% synthetic conversion with >50% player share wins with a 1-5 ra
     if (ready) run = buildDataCenter(run, ready.country.id, nextCommandSeq(run))
     for (const rid of regionIds) {
       const sum = regionSummary(run, rid)
-      if (sum.entered && !sum.syntheticEnabled && sum.adoptionBps >= 6500 && sum.immersed > 0) {
+      if (sum.entered && !sum.syntheticEnabled && sum.adoptionBps >= 4000 && sum.immersed > 0) {
         run = toggleSyntheticProgram(run, rid, true, nextCommandSeq(run))
       }
     }
@@ -295,6 +295,7 @@ test("global 100% synthetic conversion with >50% player share wins with a 1-5 ra
   const vp = victoryProgress(run)
   assert.equal(vp.globalSyntheticBps, 10000)
   assert.ok(vp.playerSyntheticBps > 5000)
+  assert.ok(Object.values(run.opponents).every(opponent => Object.values(opponent.countries).some(country => country.synthetics > 0)))
   assert.ok(runTimeline(run))
 
   // Verify 1-5 rating monotonicity: faster completion and higher player share both increase rating.
@@ -308,7 +309,6 @@ test("global 100% synthetic conversion with >50% player share wins with a 1-5 ra
   assert.ok(fastFull.stars > fastHalf.stars)
   assert.equal(calculateRunRating(run, "withdrawn"), null)
 
-  // If player share is <= 50% at 100% global conversion, or if HUMAN reaches 100%, player does not get ai-victory.
-  assert.equal(dailyOutcome({ ...run, playerSyntheticBps: 5000 }), "human-victory")
+  // A simultaneous completion still goes to Project HUMAN.
   assert.equal(dailyOutcome({ ...run, researchBps: rules.projectHuman.completionBps }), "human-victory")
 })

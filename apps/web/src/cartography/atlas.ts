@@ -6,6 +6,7 @@ import landUrl from "./data/land.png"
 export { default as surfaceUrl } from "./data/surface.webp"
 export { default as nightLightsUrl } from "./data/night-lights.webp"
 export { default as vaporUrl } from "./data/vapor.webp"
+export { relief } from "./layout"
 
 export type Country = {
   id: string; name: string; lon: number; lat: number
@@ -15,7 +16,6 @@ export type Country = {
 export type Location = { lon: number; lat: number; country: Country | null; siteId?: string; islandId?: typeof spratlyIslands }
 export const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 export const wrapLon = (lon: number) => ((lon + 180) % 360 + 360) % 360 - 180
-export const relief = (metres: number) => Math.max(0, metres) * .00055
 const fromSouth = -89.875, fromWest = -179.875
 
 async function fetchAsset(url: string) {

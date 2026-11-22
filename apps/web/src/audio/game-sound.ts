@@ -11,7 +11,6 @@ export function attachGameSound(
   output = createSoundOutput(() => store.getSnapshot().sound),
   persist = saveSoundSettings,
 ) {
-  let lastNight = store.getSnapshot().layers.night
   let lastResearchBps = visibleRunState(store.getSnapshot().scene)?.researchBps ?? 0
   let alertDay: number | undefined
 
@@ -45,17 +44,17 @@ export function attachGameSound(
     store.on("play-sound", ({ cue }) => output.play(cue)),
     store.on("set-sound-muted", settingsChanged),
     store.on("set-sound-volume", settingsChanged),
-    store.on("run-started", (_, snapshot) => {
-      lastNight = snapshot.layers.night
+    store.on("run-started", () => {
       lastResearchBps = 0
       alertDay = undefined
     }),
     store.on("advance-day", (_, snapshot) => checkResearchThreshold(snapshot)),
     store.on("dev-step-day", (_, snapshot) => checkResearchThreshold(snapshot)),
     store.on("set-layer", (event, snapshot) => {
-      const enteredNight = event.layer === "night" && event.enabled && !lastNight
-      lastNight = snapshot.layers.night
-      if (enteredNight && snapshot.scene.kind === "campaign") emit("enter_eternal_night")
+      if (event.layer === "night" && event.enabled && snapshot.scene.kind === "campaign") emit("enter_eternal_night")
+    }),
+    store.on("eternal-night-started", (_, snapshot) => {
+      if (snapshot.scene.kind !== "ending") emit("enter_eternal_night")
     }),
     store.on("event-occurred", ({ entry }, snapshot) => {
       if (snapshot.scene.kind === "ending") return

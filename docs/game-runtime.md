@@ -8,7 +8,7 @@
 
 开始页、预览菜单和局内菜单通过 `open-settings` 打开同一设置场景。设置保存原场景作为 `back`，返回时恢复该场景；从局内菜单进入设置，第一次返回仍是原菜单，第二次返回才回到地图。开始页、选择页、难度页和设置均暂停时间。设置期间可通过现有事件修改语言、音效和显示图层，局内日数、研究、事件与操作日志不变；菜单和设置保留当前日的剩余计时、所选倍速和手动暂停。
 
-设置即时提交到当前应用根的 store。浏览器适配器把语言、音效静音、音量和开发者功能启用偏好写入本机 `localStorage`，下次打开时读取；存储不可用时，本次页面仍使用已提交的选择。显示图层在当前 store 内跨场景、跨新局沿用，刷新后恢复默认值。前台场景、选局草稿、倍速、手动暂停和日内计时没有持久化；设置页返回和时钟重挂不代表已实现对局存读档。[语言偏好](../apps/web/src/i18n/preferences.ts) · [音效偏好](../apps/web/src/audio/settings.ts) · [开发者偏好](../apps/web/src/scenes/developer.ts)
+设置即时提交到当前应用根的 store。浏览器适配器把语言、音效静音、音量和开发者功能启用偏好写入本机 `localStorage`，下次打开时读取。存储不可用时，本次页面仍使用已提交的选择。云层、洋流和人口图层在当前 store 内跨场景、跨新局沿用，刷新后恢复默认值。昼夜跟随开局和合成人计划切换。前台场景、选局草稿、倍速、手动暂停和日内计时没有持久化。[语言偏好](../apps/web/src/i18n/preferences.ts) · [音效偏好](../apps/web/src/audio/settings.ts) · [开发者偏好](../apps/web/src/scenes/developer.ts)
 
 ## 数据归属
 
@@ -17,6 +17,7 @@
 | 开局余额、事件间隔、速度、价格、阈值、剧本文案 | `packages/rules/v0.1/` | 按规则版本导入，结算和界面引用同一份配置。 |
 | 对局 ID、规则版本、阵营、起点、种子、已完成日数、当前余额、研究与普及指标、事件、操作日志 | `RunState` | 界面通过 `visibleRunState(snapshot.scene)` 读。纯函数 `createRun`、`advanceDay`、`resolveDecision` 负责初始化和结算。 |
 | 各国总人口、各阵营的普通沉浸人数和现役合成人数 | `RunState.countryPopulations` | 使用地图国家 ID。人口图层从计数求占比。 |
+| 电脑阵营的起点、余额、研究、市场、人口和设施 | `RunState.opponents` | `createRun` 初始化其余两个阵营。`advanceDay` 从同一日初快照结算各阵营的新增、转投和建设，界面用 `factionStandings` 读竞争结果。 |
 | 玩家语料、已解锁的研究槽位、研究项目 | `RunState.research` | 项目保存科技 ID、槽号和开题日。等级、空槽、前置、每日语料和完工日都从快照读取。 |
 | 东亚人口示例的两项比例 | `GameState.populationPreview` | 预览地图用 `open-population-preview`、`set-preview-population`、`close-population-preview` 操作。开局清空示例。 |
 | 场景、当前面板、选择的倍速和手动暂停 | `GameState.scene` | 用场景事件更新。`speed` 只保存正倍速，`manualPaused` 保存玩家的暂停选择；显示和时钟都用 `gamePlaybackSpeed(snapshot)` 读取有效速度。 |
@@ -91,6 +92,12 @@ store.dispatch({ type: "play-sound", cue: "test" })
 
 ## 剧本事件和回放
 
+### 多阵营日结算
+
+标准对局的电脑阵营按各自策略扩张、建设、研究和改造。普通用户可以转投，合成人保留阵营归属。各国的人口和建设槽由所有阵营共用。电脑同日争用最后一个槽时，按对局种子和日期决定顺序，未建成的一方保留建设卡。电脑行为由日结算重演，无需单独记录成玩家指令。[竞争规则](../packages/rules/v0.1/opposition/computer-factions.ts) · [竞争结算](../packages/game/competition.ts)
+
+有效开局在同一次状态提交中设为白昼。任意阵营首次启用合成人计划时，`RunState.syntheticActivatedDay` 和夜间图层随对应操作或日结算一同提交，图层由白昼转为永夜时发出 `eternal-night-started`。玩家仍可手动切换显示。全球改造完成时，玩家持有超过半数合成人即获胜，否则由对手获胜。Project HUMAN 完成时优先判定人类胜利。[对局结算](../packages/game/run.ts) · [图层与通知](../apps/web/src/scenes/store.ts)
+
 ### 开发者面板
 
 「日期与菜单 → 设置」通过 `set-developer-enabled` 启用或关闭面板，默认关闭，启用偏好保存在本机。`GameState.developer.open` 由 `set-developer-open` 切换。展开时保留当前日的剩余计时，收起后恢复玩家原来的速度。手动完成一天后，下一天从完整时长开始。
@@ -99,7 +106,7 @@ store.dispatch({ type: "play-sound", cue: "test" })
 
 `dev-step-day` 核对对局 ID 和已完成日数，复用战役的日结算、事件和到期通知。「下次事件」与「到下个事件」共用 `nextEventDay(run)`，读取随机排期、研究里程碑和未投递后续新闻中的最早未来日期，查询不消耗随机序列。「到下个事件」逐日发送该输入，在实际产生事件或终局时停止。`dev-grant-token` 还核对下一条指令的 `seq`、正整数金额和余额的安全整数范围。发放与 `devGrantTokens` 指令在同一次转移中提交，随后发出 `dev-token-granted`。开启面板的有效对局可以在待决策时发放 token。
 
-时间线从规则、开局、种子和按序指令重演每次余额变化。普通对局导出 `ReplayV2`（`saveVersion: 2`），含开发者发放的对局导出 `format: "debug-replay"`、`version: 2` 和含发放记录的完整指令序列。日制直接使用当前规则，不保留旧周制解码、兼容或迁移分支。[回放与时间线](../packages/game/inspection.ts)
+时间线从规则、开局、种子和按序指令重演每次余额变化。普通对局导出 `ReplayV2`（`saveVersion: 2`），含开发者发放的对局导出 `format: "debug-replay"`、`version: 2` 和含发放记录的完整指令序列。多阵营日结算对应规则 `v0.1.1`，时间线会拒绝规则版本不一致的快照。日制使用当前规则，不保留旧周制解码、兼容或迁移分支。[回放与时间线](../packages/game/inspection.ts)
 
 ### 日制剧本
 
@@ -107,7 +114,7 @@ store.dispatch({ type: "play-sound", cue: "test" })
 
 循环科技每完成一级都可再次开题，按已完成等级递增标价，次日起享受新增的每日语料。危险科技每次结题按规则增加 `RunState.researchBps`（Project HUMAN 反制进度）。反制达到 100% 时以人类胜利结算。新局没有固定到期日，未满足终局条件时继续运行。订阅者可以接收 `research-slot-unlocked`、`research-started` 和逐项目的 `research-completed` 通知。
 
-50 项科技分布在传播、行为和能力三页，分别有 17、17 和 16 个独立节点。每个前置组完成任意一项即可，所有组都需满足。互斥路线在开题时锁定，只有一方能解锁的后续项目也会标成互斥。流派选择发送 `select-research-build`，高亮和选区归场景快照。四项模型指数由已结题项目及其等级计算，基准各为 100。
+50 项科技分布在传播、行为和能力三页，分别有 17、17 和 16 个独立节点。每个前置组完成任意一项即可，所有组都需满足。互斥路线在开题时锁定，只有一方能解锁的后续项目也会标成互斥。四项模型指数由已结题项目及其等级计算，基准各为 100。
 
 自动评测集降低后续循环项目价格。版本重构从次日起，在同日完成至少两项研究时发一次额外语料。用户经营收入按盈利能力调整，按百分之一 token 跨期累计，再遵守每次经营收益上限。科技详情中的条件试算与经营结算使用同一个纯函数。研究预览采用明示的样本值，真实市场的迁移、召回和改造还需要相应的对局行动提供人口和预算。[市场研究效果](../packages/game/market-research.ts) · [版本化条件](../packages/rules/v0.1/evolution/market-effects.ts)
 

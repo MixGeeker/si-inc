@@ -183,6 +183,7 @@ function CampaignStrip({x,y,place,location,content,focusPlace,openDetails}:{
   const marketName = place ? scenario.regions[place.id] : null
   const name = marketName ?? `${ui.globalMarket} · ${content.adoptionText}`
   const currentRegion = place ? content.regions[place.id] : null
+  const currentRivals = place ? content.rivalsByRegion[place.id] : []
   const footer = place
     ? (currentRegion && currentRegion.subsidyDaysLeft > 0
       ? ui.ops.subsidyActive(currentRegion.subsidyDaysLeft)
@@ -207,11 +208,14 @@ function CampaignStrip({x,y,place,location,content,focusPlace,openDetails}:{
       const summary = content.regions[id]
       const readyToBuild = content.buildCards > 0 && summary.buildableCount > 0
       const synthTag = summary.syntheticBps > 0 ? ` · ◈${percent.format(summary.syntheticBps / 10000)}` : ""
+      const rivals = content.rivalsByRegion[id]
       const rightText = summary.entered
         ? `${percent.format(summary.adoptionBps / 10000)}${synthTag || ` · ${summary.centers}/${summary.totalSlots}`}`
-        : ui.ops.unentered
+        : rivals.length ? ui.ops.rivalCount(rivals.length) : ui.ops.unentered
+      const description = [rightText, ui.slotsFull(summary.totalSlots)]
+      if (rivals.length) description.push(ui.ops.rivalPresence(rivals.join(" · ")))
       return <g key={id} transform={`translate(${215 + (i % 3) * 254} ${46 + Math.floor(i / 3) * 56})`}>
-        <Control label={scenario.regions[id]} description={`${rightText} · ${ui.slotsFull(summary.totalSlots)}`} run={() => focusPlace({ kind: "market", id })}>
+        <Control label={scenario.regions[id]} description={description.join(" · ")} run={() => focusPlace({ kind: "market", id })}>
           <rect className="place-cell" width="246" height="49" stroke={summary.syntheticEnabled ? "var(--ui-accent)" : readyToBuild ? "var(--ui-gain)" : undefined}/>
           <text x="10" y="32" fontSize="23">{scenario.regions[id]}</text>
           <text x="235" y="32" textAnchor="end" fontSize="17" fill={summary.syntheticEnabled ? "var(--ui-accent-bright)" : readyToBuild ? "var(--ui-gain)" : "var(--hud-muted)"}>{rightText}</text>
@@ -219,12 +223,13 @@ function CampaignStrip({x,y,place,location,content,focusPlace,openDetails}:{
       </g>
     })}
     {place && currentRegion && <g transform="translate(220 74)">
-      <text fontSize="20" fill="var(--hud-muted)">{ui.ops.regionAdoption}</text>
+      <text fontSize="20" fill="var(--hud-muted)">{ui.ops.playerRegionAdoption}</text>
       <text y="42" fontSize="34">{currentRegion.entered ? percent.format(currentRegion.adoptionBps / 10000) : ui.ops.unentered}</text>
-      <text x="250" fontSize="20" fill={currentRegion.syntheticEnabled ? "var(--ui-accent-bright)" : "var(--hud-muted)"}>{ui.ops.regionSynthetic}</text>
+      <text x="250" fontSize="20" fill={currentRegion.syntheticEnabled ? "var(--ui-accent-bright)" : "var(--hud-muted)"}>{ui.ops.playerRegionSynthetic}</text>
       <text x="250" y="42" fontSize="34">{currentRegion.entered ? percent.format(currentRegion.syntheticBps / 10000) : "—"}</text>
-      <text x="500" fontSize="20" fill="var(--hud-muted)">{ui.ops.centersBuilt}</text>
-      <text x="500" y="42" fontSize="34">{currentRegion.centers} / {currentRegion.totalSlots}</text>
+      <text x="500" fontSize="20" fill="var(--hud-muted)">{ui.ops.playerCenters}</text>
+      <text x="500" y="42" fontSize="34">{currentRegion.centers}</text>
+      {currentRivals.length > 0 && <text y="74" fontSize="18" fill="var(--hud-muted)">{ui.ops.rivalPresence(currentRivals.join(" · "))}</text>}
     </g>}
     <Control label={detailName ? `${ui.regionProfile} · ${detailName}` : ui.locate} run={openDetails}>
       <rect x="743" y="3" width="223" height="36" fill="transparent"/>
@@ -305,6 +310,12 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
   const stacked = 1010 * newsUnit + menuWidth * menuUnit > size.width
   const menuTop = stacked ? 88 * newsUnit : 0
   const sheetTop = stacked ? menuTop + 115 * menuUnit + 4 : 118 * newsUnit
+  const statusHalf = 180 * menuUnit
+  const statusMin = 1010 * newsUnit + statusHalf
+  const statusMax = size.width - menuWidth * menuUnit - statusHalf
+  const statusFits = statusMin <= statusMax
+  const statusX = statusFits ? Math.max(statusMin, Math.min(statusMax, size.width / 2)) : size.width / 2
+  const statusTop = statusFits ? 0 : menuTop + 90 * menuUnit
   const railX=w-HUD.railRight, railY=h/2-HUD.railAboveMiddle
   const progress=Math.log1p(68*zoom)/Math.log(69)
   const thumb=HUD.railTrackTop+(1-progress)*HUD.railTravel
@@ -334,10 +345,13 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
           <path d="M910 26h100v52H910Z" fill="transparent"/>
         </Control>
       </g>
-      {content.kind === "campaign" && <g transform={`translate(${w / 2} 0) scale(${menuUnit / unit})`} role="group" aria-label={content.worldStatusFull}>
+      {content.kind === "campaign" && <g transform={`translate(${statusX / unit} ${statusTop / unit}) scale(${menuUnit / unit})`}>
         <g transform="translate(-180 26)">
-          <Glass d="M0 0h360v51H0Z" accent={content.syntheticActive}/>
-          <text x="180" y="34" textAnchor="middle" fontSize="22">{content.worldStatus}</text>
+          <Control label={ui.ops.factionStandings} description={content.worldStatusFull} run={() => open("world")}>
+            <Glass d="M0 0h360v51H0Z" accent={content.syntheticActive}/>
+            <text x="180" y="34" textAnchor="middle" fontSize="22">{content.worldStatus}</text>
+            <text x="342" y="34" textAnchor="end" aria-hidden="true" fontSize="22">›</text>
+          </Control>
         </g>
       </g>}
       <g transform={`translate(${w} ${menuTop / unit}) scale(${menuUnit / unit})`}>
