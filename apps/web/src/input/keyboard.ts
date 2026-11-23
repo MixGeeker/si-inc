@@ -30,6 +30,9 @@ export interface KeyboardShortcutOptions {
   readonly setHelpOpen?: (open: boolean) => void
   readonly isMusicMenuOpen?: () => boolean
   readonly closeMusicMenu?: () => void
+  readonly isTargetingSkill?: () => boolean
+  readonly cancelTargetingSkill?: () => void
+  readonly onTriggerSkillSlot?: (slotIndex: 0 | 1 | 2 | 3 | 4) => void
   readonly onPanMap?: (dx: number, dy: number) => void
   readonly onZoomMap?: (delta: number) => void
 }
@@ -124,10 +127,15 @@ export function attachKeyboardShortcuts(store: GameStore, options: KeyboardShort
     const onMap = (scene.kind === "campaign" || scene.kind === "preview") && scene.panel === null
     const mapInteractive = onMap && !state.developer.open && !helpOpen
 
-    // Hierarchical Escape on the open map: music menu -> developer -> preview -> selection -> menu.
+    // Hierarchical Escape on the open map: skill targeting -> music menu -> developer -> preview -> selection -> menu.
     // Open <dialog> modals and docked news layers handle their own Escape to avoid double-back.
     if (event.code === "Escape" || event.key === "Escape") {
       if (event.repeat || !onMap || helpOpen) return
+      if (options.isTargetingSkill?.()) {
+        event.preventDefault()
+        options.cancelTargetingSkill?.()
+        return
+      }
       if (options.isMusicMenuOpen?.()) {
         event.preventDefault()
         options.closeMusicMenu?.()
@@ -266,6 +274,14 @@ export function attachKeyboardShortcuts(store: GameStore, options: KeyboardShort
       const targetPanel = advisorTargetPanel(scene.run)
       event.preventDefault()
       store.dispatch({ type: "open-panel", panel: targetPanel })
+      return
+    }
+
+    if (action === "skillSlot1" || action === "skillSlot2" || action === "skillSlot3" || action === "skillSlot4" || action === "skillSlot5") {
+      if (scene.kind !== "campaign" || !options.onTriggerSkillSlot) return
+      const slotIndex = (Number(action.slice(-1)) - 1) as 0 | 1 | 2 | 3 | 4
+      event.preventDefault()
+      options.onTriggerSkillSlot(slotIndex)
     }
   }
 

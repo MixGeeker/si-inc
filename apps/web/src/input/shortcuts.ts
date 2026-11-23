@@ -11,6 +11,11 @@ export const shortcutOrder = [
   "panelRegion",
   "panelWorld",
   "panelNews",
+  "skillSlot1",
+  "skillSlot2",
+  "skillSlot3",
+  "skillSlot4",
+  "skillSlot5",
   "collectBubble",
   "followAdvisor",
   "globalView",
@@ -20,12 +25,13 @@ export const shortcutOrder = [
 ] as const
 
 export type ShortcutAction = typeof shortcutOrder[number]
-export type ShortcutGroup = "time" | "panels" | "map"
+export type ShortcutGroup = "time" | "panels" | "skills" | "map"
 export type ShortcutBindings = Readonly<Record<ShortcutAction, string>>
 
 export const shortcutGroups: readonly { readonly id: ShortcutGroup; readonly actions: readonly ShortcutAction[] }[] = Object.freeze([
   { id: "time", actions: ["togglePause", "speed1", "speed2", "speed5"] },
   { id: "panels", actions: ["panelActions", "panelResearch", "panelRegion", "panelWorld", "panelNews"] },
+  { id: "skills", actions: ["skillSlot1", "skillSlot2", "skillSlot3", "skillSlot4", "skillSlot5"] },
   { id: "map", actions: ["collectBubble", "followAdvisor", "globalView", "toggleNight", "toggleMute", "toggleHelp"] },
 ])
 
@@ -40,6 +46,11 @@ export const defaultShortcuts: ShortcutBindings = Object.freeze({
   panelRegion: "KeyR",
   panelWorld: "KeyT",
   panelNews: "KeyN",
+  skillSlot1: "KeyZ",
+  skillSlot2: "KeyX",
+  skillSlot3: "KeyC",
+  skillSlot4: "KeyV",
+  skillSlot5: "KeyB",
   collectBubble: "KeyF",
   followAdvisor: "Tab",
   globalView: "KeyG",

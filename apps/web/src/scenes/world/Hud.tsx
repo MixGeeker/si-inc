@@ -14,8 +14,18 @@ import { factions, type FactionId } from "../../../../../packages/rules/v0.1/fac
 import type { CampaignHud, FactionBarData, HudContent, PreviewHud } from "./hudContent"
 import { NewsLayer } from "./NewsLayer"
 import type { NewsItem } from "./newsFeed"
-import { regionIds } from "../../../../../packages/rules/v0.1/world/regions"
+import { regionIds, type RegionId } from "../../../../../packages/rules/v0.1/world/regions"
 import type { PlaceFocus } from "../store"
+import { SkillBar } from "./SkillBar"
+import type { RegionTargetedAbilityId, SkillBarSlot } from "./skill-bar-state"
+
+export interface HudSkillBarProps {
+  readonly slots: readonly SkillBarSlot[]
+  readonly targetingAbility: RegionTargetedAbilityId | null
+  readonly onTriggerSlot: (slotIndex: 0 | 1 | 2 | 3 | 4) => void
+  readonly onCastRegion: (abilityId: RegionTargetedAbilityId, regionId: RegionId) => void
+  readonly onCancelTarget: () => void
+}
 
 interface Props {
   location: Location | null
@@ -40,6 +50,7 @@ interface Props {
   open: (panel: MapPanel) => void
   openSetup: () => void
   focusPlace: (place: PlaceFocus | null) => void
+  skillBar?: HudSkillBarProps
   setSpeed: (speed: number) => void
   onPause: (paused: boolean) => void
   setZoom: (zoom: number) => void
@@ -362,7 +373,7 @@ function RegionStrip({location,place,open,x,y,content}:{location:Location|null;p
   </g>
 }
 
-export default function Hud({location,place,content,newsItems,newsView,newsItemId,newsDay,openNews,closeNews,decide,zoom,selectedSpeed,manualPaused,paused,night,toggleNight,musicOpen,setMusicOpen,openShortcutsHelp,open,openSetup,focusPlace,setSpeed,onPause,setZoom}:Props) {
+export default function Hud({location,place,content,newsItems,newsView,newsItemId,newsDay,openNews,closeNews,decide,zoom,selectedSpeed,manualPaused,paused,night,toggleNight,musicOpen,setMusicOpen,openShortcutsHelp,open,openSetup,focusPlace,skillBar,setSpeed,onPause,setZoom}:Props) {
   const { locale, ui, percent } = useLanguage()
   const music = useGameSnapshot(state => state.music)
   const shortcuts = useGameSnapshot(state => state.shortcuts)
@@ -528,6 +539,17 @@ export default function Hud({location,place,content,newsItems,newsView,newsItemI
       </>}
       <ScreenBezel w={w} h={h}/>
     </svg>
+    {content.kind === "campaign" && skillBar && (
+      <SkillBar
+        slots={skillBar.slots}
+        unit={unit}
+        focusedRegionId={place?.id ?? null}
+        targetingAbility={skillBar.targetingAbility}
+        onTriggerSlot={skillBar.onTriggerSlot}
+        onCastRegion={skillBar.onCastRegion}
+        onCancelTarget={skillBar.onCancelTarget}
+      />
+    )}
     {content.kind === "campaign" && (
       <button
         type="button"

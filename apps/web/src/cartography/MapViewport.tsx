@@ -22,6 +22,8 @@ type Props = {
   populations:ContourPopulations; populationScope:string|null; playerFaction:FactionId|null
   bubbles?:readonly MapBubble[]
   onCollectBubble?:(bubble:MapBubble)=>void
+  targetingSkill?:boolean
+  onCancelTarget?:()=>void
   pick:(pos:Location)=>void
 }
 
@@ -162,7 +164,7 @@ function ComputeGlyph() {
 
 const emptyBubbles: readonly MapBubble[] = []
 
-export default function MapViewport({atlas,rig,selected,layers,populations,populationScope,playerFaction,bubbles = emptyBubbles,onCollectBubble,pick}:Props) {
+export default function MapViewport({atlas,rig,selected,layers,populations,populationScope,playerFaction,bubbles = emptyBubbles,onCollectBubble,targetingSkill = false,onCancelTarget,pick}:Props) {
   const store = useGameStore()
   const collectKey = useGameSnapshot(state => state.shortcuts.collectBubble)
   const language = useLanguage()
@@ -282,7 +284,14 @@ export default function MapViewport({atlas,rig,selected,layers,populations,popul
       el.removeEventListener("webglcontextlost",lost,true);el.removeEventListener("webglcontextrestored",restored,true)}
   },[atlas,rig,altitudes])
   useEffect(()=>{wake.current()})
-  return <div className="map-viewport" ref={host} tabIndex={0} role="region" aria-label={ui.interactiveMap}>
+  return <div
+    className={`map-viewport${targetingSkill ? " is-targeting-skill" : ""}`}
+    ref={host}
+    tabIndex={0}
+    role="region"
+    aria-label={ui.interactiveMap}
+    onContextMenu={targetingSkill ? e => { e.preventDefault(); onCancelTarget?.() } : undefined}
+  >
     {!failed && <GraphicsBoundary fail={onFail}><Canvas frameloop="demand" flat linear dpr={[1,1.5]} resize={{offsetSize:true}}
       gl={{antialias:true,alpha:false,powerPreference:"high-performance"}} camera={rig.camera}>
       <Wake setWake={setWake}/>

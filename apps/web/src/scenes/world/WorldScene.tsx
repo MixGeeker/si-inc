@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { regions } from "../../../../../packages/rules/v0.1/world/regions"
+import { canUseAction } from "../../../../../packages/game/operations"
+import { regionIds, regionOfCountry, regions, type RegionId } from "../../../../../packages/rules/v0.1/world/regions"
 import type { Atlas, Location } from "../../cartography/atlas"
 import { EUROPE, GLOBAL, MapCamera } from "../../cartography/camera"
 import MapViewport from "../../cartography/MapViewport"
@@ -20,6 +21,13 @@ import { campaignNews, previewNews } from "./newsFeed"
 import { RegionPanel } from "./RegionPanel"
 import { PopulationControls, PopulationLegend } from "./PopulationControls"
 import { previewPopulations } from "./populationPreview"
+import {
+  buildSkillBarSlots,
+  isRegionTargetedAbility,
+  skillAbilityForSlot,
+  type RegionTargetedAbilityId,
+  type SkillBarAbilityId,
+} from "./skill-bar-state"
 import { projectRegionPopulationsToContours } from "../../cartography/country-field"
 import type { ContourPopulations } from "../../../../../packages/game/population"
 
@@ -54,23 +62,62 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   const [reduced, setReduced] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches)
   const [helpOpen, setHelpOpen] = useState(false)
   const [musicOpen, setMusicOpen] = useState(false)
+  const [targetingAbility, setTargetingAbility] = useState<RegionTargetedAbilityId | null>(null)
   const helpOpenRef = useRef(false)
   helpOpenRef.current = helpOpen
   const musicOpenRef = useRef(false)
   musicOpenRef.current = musicOpen
+  const targetingRef = useRef<RegionTargetedAbilityId | null>(null)
+  targetingRef.current = targetingAbility
   const devLauncher = useRef<HTMLButtonElement>(null)
+
+  const castSkill = useCallback((abilityId: SkillBarAbilityId, targetRegionId?: RegionId) => {
+    const current = store.getSnapshot().scene
+    if (current.kind !== "campaign" || current.panel !== null) return false
+    if (canUseAction(current.run, abilityId, targetRegionId) !== "available") return false
+    send({
+      type: "use-action",
+      abilityId,
+      ...(targetRegionId ? { targetRegionId } : {}),
+      runId: current.run.runId,
+      completedDay: current.run.completedDay,
+      seq: nextCommandSeq(current.run),
+    })
+    setTargetingAbility(null)
+    return true
+  }, [send, store])
+
+  const triggerSkillSlot = useCallback((slotIndex: 0 | 1 | 2 | 3 | 4) => {
+    const current = store.getSnapshot().scene
+    if (current.kind !== "campaign" || current.panel !== null) return
+    const abilityId = skillAbilityForSlot(current.run, slotIndex)
+    if (!isRegionTargetedAbility(abilityId)) {
+      castSkill(abilityId)
+      return
+    }
+    if (targetingRef.current === abilityId) {
+      setTargetingAbility(null)
+      return
+    }
+    if (regionIds.some(id => canUseAction(current.run, abilityId, id) === "available")) {
+      setTargetingAbility(abilityId)
+    }
+  }, [castSkill, store])
 
   useEffect(() => attachKeyboardShortcuts(store, {
     isHelpOpen: () => helpOpenRef.current,
     setHelpOpen,
     isMusicMenuOpen: () => musicOpenRef.current,
     closeMusicMenu: () => setMusicOpen(false),
+    isTargetingSkill: () => targetingRef.current !== null,
+    cancelTargetingSkill: () => setTargetingAbility(null),
+    onTriggerSkillSlot: triggerSkillSlot,
     onPanMap: (dx, dy) => {
       const step = Math.min(rig.width, rig.height) * .12
       rig.pan({ x: rig.width / 2, y: rig.height / 2 }, { x: rig.width / 2 + dx * step, y: rig.height / 2 + dy * step })
     },
     onZoomMap: delta => rig.zoom(rig.target.zoom + delta),
-  }), [store, rig])
+  }), [store, rig, triggerSkillSlot])
   useEffect(() => {
     function goToPlace(place: PlaceFocus | null) {
       if (!place) return rig.go(GLOBAL)
@@ -132,6 +179,17 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
   const panel = scene.kind === "campaign" || scene.kind === "preview" ? scene.panel : null
   const frontScene = scene.kind === "start" || scene.kind === "settings" || scene.kind === "setup" || scene.kind === "difficulty"
   const showDeveloper = developer.open && panel === null && !frontScene
+  const skillSlots = useMemo(
+    () => scene.kind === "campaign" && panel === null ? buildSkillBarSlots(scene.run, language) : null,
+    [scene, panel, language],
+  )
+  useEffect(() => {
+    if (!targetingAbility) return
+    if (scene.kind !== "campaign" || panel !== null || developer.open
+      || !regionIds.some(id => canUseAction(scene.run, targetingAbility, id) === "available")) {
+      setTargetingAbility(null)
+    }
+  }, [targetingAbility, scene, panel, developer.open])
   const openDeveloper = () => send({ type: "set-developer-open", open: true })
   const newsView = panel === "news" && (scene.kind === "preview" || scene.kind === "campaign") ? scene.newsView ?? "archive" : null
   const newsItemId = panel === "news" && (scene.kind === "preview" || scene.kind === "campaign") ? scene.newsItemId : undefined
@@ -180,7 +238,15 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
         completedDay: scene.run.completedDay,
         seq: nextCommandSeq(scene.run),
       }) : undefined}
-      pick={({ country, ...point }) => send({ type: "pick-location", selection: { ...point, countryId: country?.id ?? null } })}/>
+      targetingSkill={targetingAbility !== null}
+      onCancelTarget={() => setTargetingAbility(null)}
+      pick={({ country, ...point }) => {
+        if (targetingRef.current && country) {
+          const targetRegion = regionOfCountry(country.id)
+          if (targetRegion && castSkill(targetingRef.current, targetRegion)) return
+        }
+        send({ type: "pick-location", selection: { ...point, countryId: country?.id ?? null } })
+      }}/>
     <Hud location={location} place={place} content={content} zoom={zoom} selectedSpeed={selectedSpeed} manualPaused={manualPaused} paused={speed === 0}
       night={night} toggleNight={() => send({ type: "set-layer", layer: "night", enabled: !night })}
       musicOpen={musicOpen} setMusicOpen={setMusicOpen} openShortcutsHelp={() => setHelpOpen(true)}
@@ -188,7 +254,17 @@ export function WorldScene({ atlas }: { atlas: Atlas }) {
       openNews={openNews} closeNews={back} decide={(id, instanceId) => send({ type: "open-decision", id, instanceId })}
       open={panelName => { if (newsView) send({ type: "back" }); send({ type: "open-panel", panel: panelName }) }}
       openSetup={openSetupFromPreview}
-      focusPlace={place => send({ type: "focus-place", place })}
+      focusPlace={nextPlace => {
+        if (targetingRef.current && nextPlace && castSkill(targetingRef.current, nextPlace.id)) return
+        send({ type: "focus-place", place: nextPlace })
+      }}
+      skillBar={skillSlots ? {
+        slots: skillSlots,
+        targetingAbility,
+        onTriggerSlot: triggerSkillSlot,
+        onCastRegion: (abilityId, regionId) => { castSkill(abilityId, regionId) },
+        onCancelTarget: () => setTargetingAbility(null),
+      } : undefined}
       setSpeed={n => send({ type: "set-speed", speed: n })} onPause={paused => send({ type: "set-paused", paused })} setZoom={n => rig.zoom(n)}/>
     {example && panel === null && <PopulationControls preview={example}/>}
     {developer.open && <Suspense fallback={null}><DeveloperPanel hidden={!showDeveloper} close={() => {

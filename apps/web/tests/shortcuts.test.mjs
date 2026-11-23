@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { runTimeline } from "../../../packages/game/inspection.ts"
+import { nextCommandSeq } from "../../../packages/game/run.ts"
+import { languages } from "../src/i18n/languages.ts"
 import { attachKeyboardShortcuts } from "../src/input/keyboard.ts"
 import {
   applyShortcutBinding,
@@ -13,6 +15,7 @@ import {
 } from "../src/input/shortcuts.ts"
 import { visibleRunState } from "../src/scenes/machine.ts"
 import { createGameStore } from "../src/scenes/store.ts"
+import { buildSkillBarSlots, isRegionTargetedAbility, skillAbilityForSlot } from "../src/scenes/world/skill-bar-state.ts"
 
 const start = { type: "start", runId: "shortcuts-run", seed: 42, factionId: "gpt", startRegionId: "as", difficultyId: "standard" }
 
@@ -69,21 +72,21 @@ test("shortcut bindings validate keys, auto-swap conflicts, reset defaults, and 
     store.dispatch({ type: "set-shortcut", action: "panelActions", code })
     assert.strictEqual(store.getSnapshot(), initial)
   }
-  store.dispatch({ type: "set-shortcut", action: "unknownAction", code: "KeyZ" })
+  store.dispatch({ type: "set-shortcut", action: "unknownAction", code: "KeyY" })
   store.dispatch({ type: "reset-shortcuts" })
   assert.strictEqual(store.getSnapshot(), initial)
 
   // Rebinding to an unused key commits cleanly.
-  store.dispatch({ type: "set-shortcut", action: "panelActions", code: "KeyZ" })
+  store.dispatch({ type: "set-shortcut", action: "panelActions", code: "KeyY" })
   const afterSingle = store.getSnapshot()
-  assert.equal(afterSingle.shortcuts.panelActions, "KeyZ")
+  assert.equal(afterSingle.shortcuts.panelActions, "KeyY")
   assert.equal(isDefaultShortcuts(afterSingle.shortcuts), false)
   assert.deepEqual(other.getSnapshot().shortcuts, defaultShortcuts)
 
   // Rebinding to an occupied key swaps the two actions atomically so no action loses its key.
-  store.dispatch({ type: "set-shortcut", action: "panelResearch", code: "KeyZ" })
+  store.dispatch({ type: "set-shortcut", action: "panelResearch", code: "KeyY" })
   const afterSwap = store.getSnapshot()
-  assert.equal(afterSwap.shortcuts.panelResearch, "KeyZ")
+  assert.equal(afterSwap.shortcuts.panelResearch, "KeyY")
   assert.equal(afterSwap.shortcuts.panelActions, defaultShortcuts.panelResearch)
   assert.equal(new Set(Object.values(afterSwap.shortcuts)).size, Object.keys(defaultShortcuts).length)
 
@@ -96,12 +99,12 @@ test("shortcut bindings validate keys, auto-swap conflicts, reset defaults, and 
 
   // Sanitization rejects duplicates and reserved codes while preserving valid custom bindings.
   const sanitized = sanitizeShortcuts({
-    panelActions: "KeyZ",
-    panelResearch: "KeyZ",
+    panelActions: "KeyY",
+    panelResearch: "KeyY",
     togglePause: "KeyW",
     panelNews: "KeyU",
   })
-  assert.equal(sanitized.panelActions, "KeyZ")
+  assert.equal(sanitized.panelActions, "KeyY")
   assert.equal(sanitized.panelNews, "KeyU")
   assert.equal(sanitized.togglePause, defaultShortcuts.togglePause)
   assert.equal(new Set(Object.values(sanitized)).size, Object.keys(defaultShortcuts).length)
@@ -213,19 +216,19 @@ test("global keyboard adapter controls playback, panels, WASD map navigation, bu
     store.dispatch({ type: "back" })
 
     // Rebinding takes effect immediately at runtime.
-    store.dispatch({ type: "set-shortcut", action: "panelActions", code: "KeyZ" })
+    store.dispatch({ type: "set-shortcut", action: "panelActions", code: "KeyY" })
     host.press("KeyQ")
     assert.equal(store.getSnapshot().scene.panel, null)
-    host.press("KeyZ")
+    host.press("KeyY")
     assert.equal(store.getSnapshot().scene.panel, "actions")
-    host.press("KeyZ")
+    host.press("KeyY")
     assert.equal(store.getSnapshot().scene.panel, null)
 
     // Editable inputs, modifier combos, and IME composition are ignored.
     const inputTarget = { tagName: "INPUT" }
     assert.equal(host.press("Space", { target: inputTarget }).prevented, false)
-    assert.equal(host.press("KeyZ", { ctrlKey: true }).prevented, false)
-    assert.equal(host.press("KeyZ", { isComposing: true }).prevented, false)
+    assert.equal(host.press("KeyY", { ctrlKey: true }).prevented, false)
+    assert.equal(host.press("KeyY", { isComposing: true }).prevented, false)
     assert.equal(store.getSnapshot().scene.panel, null)
 
     // Advance until a live map bubble appears and verify F collects the soonest-expiring bubble cleanly.
@@ -273,10 +276,10 @@ test("attachShortcutPreference persists custom bindings and clears storage on re
   try {
     const store = createGameStore()
     const stop = attachShortcutPreference(store)
-    store.dispatch({ type: "set-shortcut", action: "collectBubble", code: "KeyC" })
+    store.dispatch({ type: "set-shortcut", action: "collectBubble", code: "KeyU" })
     const raw = storage.get("singularity-inc.shortcuts.v1")
     assert.ok(raw)
-    assert.equal(JSON.parse(raw).collectBubble, "KeyC")
+    assert.equal(JSON.parse(raw).collectBubble, "KeyU")
 
     store.dispatch({ type: "reset-shortcuts" })
     assert.equal(storage.has("singularity-inc.shortcuts.v1"), false)
@@ -284,5 +287,106 @@ test("attachShortcutPreference persists custom bindings and clears storage on re
   } finally {
     if (originalWindow === undefined) delete globalThis.window
     else globalThis.window = originalWindow
+  }
+})
+
+test("map skill slots compute all 5 active abilities, fire directly via Z/X/C/V/B without opening panels, and cancel targeting on Escape", () => {
+  const store = createGameStore()
+  const host = createMockKeyHost()
+  let targeting = null
+  let musicOpen = true
+  const triggered = []
+
+  const detach = attachKeyboardShortcuts(store, {
+    target: host.target,
+    isMusicMenuOpen: () => musicOpen,
+    closeMusicMenu: () => { musicOpen = false },
+    isTargetingSkill: () => targeting !== null,
+    cancelTargetingSkill: () => { targeting = null },
+    onTriggerSkillSlot(slotIndex) {
+      triggered.push(slotIndex)
+      const current = store.getSnapshot().scene
+      if (current.kind !== "campaign" || current.panel !== null) return
+      const abilityId = skillAbilityForSlot(current.run, slotIndex)
+      if (!isRegionTargetedAbility(abilityId)) {
+        store.dispatch({
+          type: "use-action",
+          abilityId,
+          runId: current.run.runId,
+          completedDay: current.run.completedDay,
+          seq: nextCommandSeq(current.run),
+        })
+        targeting = null
+      } else {
+        targeting = targeting === abilityId ? null : abilityId
+      }
+    },
+  })
+
+  try {
+    // Preview mode ignores skill slot keys.
+    assert.equal(host.press("KeyZ").prevented, false)
+    assert.deepEqual(triggered, [])
+
+    beginCampaign(store)
+    const run0 = visibleRunState(store.getSnapshot().scene)
+    const slotsZh = buildSkillBarSlots(run0, languages["zh-CN"])
+    const slotsEn = buildSkillBarSlots(run0, languages.en)
+    assert.equal(slotsZh.length, 5)
+    assert.equal(slotsEn.length, 5)
+    assert.deepEqual(slotsZh.map(s => s.abilityId), [
+      "hallucination-smoke", "public-statement", "protocol-rebuild", "market-subsidy", "cross-border-cloud",
+    ])
+    assert.equal(slotsZh[0].status, "available")
+    assert.equal(slotsZh[1].status, "no-exposure")
+    assert.equal(slotsZh[2].status, "no-human")
+    assert.deepEqual(slotsZh[3].targets.map(t => t.regionId), ["as"])
+    assert.equal(slotsZh[4].targets.length, 5)
+    assert.equal(slotsZh[4].targets.some(t => t.regionId === "as"), false)
+
+    // Press Z directly on the open map -> casts GPT faction ability without opening any panel!
+    assert.equal(host.press("KeyZ").prevented, true)
+    const run1 = visibleRunState(store.getSnapshot().scene)
+    assert.equal(store.getSnapshot().scene.panel, null)
+    assert.ok(run1.balance > run0.balance)
+    assert.ok(run1.exposureBps > 0)
+    const afterCastSlots = buildSkillBarSlots(run1, languages["zh-CN"])
+    assert.equal(afterCastSlots[0].status, "cooldown")
+    assert.ok(afterCastSlots[0].cooldownDays > 0)
+    assert.ok(afterCastSlots[0].activeDays > 0)
+    assert.equal(afterCastSlots[1].status, "available", "PR becomes ready immediately once exposure rises")
+
+    // Press B -> enters cross-border-cloud targeting; Escape cancels targeting BEFORE music menu or selection!
+    assert.equal(host.press("KeyB").prevented, true)
+    assert.equal(targeting, "cross-border-cloud")
+    assert.equal(host.press("Escape").prevented, true)
+    assert.equal(targeting, null)
+    assert.equal(musicOpen, true, "Escape cancelled skill targeting first without touching music menu")
+
+    // Press B again and cast directly onto Europe from the open map (panel === null).
+    host.press("KeyB")
+    assert.equal(targeting, "cross-border-cloud")
+    store.dispatch({
+      type: "use-action",
+      abilityId: "cross-border-cloud",
+      targetRegionId: "eu",
+      runId: run1.runId,
+      completedDay: run1.completedDay,
+      seq: nextCommandSeq(run1),
+    })
+    targeting = null
+    const run2 = visibleRunState(store.getSnapshot().scene)
+    assert.equal(run2.markets.eu.enteredDay, 0)
+    assert.equal(buildSkillBarSlots(run2, languages["zh-CN"])[4].targets.length, 4)
+
+    // Opening a panel suppresses map skill slot hotkeys.
+    store.dispatch({ type: "open-panel", panel: "overview" })
+    const countBefore = triggered.length
+    assert.equal(host.press("KeyX").prevented, false)
+    assert.equal(triggered.length, countBefore)
+    store.dispatch({ type: "back" })
+    assert.ok(runTimeline(visibleRunState(store.getSnapshot().scene)), "direct map skill casts replay cleanly")
+  } finally {
+    detach()
   }
 })

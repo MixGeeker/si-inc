@@ -1,0 +1,269 @@
+.skill-bar-dock {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.skill-bar-slots {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  pointer-events: auto;
+}
+
+.skill-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 60px;
+  padding: 12px 3px 5px;
+  border: 1px solid rgba(110, 231, 255, .42);
+  background: linear-gradient(165deg, rgba(10, 24, 42, .88), rgba(5, 11, 22, .92));
+  color: var(--ui-ink);
+  cursor: pointer;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(186, 230, 253, .16);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: transform .12s ease, border-color .14s ease, background .14s ease, box-shadow .14s ease;
+}
+
+.skill-slot.is-faction {
+  border-color: rgba(251, 191, 36, .62);
+  background: linear-gradient(165deg, rgba(36, 26, 10, .9), rgba(10, 14, 24, .92));
+}
+
+.skill-slot.is-ready:hover,
+.skill-slot.is-ready:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--ui-cyan);
+  background: linear-gradient(165deg, rgba(18, 44, 72, .94), rgba(8, 18, 34, .96));
+  box-shadow: 0 6px 18px rgba(14, 165, 233, .32), inset 0 1px 0 rgba(224, 242, 254, .32);
+  outline: none;
+}
+
+.skill-slot.is-faction.is-ready:hover,
+.skill-slot.is-faction.is-ready:focus-visible {
+  border-color: #fde047;
+  box-shadow: 0 6px 18px rgba(251, 191, 36, .34), inset 0 1px 0 rgba(254, 249, 195, .36);
+}
+
+.skill-slot.is-targeting {
+  transform: translateY(-2px);
+  border-color: #38bdf8;
+  background: linear-gradient(165deg, rgba(12, 74, 110, .94), rgba(7, 24, 44, .96));
+  box-shadow: 0 0 0 1px rgba(125, 211, 252, .7), 0 0 18px rgba(56, 189, 248, .5);
+}
+
+.skill-slot.is-active {
+  border-color: var(--ui-gain);
+  box-shadow: 0 0 14px rgba(52, 211, 153, .45), inset 0 0 10px rgba(16, 185, 129, .24);
+}
+
+.skill-slot.is-cast {
+  animation: skill-cast-flash .48s ease-out;
+}
+
+@keyframes skill-cast-flash {
+  0% { box-shadow: 0 0 0 2px #fff, 0 0 24px rgba(125, 211, 252, .9); filter: brightness(1.45); }
+  100% { box-shadow: 0 4px 14px rgba(0, 0, 0, .42); filter: brightness(1); }
+}
+
+.skill-slot.is-disabled {
+  opacity: .56;
+  cursor: not-allowed;
+  border-color: rgba(148, 163, 184, .26);
+}
+
+.skill-slot-key {
+  position: absolute;
+  z-index: 2;
+  top: 2px;
+  left: 3px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(2, 8, 18, .85);
+  border: 1px solid rgba(110, 231, 255, .42);
+  color: var(--ui-cyan);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.skill-slot.is-faction .skill-slot-key {
+  border-color: rgba(251, 191, 36, .6);
+  color: #fde68a;
+}
+
+.skill-slot-active {
+  position: absolute;
+  z-index: 2;
+  top: 2px;
+  right: 3px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(6, 78, 59, .92);
+  border: 1px solid rgba(52, 211, 153, .75);
+  color: #a7f3d0;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.skill-glyph {
+  width: 20px;
+  height: 20px;
+  color: var(--ui-cyan-soft);
+  flex: none;
+}
+
+.skill-slot.is-faction .skill-glyph {
+  color: #fcd34d;
+}
+
+.skill-slot-name {
+  font-family: var(--font-title);
+  font-size: 11px;
+  line-height: 1.15;
+  color: var(--ui-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.skill-slot-cost {
+  font-size: 10px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ui-cost);
+}
+
+.skill-slot.is-short-tokens .skill-slot-cost {
+  color: #fca5a5;
+}
+
+.skill-slot-cd {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(3, 8, 18, .62);
+  pointer-events: none;
+}
+
+.skill-slot-cd i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(2, 6, 16, .68);
+  border-top: 1px solid rgba(148, 163, 184, .45);
+}
+
+.skill-slot-cd b {
+  position: relative;
+  z-index: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #f8fafc;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
+}
+
+.skill-target-tray {
+  pointer-events: auto;
+  display: grid;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid rgba(56, 189, 248, .72);
+  background: rgba(5, 15, 29, .94);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .62), 0 0 16px rgba(56, 189, 248, .22);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.skill-target-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ui-cyan-soft);
+}
+
+.skill-target-cancel {
+  padding: 2px 7px;
+  border: 1px solid rgba(148, 163, 184, .42);
+  background: rgba(15, 23, 42, .85);
+  color: var(--ui-ink-soft);
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.skill-target-cancel:hover,
+.skill-target-cancel:focus-visible {
+  border-color: var(--ui-risk);
+  color: #fecaca;
+}
+
+.skill-target-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.skill-target-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 1px solid rgba(56, 189, 248, .48);
+  background: rgba(12, 34, 58, .86);
+  color: var(--ui-ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.skill-target-pill small {
+  font-size: 10px;
+  color: var(--ui-cyan-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.skill-target-pill.is-focused {
+  border-color: #fde047;
+  background: rgba(54, 42, 10, .86);
+}
+
+.skill-target-pill.is-subsidized small {
+  color: var(--ui-gain);
+}
+
+.skill-target-pill:hover:enabled,
+.skill-target-pill:focus-visible:enabled {
+  border-color: #7dd3fc;
+  background: rgba(14, 116, 144, .72);
+  color: #fff;
+}
+
+.skill-target-pill:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+
+.map-viewport.is-targeting-skill {
+  cursor: crosshair;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skill-slot { transition: none; }
+  .skill-slot.is-cast { animation: none; }
+}
